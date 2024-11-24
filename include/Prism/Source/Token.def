@@ -1,0 +1,88 @@
+#ifndef TOKEN_KIND
+#define TOKEN_KIND(Kind)
+#endif
+
+// Punctuation
+
+#ifndef PUNCTUATION_TOKEN_KIND
+#define PUNCTUATION_TOKEN_KIND(Kind, Spelling) TOKEN_KIND(Kind)
+#endif
+
+PUNCTUATION_TOKEN_KIND(Comma, ",")
+PUNCTUATION_TOKEN_KIND(Period, ".")
+PUNCTUATION_TOKEN_KIND(Colon, ":")
+PUNCTUATION_TOKEN_KIND(Semicolon, ";")
+PUNCTUATION_TOKEN_KIND(OpenParen, "(")
+PUNCTUATION_TOKEN_KIND(CloseParen, ")")
+PUNCTUATION_TOKEN_KIND(OpenBrace, "{")
+PUNCTUATION_TOKEN_KIND(CloseBrace, "}")
+PUNCTUATION_TOKEN_KIND(OpenBracket, "[")
+PUNCTUATION_TOKEN_KIND(CloseBracket, "]")
+
+#undef PUNCTUATION_TOKEN_KIND
+
+// Operators
+
+#ifndef OPERATOR_TOKEN_KIND
+#define OPERATOR_TOKEN_KIND(Kind, Spelling) TOKEN_KIND(Kind)
+#endif
+
+OPERATOR_TOKEN_KIND(Plus, "+")
+OPERATOR_TOKEN_KIND(DoublePlus, "++")
+OPERATOR_TOKEN_KIND(Minus, "-")
+OPERATOR_TOKEN_KIND(DoubleMinus, "--")
+OPERATOR_TOKEN_KIND(Star, "*")
+OPERATOR_TOKEN_KIND(Slash, "/")
+OPERATOR_TOKEN_KIND(Ampersand, "&")
+OPERATOR_TOKEN_KIND(DoubleAmpersand, "&&")
+OPERATOR_TOKEN_KIND(VerticalBar, "|")
+OPERATOR_TOKEN_KIND(DoubleVerticalBar, "||")
+OPERATOR_TOKEN_KIND(Circumflex, "^")
+OPERATOR_TOKEN_KIND(LeftAngle, "<")
+OPERATOR_TOKEN_KIND(DoubleLeftAngle, "<<")
+OPERATOR_TOKEN_KIND(LeftAngleEq, "<=")
+OPERATOR_TOKEN_KIND(RightAngle, ">")
+OPERATOR_TOKEN_KIND(DoubleRightAngle, ">>")
+OPERATOR_TOKEN_KIND(RightAngleEq, ">=")
+OPERATOR_TOKEN_KIND(PlusEq, "+=")
+OPERATOR_TOKEN_KIND(MinusEq, "-=")
+OPERATOR_TOKEN_KIND(StarEq, "*=")
+OPERATOR_TOKEN_KIND(SlashEq, "/=")
+OPERATOR_TOKEN_KIND(Question, "?")
+OPERATOR_TOKEN_KIND(QuestionColon, "?:")
+OPERATOR_TOKEN_KIND(Arrow, "->")
+
+#undef OPERATOR_TOKEN_KIND
+
+// Keywords
+
+#ifndef KEYWORD_TOKEN_KIND
+#define KEYWORD_TOKEN_KIND(Kind, Spelling) TOKEN_KIND(Kind)
+#endif
+
+KEYWORD_TOKEN_KIND(Var, "var")
+KEYWORD_TOKEN_KIND(Let, "let")
+KEYWORD_TOKEN_KIND(Function, "fn")
+
+KEYWORD_TOKEN_KIND(Return, "return")
+KEYWORD_TOKEN_KIND(If, "if")
+KEYWORD_TOKEN_KIND(Else, "else")
+KEYWORD_TOKEN_KIND(For, "for")
+KEYWORD_TOKEN_KIND(Do, "do")
+KEYWORD_TOKEN_KIND(While, "while")
+
+KEYWORD_TOKEN_KIND(Void, "void")
+KEYWORD_TOKEN_KIND(Int, "int")
+KEYWORD_TOKEN_KIND(Double, "double")
+
+#undef KEYWORD_TOKEN_KIND
+
+// Other tokens
+
+TOKEN_KIND(StringLiteral)
+TOKEN_KIND(CharLiteral)
+TOKEN_KIND(Identifier)
+TOKEN_KIND(End)
+TOKEN_KIND(Error)
+
+#undef TOKEN_KIND

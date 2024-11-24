@@ -1,0 +1,48 @@
+// AST Nodes
+
+#ifndef AST_NODE
+#define AST_NODE(Type, Parent, Corporeality)
+#endif
+
+AST_NODE(AstNode, detail::NoParent, Abstract)
+
+AST_NODE(AstTranslationUnit, AstNode, Concrete)
+AST_NODE(AstSourceFile, AstNode, Concrete)
+AST_NODE(AstParamList, AstNode, Concrete)
+
+#ifndef AST_EXPR
+#define AST_EXPR AST_NODE
+#endif
+
+AST_EXPR(AstExpr, AstNode, Abstract)
+AST_EXPR(AstName, AstExpr, Abstract)
+AST_EXPR(AstUnqualName, AstName, Concrete)
+AST_EXPR(AstNameSeq, AstName, Concrete)
+AST_EXPR(AstArithmeticExpr, AstExpr, Concrete)
+AST_EXPR(AstAssignExpr, AstExpr, Concrete)
+
+#undef AST_EXPR
+
+AST_NODE(AstStmt, AstNode, Abstract)
+AST_NODE(AstCompoundStmt, AstStmt, Concrete)
+AST_NODE(AstDecl, AstStmt, Abstract)
+AST_NODE(AstParamDecl, AstDecl, Concrete)
+AST_NODE(AstFuncDecl, AstDecl, Concrete)
+AST_NODE(AstExprStmt, AstStmt, Concrete)
+
+#undef AST_NODE
+
+// Arithmetic Operators
+
+#ifndef AST_ARITHMETIC_OPERATOR
+#define AST_ARITHMETIC_OPERATOR(Name)
+#endif
+
+AST_ARITHMETIC_OPERATOR(Add)
+AST_ARITHMETIC_OPERATOR(Sub)
+AST_ARITHMETIC_OPERATOR(Mul)
+AST_ARITHMETIC_OPERATOR(Div)
+AST_ARITHMETIC_OPERATOR(Rem)
+
+#undef AST_ARITHMETIC_OPERATOR
+
