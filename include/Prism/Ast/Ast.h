@@ -4,11 +4,11 @@
 #include <optional>
 #include <span>
 
-#include <csp.hpp>
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <utl/vector.hpp>
 
+#include <Prism/Ast/AstFwd.h>
 #include <Prism/Ast/Operators.h>
 #include <Prism/Common/Functional.h>
 #include <Prism/Source/Token.h>
@@ -31,28 +31,7 @@
 
 namespace prism {
 
-enum class AstNodeType {
-#define AST_NODE(Type, ...) Type,
-#include <Prism/Ast/Ast.def>
-};
-
-#define AST_NODE(Type, ...) class Type;
-#include <Prism/Ast/Ast.def>
-
-namespace detail {
-
-using NoParent = void;
-
-}
-
-} // namespace prism
-
-#define AST_NODE(Type, Parent, Corporeality)                                   \
-    CSP_DEFINE(prism::Type, prism::AstNodeType::Type, prism::Parent,           \
-               Corporeality)
-#include <Prism/Ast/Ast.def>
-
-namespace prism {
+class SourceContext;
 
 /// MARK: - Base nodes
 
@@ -218,8 +197,16 @@ public:
     /// The top level declarations
     AST_PROPERTY_RANGE(0, AstDecl, decl, Decl)
 
-    explicit AstSourceFile(utl::small_vector<csp::unique_ptr<AstDecl>> decls):
-        AstNode(AstNodeType::AstSourceFile, Token{}, std::move(decls)) {}
+    explicit AstSourceFile(SourceContext const& ctx,
+                           utl::small_vector<csp::unique_ptr<AstDecl>> decls):
+        AstNode(AstNodeType::AstSourceFile, Token{}, std::move(decls)),
+        ctx(ctx) {}
+
+    /// \Returns the source context corresponding this source file
+    SourceContext const& sourceContext() const { return ctx; }
+
+private:
+    SourceContext const& ctx;
 };
 
 /// Root node of the tree. Contains all global declarations

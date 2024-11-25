@@ -8,8 +8,10 @@
 namespace prism {
 
 class IssueHandler;
+class SourceContext;
 
-csp::unique_ptr<AstSourceFile> parseSourceFile(std::string_view source,
+/// Parses a single source file and returns the constructed AST
+csp::unique_ptr<AstSourceFile> parseSourceFile(SourceContext const& sourceCtx,
                                                IssueHandler& iss);
 
 } // namespace prism

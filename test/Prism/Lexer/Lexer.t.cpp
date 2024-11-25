@@ -37,8 +37,7 @@ fn test(aParam: int, b: double) -> void {
     return "Hello World\n";
 }
 )";
-    SourceContext ctx(source);
-    ctx.buildSourceLocationMap();
+    SourceContext ctx({}, source);
     IssueHandler H;
     Lexer L(source, H);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Function, 1, 0, 2 });
@@ -103,8 +102,7 @@ static Token getSingle(std::string_view source) {
 }
 
 TEST_CASE("Operators", "[lexer]") {
-    SourceContext ctx("        ");
-    ctx.buildSourceLocationMap();
+    SourceContext ctx({}, "        ");
     CHECK(getSingle("+") == RefToken{ ctx, TokenKind::Plus, 0, 0, 1 });
     CHECK(getSingle("-") == RefToken{ ctx, TokenKind::Minus, 0, 0, 1 });
     CHECK(getSingle("*") == RefToken{ ctx, TokenKind::Star, 0, 0, 1 });
@@ -119,8 +117,7 @@ TEST_CASE("Operators", "[lexer]") {
 }
 
 TEST_CASE("Literals", "[lexer]") {
-    SourceContext ctx("        ");
-    ctx.buildSourceLocationMap();
+    SourceContext ctx({}, "        ");
     CHECK(getSingle(R"("\"")") ==
           RefToken{ ctx, TokenKind::StringLiteral, 0, 0, 4 });
     CHECK(getSingle(R"('\"')") ==
@@ -129,8 +126,7 @@ TEST_CASE("Literals", "[lexer]") {
 
 TEST_CASE("Errors", "[lexer]") {
     auto source = "#```abc`";
-    SourceContext ctx(source);
-    ctx.buildSourceLocationMap();
+    SourceContext ctx({}, source);
     IssueHandler H;
     Lexer L(source, H);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 0, 4, 3 });
