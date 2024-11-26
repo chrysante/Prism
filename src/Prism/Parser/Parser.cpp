@@ -1,3 +1,17 @@
+// --- GRAMMAR -------------------------------------------------------------- //
+//
+// clang-format off
+//
+// <source-file>    ::= <global-decl>*
+// <global-decl>    ::= <func-decl> | <var-decl> | <struct-decl>
+// <func-decl>      ::= 'fn' <name> <param-list> ['->' <type-expr>] <compound-stmt>
+// <param-list>     ::= '(' [<param-decl> [',' <param-decl>]*] ')'
+// <param-decl>     ::= <name> ':' <type-expr>
+// <expr>           ::= <assign-expr>
+// <name>           ::= <id-token>
+//
+// clang-format on
+
 #include "Prism/Parser/Parser.h"
 
 #include <concepts>
@@ -39,7 +53,9 @@ struct Parser {
     csp::unique_ptr<AstCompoundStmt> parseCompoundStmt();
     csp::unique_ptr<AstParamDecl> parseParamDecl();
     csp::unique_ptr<AstParamList> parseParamList();
+    csp::unique_ptr<AstExprStmt> parseExprStmt();
     csp::unique_ptr<AstExpr> parseExpr();
+    csp::unique_ptr<AstExpr> parseArithmetic();
     csp::unique_ptr<AstName> parseName();
     csp::unique_ptr<AstUnqualName> parseUnqualName();
 
@@ -95,6 +111,9 @@ csp::unique_ptr<AstStmt> Parser::parseStmt() {
     if (auto decl = parseDecl()) {
         return decl;
     }
+    if (auto stmt = parseExprStmt()) {
+        return stmt;
+    }
     return nullptr;
 }
 
@@ -145,7 +164,46 @@ csp::unique_ptr<AstParamList> Parser::parseParamList() {
                                           std::move(seq));
 }
 
-csp::unique_ptr<AstExpr> Parser::parseExpr() { return parseUnqualName(); }
+csp::unique_ptr<AstExprStmt> Parser::parseExprStmt() {
+    auto expr = parseExpr();
+    if (!expr) return nullptr;
+    if (!match(Semicolon)) {
+        assert(false); // Push error
+    }
+    return csp::make_unique<AstExprStmt>(std::move(expr));
+}
+
+csp::unique_ptr<AstExpr> Parser::parseExpr() { return parseArithmetic(); }
+
+static std::optional<AstArithmeticOp> toArithmeticOp(TokenKind tok) {
+    switch (tok) {
+#define AST_ARITHMETIC_OPERATOR(Name, AssocToken)                              \
+    case AssocToken:                                                           \
+        return AstArithmeticOp::Name;
+#include "Prism/Ast/Ast.def"
+    default:
+        return std::nullopt;
+    }
+}
+
+csp::unique_ptr<AstExpr> Parser::parseArithmetic() {
+    csp::unique_ptr<AstExpr> lhs = parseName();
+    if (!lhs) return nullptr;
+    while (true) {
+        Token opTok = peek();
+        auto op = toArithmeticOp(opTok.kind);
+        if (!op) {
+            return lhs;
+        }
+        eat();
+        auto rhs = parseName();
+        if (!rhs) {
+            assert(false); // Expected expression
+        }
+        lhs = csp::make_unique<AstArithmeticExpr>(*op, opTok, std::move(lhs),
+                                                  std::move(rhs));
+    }
+}
 
 csp::unique_ptr<AstName> Parser::parseName() { return parseUnqualName(); }
 

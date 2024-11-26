@@ -72,7 +72,7 @@ protected:
         _children(toSmallVec(std::forward<C>(children)...)) {}
 
 private:
-    static constexpr size_t NumInlineChildren = 3;
+    static constexpr size_t NumInlineChildren = 2;
 
     template <typename T>
     static size_t vecSize(T const& child) {
@@ -107,7 +107,7 @@ private:
     }
 
     Token firstTok;
-    utl::small_vector<csp::unique_ptr<AstNode>, 2> _children;
+    utl::small_vector<csp::unique_ptr<AstNode>, NumInlineChildren> _children;
 };
 
 /// Abstract base class of AST expressions
@@ -228,13 +228,26 @@ public:
 /// Arithmetic expression
 class AstArithmeticExpr: public AstExpr {
 public:
-    explicit AstArithmeticExpr(Token firstToken, AstArithmeticOp operation):
-        AstExpr(AstNodeType::AstArithmeticExpr, firstToken), op(operation) {}
+    explicit AstArithmeticExpr(AstArithmeticOp operation, Token opToken,
+                               csp::unique_ptr<AstExpr> lhs,
+                               csp::unique_ptr<AstExpr> rhs):
+        AstExpr(AstNodeType::AstArithmeticExpr,
+                lhs ? lhs->firstToken() : opToken, std::move(lhs),
+                std::move(rhs)),
+        op(operation),
+        opTok(opToken) {}
+
+    AST_PROPERTY(0, AstExpr, LHS, LHS)
+
+    AST_PROPERTY(1, AstExpr, RHS, RHS)
 
     AstArithmeticOp operation() const { return op; }
 
+    Token opToken() const { return opTok; }
+
 private:
     AstArithmeticOp op;
+    Token opTok;
 };
 
 /// Assignment expression, possibly an arithmetic assignment

@@ -17,12 +17,18 @@ static constexpr utl::streammanip NullNode = [](std::ostream& str) {
 
 static constexpr utl::streammanip NodeType = [](std::ostream& str,
                                                 AstNode const& node) {
-    str << tfmt::format(BrightGreen | Italic, get_rtti(node));
+    str << tfmt::format(Green | Italic,
+                        to_string_view(get_rtti(node)).substr(3));
 };
 
 static constexpr utl::streammanip Secondary = [](std::ostream& str,
                                                  auto const&... args) {
     str << tfmt::format(BrightGrey, args...);
+};
+
+static constexpr utl::streammanip Op = [](std::ostream& str,
+                                          auto const&... args) {
+    str << tfmt::format(Bold, args...);
 };
 
 static constexpr utl::streammanip Path = [](std::ostream& str,
@@ -43,19 +49,21 @@ static V const& get(utl::hashmap<K, V> const& m, K const& key, V const& def) {
 
 namespace {
 
-struct DumpContext {
+struct Emitter {
     SourceContext const* ctx = nullptr;
     std::ostream& str;
     TreeFormatter fmt;
     utl::hashmap<AstNodeType, utl::hashmap<size_t, std::string>> labelMap;
 
-    DumpContext(std::ostream& str):
+    Emitter(std::ostream& str):
         str(str),
         fmt(str),
-        labelMap(
-            { { AstNodeType::AstParamDecl, { { 0, "Name" }, { 1, "Type" } } },
-              { AstNodeType::AstFuncDecl,
-                { { 0, "Name" }, { 2, "RetType" }, { 3, "Body" } } } }) {}
+        // clang-format off
+        labelMap({
+            { AstNodeType::AstParamDecl, { { 0, "Name" }, { 1, "Type" } } },
+            { AstNodeType::AstFuncDecl, { { 0, "Name" }, { 2, "RetType" }, { 3, "Body" } } },
+            { AstNodeType::AstArithmeticExpr, { { 0, "LHS" }, { 1, "RHS" } } },
+        }) {} // clang-format on
 
     void run(AstNode const* root) { dfs(root); }
 
@@ -65,13 +73,15 @@ struct DumpContext {
             return;
         }
         csp::visit(*node, [&](auto& node) {
-            writeNode(node);
+            str << NodeType(node) << " ";
+            label(node);
+            str << "\n";
             writeChildren(node);
             endNode(node);
         });
     }
 
-    void writeNode(AstNode const& node) { str << NodeType(node) << "\n"; }
+    void label(AstNode const& node) {}
 
     void writeChildren(AstNode const& node) {
         fmt.writeChildren(node.children(),
@@ -86,25 +96,24 @@ struct DumpContext {
 
     void endNode(AstNode const&) {}
 
-    void writeNode(AstSourceFile const& node) {
-        str << NodeType(node) << " " << Path(node.sourceContext().filepath())
-            << "\n";
+    void label(AstSourceFile const& node) {
+        str << Path(node.sourceContext().filepath());
         ctx = &node.sourceContext();
     }
 
     void endNode(AstSourceFile const&) { ctx = nullptr; }
 
-    void writeNode(AstUnqualName const& node) {
-        str << NodeType(node);
+    void label(AstArithmeticExpr const& expr) { str << Op(expr.operation()); }
+
+    void label(AstUnqualName const& expr) {
         if (ctx) {
-            str << " \"" << ctx->getTokenStr(node.nameToken()) << "\"";
+            str << tfmt::format(Underline, ctx->getTokenStr(expr.nameToken()));
         }
-        str << "\n";
     }
 };
 
 } // namespace
 
 void prism::dumpAst(AstNode const* root, std::ostream& str) {
-    DumpContext(str).run(root);
+    Emitter(str).run(root);
 }

@@ -8,7 +8,7 @@
 namespace prism {
 
 enum class AstArithmeticOp : uint8_t {
-#define AST_ARITHMETIC_OPERATOR(Name) Name,
+#define AST_ARITHMETIC_OPERATOR(Name, ...) Name,
 #include <Prism/Ast/Ast.def>
 };
 

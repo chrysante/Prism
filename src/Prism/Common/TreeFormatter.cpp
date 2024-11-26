@@ -8,8 +8,9 @@ using enum TreeFormatter::Level;
 #if 0
 static constexpr std::string_view Repr[] = { "+- ", "|  ", "+- ", "   " };
 #else
-static constexpr std::string_view Repr[] = { "├╴ ", "│  ", "╰─ ", "   " };
+static constexpr std::string_view Repr[] = { "├╴", "│ ", "╰╴", "  " };
 #endif
+
 static constexpr TreeFormatter::Level Next[] = { ChildContinue, ChildContinue,
                                                  LastChildContinue,
                                                  LastChildContinue };
