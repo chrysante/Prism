@@ -2,15 +2,15 @@
 #define PARSETREE_NODE(Kind)
 #endif
 
-PARSETREE_NODE(Node, NoParent, Abstract)
-PARSETREE_NODE(Terminal, Node, Concrete)
-PARSETREE_NODE(NonTerminal, Node, Abstract)
-PARSETREE_NODE(CastFacet, NonTerminal, Concrete)
-PARSETREE_NODE(CondFacet, NonTerminal, Concrete)
-PARSETREE_NODE(BinaryFacet, NonTerminal, Concrete)
-PARSETREE_NODE(PrefixFacet, NonTerminal, Concrete)
-PARSETREE_NODE(PostfixFacet, NonTerminal, Concrete)
-PARSETREE_NODE(ListFacet, NonTerminal, Concrete)
-PARSETREE_NODE(CallFacet, NonTerminal, Concrete)
+PARSETREE_NODE(Facet, detail::NoParent, Abstract)
+PARSETREE_NODE(TerminalFacet, Facet, Concrete)
+PARSETREE_NODE(NonTerminalFacet, Facet, Abstract)
+PARSETREE_NODE(CastFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(CondFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(BinaryFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(PrefixFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(PostfixFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(ListFacet, NonTerminalFacet, Concrete)
+PARSETREE_NODE(CallFacet, NonTerminalFacet, Concrete)
 
 #undef PARSETREE_NODE

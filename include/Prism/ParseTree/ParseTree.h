@@ -12,67 +12,62 @@
 #include <Prism/Common/Allocator.h>
 #include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
+#include <Prism/Common/NoParent.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
 
-enum class ParseTreeNodeType {
+enum class FacetType {
 #define PARSETREE_NODE(Type, ...) Type,
 #include <Prism/ParseTree/ParseTree.def>
 };
 
-PRISM_DEFINE_ENUM_FUNCTIONS(ParseTreeNodeType)
+PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
 
-#define PARSETREE_NODE(Type, ...) class ParseTree##Type;
+#define PARSETREE_NODE(Type, ...) class Type;
 #include <Prism/ParseTree/ParseTree.def>
-
-using ParseTreeNoParent = void;
 
 } // namespace prism
 
 #define PARSETREE_NODE(Type, Parent, Corporeality)                             \
-    CSP_DEFINE(prism::ParseTree##Type, prism::ParseTreeNodeType::Type,         \
-               prism::ParseTree##Parent, Corporeality)
+    CSP_DEFINE(prism::Type, prism::FacetType::Type, prism::Parent, Corporeality)
 #include <Prism/ParseTree/ParseTree.def>
 
 namespace prism {
 
-class alignas(void*) ParseTreeNode {
+class alignas(void*) Facet {
 public:
-    std::span<ParseTreeNode const* const> children() const {
+    std::span<Facet const* const> children() const {
         return { getChildrenPtr(), getNumChildren() };
     }
 
-    ParseTreeNode const* childAt(size_t index) const {
+    Facet const* childAt(size_t index) const {
         PRISM_ASSERT(index < getNumChildren(), "Index out of bounds");
         return getChildrenPtr()[index];
     }
 
 protected:
-    explicit ParseTreeNode(Token tok): term{ .tok = tok } {}
+    explicit Facet(Token tok): term{ .tok = tok } {}
 
-    explicit ParseTreeNode(ParseTreeNodeType nodeType,
-                           std::span<ParseTreeNode const* const> children):
+    explicit Facet(FacetType nodeType, std::span<Facet const* const> children):
         nonTerm{ .nonTermFlag = true,
                  .numChildren = static_cast<uint32_t>(children.size()),
                  .type = nodeType } {
         std::copy(children.begin(), children.end(), getChildrenPtr());
     }
 
-    friend ParseTreeNodeType get_rtti(ParseTreeNode const& node) {
-        return node.getNodeType();
-    }
+    friend FacetType get_rtti(Facet const& node) { return node.getNodeType(); }
 
-    ParseTreeNodeType getNodeType() const {
-        return isTerminal() ? ParseTreeNodeType::Terminal : nonTerm.type;
+    FacetType getNodeType() const {
+        return isTerminal() ? FacetType::TerminalFacet : nonTerm.type;
     }
 
     bool isTerminal() const {
         return (std::bit_cast<uint64_t>(*this) & 1) == 0;
     }
 
-    ParseTreeNode const** getChildrenPtr() const {
-        return (ParseTreeNode const**)((unsigned char*)this + sizeof(void*));
+    Facet const** getChildrenPtr() const {
+        return (Facet const**)((unsigned char*)this + sizeof(void*));
     };
 
     size_t getNumChildren() const {
@@ -86,190 +81,175 @@ protected:
         struct {
             bool nonTermFlag     : 1;
             uint32_t numChildren : 31;
-            ParseTreeNodeType type;
+            FacetType type;
         } nonTerm;
     };
 };
 
-static_assert(sizeof(ParseTreeNode) == sizeof(void*));
-static_assert(alignof(ParseTreeNode) == alignof(void*));
+static_assert(sizeof(Facet) == sizeof(void*));
+static_assert(alignof(Facet) == alignof(void*));
 
-class ParseTreeTerminal: public ParseTreeNode {
+class TerminalFacet: public Facet {
 public:
-    std::span<ParseTreeNode const* const> children() const { return {}; }
+    std::span<Facet const* const> children() const { return {}; }
 
     Token token() const { return term.tok; }
 
 private:
-    friend ParseTreeNodeType get_rtti(ParseTreeTerminal const& node) {
-        return ParseTreeNodeType::Terminal;
+    friend FacetType get_rtti(TerminalFacet const& node) {
+        return FacetType::TerminalFacet;
     }
 
     friend class ParseTreeContext;
-    ParseTreeTerminal(Token tok): ParseTreeNode(tok) {}
+    TerminalFacet(Token tok): Facet(tok) {}
 };
 
-class ParseTreeNonTerminal: public ParseTreeNode {
-    std::span<ParseTreeNode const* const> children() const {
+class NonTerminalFacet: public Facet {
+    std::span<Facet const* const> children() const {
         return { getChildrenPtr(), nonTerm.numChildren };
     }
 
 protected:
-    ParseTreeNonTerminal(ParseTreeNodeType type,
-                         std::span<ParseTreeNode const* const> children):
-        ParseTreeNode(type, children) {}
+    NonTerminalFacet(FacetType type, std::span<Facet const* const> children):
+        Facet(type, children) {}
 
 private:
-    friend ParseTreeNodeType get_rtti(ParseTreeNonTerminal const& node) {
+    friend FacetType get_rtti(NonTerminalFacet const& node) {
         return node.nonTerm.type;
     }
 };
 
 #define PARSE_TREE_FIELD(Index, Type, Name)                                    \
-    ParseTree##Type const* Name() const {                                      \
-        return csp::cast<ParseTree##Type const*>(childAt(Index));              \
-    }
+    Type const* Name() const { return csp::cast<Type const*>(childAt(Index)); }
 
-class ParseTreeCastFacet: public ParseTreeNonTerminal {
+class CastFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Node, operand)
-    PARSE_TREE_FIELD(1, Terminal, operation)
-    PARSE_TREE_FIELD(2, Node, target)
+    PARSE_TREE_FIELD(0, Facet, operand)
+    PARSE_TREE_FIELD(1, TerminalFacet, operation)
+    PARSE_TREE_FIELD(2, Facet, target)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreeCastFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::CastFacet, args) {}
+    explicit CastFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::CastFacet, args) {}
 };
 
-class ParseTreeCondFacet: public ParseTreeNonTerminal {
+class CondFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Node, condition)
-    PARSE_TREE_FIELD(1, Terminal, question)
-    PARSE_TREE_FIELD(2, Node, ifFacet)
-    PARSE_TREE_FIELD(3, Terminal, colon)
-    PARSE_TREE_FIELD(4, Node, thenFacet)
+    PARSE_TREE_FIELD(0, Facet, condition)
+    PARSE_TREE_FIELD(1, TerminalFacet, question)
+    PARSE_TREE_FIELD(2, Facet, ifFacet)
+    PARSE_TREE_FIELD(3, TerminalFacet, colon)
+    PARSE_TREE_FIELD(4, Facet, thenFacet)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreeCondFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::CondFacet, args) {}
+    explicit CondFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::CondFacet, args) {}
 };
 
-class ParseTreeBinaryFacet: public ParseTreeNonTerminal {
+class BinaryFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Node, LHS)
-    PARSE_TREE_FIELD(1, Terminal, operation)
-    PARSE_TREE_FIELD(2, Node, RHS)
+    PARSE_TREE_FIELD(0, Facet, LHS)
+    PARSE_TREE_FIELD(1, TerminalFacet, operation)
+    PARSE_TREE_FIELD(2, Facet, RHS)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreeBinaryFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::BinaryFacet, args) {}
+    explicit BinaryFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::BinaryFacet, args) {}
 };
 
-class ParseTreePrefixFacet: public ParseTreeNonTerminal {
+class PrefixFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Terminal, operation)
-    PARSE_TREE_FIELD(1, Node, operand)
+    PARSE_TREE_FIELD(0, TerminalFacet, operation)
+    PARSE_TREE_FIELD(1, Facet, operand)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreePrefixFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::PrefixFacet, args) {}
+    explicit PrefixFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::PrefixFacet, args) {}
 };
 
-class ParseTreePostfixFacet: public ParseTreeNonTerminal {
+class PostfixFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Node, operand)
-    PARSE_TREE_FIELD(1, Terminal, operation)
+    PARSE_TREE_FIELD(0, Facet, operand)
+    PARSE_TREE_FIELD(1, TerminalFacet, operation)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreePostfixFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::PostfixFacet, args) {}
+    explicit PostfixFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::PostfixFacet, args) {}
 };
 
-class ParseTreeListFacet: public ParseTreeNonTerminal {
+class ListFacet: public NonTerminalFacet {
 private:
     friend class ParseTreeContext;
-    explicit ParseTreeListFacet(std::span<ParseTreeNode const* const> children):
-        ParseTreeNonTerminal(ParseTreeNodeType::ListFacet, children) {}
+    explicit ListFacet(std::span<Facet const* const> children):
+        NonTerminalFacet(FacetType::ListFacet, children) {}
 };
 
-class ParseTreeCallFacet: public ParseTreeNonTerminal {
+class CallFacet: public NonTerminalFacet {
 public:
-    PARSE_TREE_FIELD(0, Node, callee)
-    PARSE_TREE_FIELD(1, Terminal, openBracket)
+    PARSE_TREE_FIELD(0, Facet, callee)
+    PARSE_TREE_FIELD(1, TerminalFacet, openBracket)
     PARSE_TREE_FIELD(2, ListFacet, arguments)
-    PARSE_TREE_FIELD(3, Terminal, closeBracket)
+    PARSE_TREE_FIELD(3, TerminalFacet, closeBracket)
 
 private:
     friend class ParseTreeContext;
-    explicit ParseTreeCallFacet(std::span<ParseTreeNode const* const> args):
-        ParseTreeNonTerminal(ParseTreeNodeType::CallFacet, args) {}
+    explicit CallFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::CallFacet, args) {}
 };
 
 class ParseTreeContext {
 public:
-    ParseTreeTerminal const* terminal(Token tok) {
+    TerminalFacet const* terminal(Token tok) {
         void* buf = allocate();
-        return new (buf) ParseTreeTerminal(tok);
+        return new (buf) TerminalFacet(tok);
     }
 
-    ParseTreeCastFacet const* castFacet(ParseTreeNode const* operand,
-                                        Token operation,
-                                        ParseTreeNode const* target) {
-        return nonTerminal<ParseTreeCastFacet>(
+    CastFacet const* castFacet(Facet const* operand, Token operation,
+                               Facet const* target) {
+        return nonTerminal<CastFacet>(
             { { operand, terminal(operation), target } });
     }
 
-    ParseTreeCondFacet const* condFacet(ParseTreeNode const* condition,
-                                        Token question,
-                                        ParseTreeNode const* ifFacet,
-                                        Token colon,
-                                        ParseTreeNode const* thenFacet) {
-        return nonTerminal<ParseTreeCondFacet>(
+    CondFacet const* condFacet(Facet const* condition, Token question,
+                               Facet const* ifFacet, Token colon,
+                               Facet const* thenFacet) {
+        return nonTerminal<CondFacet>(
             { { condition, terminal(question), ifFacet, terminal(colon),
                 thenFacet } });
     }
 
-    ParseTreeBinaryFacet const* binaryFacet(ParseTreeNode const* lhs,
-                                            Token operation,
-                                            ParseTreeNode const* rhs) {
-        return nonTerminal<ParseTreeBinaryFacet>(
-            { { lhs, terminal(operation), rhs } });
+    BinaryFacet const* binaryFacet(Facet const* lhs, Token operation,
+                                   Facet const* rhs) {
+        return nonTerminal<BinaryFacet>({ { lhs, terminal(operation), rhs } });
     }
 
-    ParseTreePrefixFacet const* prefixFacet(Token operation,
-                                            ParseTreeNode const* operand) {
-        return nonTerminal<ParseTreePrefixFacet>(
-            { { terminal(operation), operand } });
+    PrefixFacet const* prefixFacet(Token operation, Facet const* operand) {
+        return nonTerminal<PrefixFacet>({ { terminal(operation), operand } });
     }
 
-    ParseTreePostfixFacet const* postfixFacet(ParseTreeNode const* operand,
-                                              Token operation) {
-        return nonTerminal<ParseTreePostfixFacet>(
-            { { operand, terminal(operation) } });
+    PostfixFacet const* postfixFacet(Facet const* operand, Token operation) {
+        return nonTerminal<PostfixFacet>({ { operand, terminal(operation) } });
     }
 
-    ParseTreeListFacet const* listFacet(
-        std::span<ParseTreeNode const* const> children) {
-        return nonTerminal<ParseTreeListFacet>(children);
+    ListFacet const* listFacet(std::span<Facet const* const> children) {
+        return nonTerminal<ListFacet>(children);
     }
 
-    ParseTreeCallFacet const* callFacet(ParseTreeNode const* callee,
-                                        Token openBracket,
-                                        ParseTreeListFacet const* arguments,
-                                        Token closeBracket) {
-        return nonTerminal<ParseTreeCallFacet>(
+    CallFacet const* callFacet(Facet const* callee, Token openBracket,
+                               ListFacet const* arguments, Token closeBracket) {
+        return nonTerminal<CallFacet>(
             { { callee, terminal(openBracket), arguments,
                 terminal(closeBracket) } });
     }
 
 private:
     template <typename T>
-    T const* nonTerminal(std::span<ParseTreeNode const* const> children) {
+    T const* nonTerminal(std::span<Facet const* const> children) {
         void* buf = allocate(children.size());
         return new (buf) T(children);
     }
@@ -283,11 +263,10 @@ private:
 class TreeFormatter;
 
 ///
-void print(ParseTreeNode const* root, std::ostream& ostream);
+void print(Facet const* root, std::ostream& ostream);
 
 /// \overload
-void print(ParseTreeNode const* root, std::ostream& ostream,
-           TreeFormatter& fmt);
+void print(Facet const* root, std::ostream& ostream, TreeFormatter& fmt);
 
 } // namespace prism
 

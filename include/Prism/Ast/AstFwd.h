@@ -4,6 +4,7 @@
 #include <csp.hpp>
 
 #include <Prism/Common/EnumUtil.h>
+#include <Prism/Common/NoParent.h>
 
 namespace prism {
 
@@ -18,12 +19,6 @@ PRISM_DEFINE_ENUM_FUNCTIONS(AstNodeType)
 /// Forward declarations of all AST nodes
 #define AST_NODE(Type, ...) class Type;
 #include <Prism/Ast/Ast.def>
-
-namespace detail {
-
-using NoParent = void;
-
-}
 
 } // namespace prism
 

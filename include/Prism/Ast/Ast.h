@@ -32,7 +32,7 @@
 namespace prism {
 
 class SourceContext;
-class ParseTreeNode;
+class Facet;
 
 // MARK: - Base nodes
 
@@ -122,19 +122,19 @@ protected:
 /// Parse tree wrapper for an expression or type specifier
 class FacetPlaceholder {
 public:
-    explicit FacetPlaceholder(ParseTreeNode const* pt): pt(pt) {}
+    explicit FacetPlaceholder(Facet const* pt): pt(pt) {}
 
     /// \Returns the root of the raw parse tree
-    ParseTreeNode const* parseTree() const { return pt; }
+    Facet const* parseTree() const { return pt; }
 
 private:
-    ParseTreeNode const* pt;
+    Facet const* pt;
 };
 
 ///
 class AstFacetPlaceholder: public AstFacet, public FacetPlaceholder {
 public:
-    explicit AstFacetPlaceholder(ParseTreeNode const* pt, Token firstTok):
+    explicit AstFacetPlaceholder(Facet const* pt, Token firstTok):
         AstFacet(AstNodeType::AstFacetPlaceholder, firstTok),
         FacetPlaceholder(pt) {}
 };
@@ -150,7 +150,7 @@ protected:
 ///
 class AstExprPlaceholder: public AstExpr, public FacetPlaceholder {
 public:
-    explicit AstExprPlaceholder(ParseTreeNode const* pt, Token firstTok):
+    explicit AstExprPlaceholder(Facet const* pt, Token firstTok):
         AstExpr(AstNodeType::AstExprPlaceholder, firstTok),
         FacetPlaceholder(pt) {}
 };
@@ -194,7 +194,7 @@ protected:
 ///
 class AstTypeSpecPlaceholder: public AstTypeSpec, public FacetPlaceholder {
 public:
-    explicit AstTypeSpecPlaceholder(ParseTreeNode const* pt, Token firstTok):
+    explicit AstTypeSpecPlaceholder(Facet const* pt, Token firstTok):
         AstTypeSpec(AstNodeType::AstTypeSpecPlaceholder, firstTok),
         FacetPlaceholder(pt) {}
 };

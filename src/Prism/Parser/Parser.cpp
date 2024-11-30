@@ -168,28 +168,28 @@ struct Parser {
     csp::unique_ptr<Abstract> parseFacetImpl(ParserFn auto start);
 
     // MARK: - Facets
-    ParseTreeNode const* parseCommaFacet();
-    ParseTreeNode const* parseAssignFacet();
-    ParseTreeNode const* parseCastFacet();
-    ParseTreeNode const* parseCondFacet();
-    ParseTreeNode const* parseLogicalOrFacet();
-    ParseTreeNode const* parseLogicalAndFacet();
-    ParseTreeNode const* parseOrFacet();
-    ParseTreeNode const* parseXorFacet();
-    ParseTreeNode const* parseAndFacet();
-    ParseTreeNode const* parseEqFacet();
-    ParseTreeNode const* parseRelFacet();
-    ParseTreeNode const* parseShiftFacet();
-    ParseTreeNode const* parseAddFacet();
-    ParseTreeNode const* parseMulFacet();
-    ParseTreeNode const* parsePrefixFacet();
-    ParseTreeNode const* parsePostfixFacet();
-    ParseTreeNode const* parsePrimaryFacet();
-    ParseTreeNode const* parseFstringFacet();
+    Facet const* parseCommaFacet();
+    Facet const* parseAssignFacet();
+    Facet const* parseCastFacet();
+    Facet const* parseCondFacet();
+    Facet const* parseLogicalOrFacet();
+    Facet const* parseLogicalAndFacet();
+    Facet const* parseOrFacet();
+    Facet const* parseXorFacet();
+    Facet const* parseAndFacet();
+    Facet const* parseEqFacet();
+    Facet const* parseRelFacet();
+    Facet const* parseShiftFacet();
+    Facet const* parseAddFacet();
+    Facet const* parseMulFacet();
+    Facet const* parsePrefixFacet();
+    Facet const* parsePostfixFacet();
+    Facet const* parsePrimaryFacet();
+    Facet const* parseFstringFacet();
 
-    ParseTreeNode const* parseBinaryFacetLTR(
+    Facet const* parseBinaryFacetLTR(
         std::span<TokenKind const> acceptedOperators, ParserFn auto next);
-    ParseTreeNode const* parseBinaryFacetRTL(
+    Facet const* parseBinaryFacetRTL(
         std::span<TokenKind const> acceptedOperators, ParserFn auto next);
 
     template <ParserFn Fn>
@@ -326,14 +326,14 @@ csp::unique_ptr<AstTypeSpec> Parser::parseTypeSpec() {
         &Parser::parsePrefixFacet);
 }
 
-static Token firstToken(ParseTreeNode const* node) {
+static Token firstToken(Facet const* node) {
     PRISM_ASSERT(node);
     // clang-format off
     csp::visit(*node, csp::overload{
-        [](ParseTreeTerminal const& node) {
+        [](TerminalFacet const& node) {
             return node.token();
         },
-        [](ParseTreeNonTerminal const& node) {
+        [](NonTerminalFacet const& node) {
             return firstToken(node.childAt(0));
         }
     });
@@ -348,22 +348,22 @@ csp::unique_ptr<Abstract> Parser::parseFacetImpl(ParserFn auto start) {
 }
 
 // MARK: - Facets
-ParseTreeNode const* Parser::parseCommaFacet() {
+Facet const* Parser::parseCommaFacet() {
     return parseBinaryFacetLTR({ { Comma } }, &Parser::parseAssignFacet);
 }
 
-ParseTreeNode const* Parser::parseAssignFacet() {
+Facet const* Parser::parseAssignFacet() {
     return parseBinaryFacetRTL({ { Equal, PlusEq, MinusEq, StarEq, SlashEq,
                                    PercentEq, AmpersandEq, VertBarEq,
                                    CircumflexEq } },
                                &Parser::parseCastFacet);
 }
 
-ParseTreeNode const* Parser::parseCastFacet() {
+Facet const* Parser::parseCastFacet() {
     return parseCondFacet(); // For now
 }
 
-ParseTreeNode const* Parser::parseCondFacet() {
+Facet const* Parser::parseCondFacet() {
     auto* cond = parseLogicalOrFacet();
     if (!cond) return nullptr;
     auto question = match(Question);
@@ -383,69 +383,69 @@ ParseTreeNode const* Parser::parseCondFacet() {
     return ptCtx.condFacet(cond, *question, lhs, *colon, rhs);
 }
 
-ParseTreeNode const* Parser::parseLogicalOrFacet() {
+Facet const* Parser::parseLogicalOrFacet() {
     return parseBinaryFacetLTR({ { DoubleVertBar } },
                                &Parser::parseLogicalAndFacet);
 }
 
-ParseTreeNode const* Parser::parseLogicalAndFacet() {
+Facet const* Parser::parseLogicalAndFacet() {
     return parseBinaryFacetLTR({ { DoubleAmpersand } }, &Parser::parseOrFacet);
 }
 
-ParseTreeNode const* Parser::parseOrFacet() {
+Facet const* Parser::parseOrFacet() {
     return parseBinaryFacetLTR({ { VertBar } }, &Parser::parseXorFacet);
 }
 
-ParseTreeNode const* Parser::parseXorFacet() {
+Facet const* Parser::parseXorFacet() {
     return parseBinaryFacetLTR({ { Circumflex } }, &Parser::parseAndFacet);
 }
 
-ParseTreeNode const* Parser::parseAndFacet() {
+Facet const* Parser::parseAndFacet() {
     return parseBinaryFacetLTR({ { Ampersand } }, &Parser::parseEqFacet);
 }
 
-ParseTreeNode const* Parser::parseEqFacet() {
+Facet const* Parser::parseEqFacet() {
     return parseBinaryFacetLTR({ { Equal, NotEq } }, &Parser::parseRelFacet);
 }
 
-ParseTreeNode const* Parser::parseRelFacet() {
+Facet const* Parser::parseRelFacet() {
     return parseBinaryFacetLTR({ { LeftAngle, LeftAngleEq, RightAngle,
                                    RightAngleEq } },
                                &Parser::parseShiftFacet);
 }
 
-ParseTreeNode const* Parser::parseShiftFacet() {
+Facet const* Parser::parseShiftFacet() {
     return parseBinaryFacetLTR({ { DoubleLeftAngle, DoubleRightAngle } },
                                &Parser::parseAddFacet);
 }
 
-ParseTreeNode const* Parser::parseAddFacet() {
+Facet const* Parser::parseAddFacet() {
     return parseBinaryFacetLTR({ { Plus, Minus } }, &Parser::parseMulFacet);
 }
 
-ParseTreeNode const* Parser::parseMulFacet() {
+Facet const* Parser::parseMulFacet() {
     return parseBinaryFacetLTR({ { Star, Slash, Percent } },
                                &Parser::parsePrefixFacet);
 }
 
-ParseTreeNode const* Parser::parsePrefixFacet() {
+Facet const* Parser::parsePrefixFacet() {
     return parsePostfixFacet(); // For now
 }
 
-ParseTreeNode const* Parser::parsePostfixFacet() {
+Facet const* Parser::parsePostfixFacet() {
     return parsePrimaryFacet(); // For now
 }
 
-ParseTreeNode const* Parser::parsePrimaryFacet() {
+Facet const* Parser::parsePrimaryFacet() {
     if (auto tok = match(Identifier)) {
         return ptCtx.terminal(*tok);
     }
     return nullptr;
 }
 
-ParseTreeNode const* Parser::parseFstringFacet() { return nullptr; }
+Facet const* Parser::parseFstringFacet() { return nullptr; }
 
-ParseTreeNode const* Parser::parseBinaryFacetLTR(
+Facet const* Parser::parseBinaryFacetLTR(
     std::span<TokenKind const> acceptedOperators, ParserFn auto next) {
     auto* lhs = invoke(next);
     if (!lhs) return nullptr;
@@ -460,7 +460,7 @@ ParseTreeNode const* Parser::parseBinaryFacetLTR(
     }
 }
 
-ParseTreeNode const* Parser::parseBinaryFacetRTL(
+Facet const* Parser::parseBinaryFacetRTL(
     std::span<TokenKind const> acceptedOperators, ParserFn auto next) {
     auto* lhs = invoke(next);
     if (!lhs) return nullptr;

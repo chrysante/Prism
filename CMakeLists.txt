@@ -28,6 +28,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/IndentingStreambuf.h
     include/Prism/Common/Issue.h
     include/Prism/Common/IssueHandler.h
+    include/Prism/Common/NoParent.h
     include/Prism/Common/TreeFormatter.h
 
     include/Prism/Lexer/Lexer.h
