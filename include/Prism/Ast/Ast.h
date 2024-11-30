@@ -32,8 +32,9 @@
 namespace prism {
 
 class SourceContext;
+class ParseTreeNode;
 
-/// MARK: - Base nodes
+// MARK: - Base nodes
 
 /// Base class of all AST nodes
 class AstNode: public csp::base_helper<AstNode> {
@@ -110,10 +111,48 @@ private:
     utl::small_vector<csp::unique_ptr<AstNode>, NumInlineChildren> _children;
 };
 
-/// Abstract base class of AST expressions
-class AstExpr: public AstNode {
+// MARK: - Facets
+
+/// Base class of expressions and type specifiers
+class AstFacet: public AstNode {
 protected:
     using AstNode::AstNode;
+};
+
+/// Parse tree wrapper for an expression or type specifier
+class FacetPlaceholder {
+public:
+    explicit FacetPlaceholder(ParseTreeNode const* pt): pt(pt) {}
+
+    /// \Returns the root of the raw parse tree
+    ParseTreeNode const* parseTree() const { return pt; }
+
+private:
+    ParseTreeNode const* pt;
+};
+
+///
+class AstFacetPlaceholder: public AstFacet, public FacetPlaceholder {
+public:
+    explicit AstFacetPlaceholder(ParseTreeNode const* pt, Token firstTok):
+        AstFacet(AstNodeType::AstFacetPlaceholder, firstTok),
+        FacetPlaceholder(pt) {}
+};
+
+// MARK: - Base Expressions
+
+/// Abstract base class of AST expressions
+class AstExpr: public AstFacet {
+protected:
+    using AstFacet::AstFacet;
+};
+
+///
+class AstExprPlaceholder: public AstExpr, public FacetPlaceholder {
+public:
+    explicit AstExprPlaceholder(ParseTreeNode const* pt, Token firstTok):
+        AstExpr(AstNodeType::AstExprPlaceholder, firstTok),
+        FacetPlaceholder(pt) {}
 };
 
 ///
@@ -143,6 +182,38 @@ public:
 private:
     utl::small_vector<Token, 3> _seq;
 };
+
+// MARK: - Type Specifiers
+
+/// Base class of all type specifiers
+class AstTypeSpec: public AstFacet {
+protected:
+    using AstFacet::AstFacet;
+};
+
+///
+class AstTypeSpecPlaceholder: public AstTypeSpec, public FacetPlaceholder {
+public:
+    explicit AstTypeSpecPlaceholder(ParseTreeNode const* pt, Token firstTok):
+        AstTypeSpec(AstNodeType::AstTypeSpecPlaceholder, firstTok),
+        FacetPlaceholder(pt) {}
+};
+
+///
+class AstTypeID: public AstTypeSpec {
+protected:
+    using AstTypeSpec::AstTypeSpec;
+};
+
+///
+class AstTypeUnqualID: public AstTypeID {
+public:
+    AstTypeUnqualID(Token tok): AstTypeID(AstNodeType::AstTypeUnqualID, tok) {}
+
+    Token nameToken() const { return firstToken(); }
+};
+
+// MARK: - Statements
 
 /// Base class of all AST statements
 class AstStmt: public AstNode {
@@ -223,7 +294,7 @@ public:
                 std::move(sourceFiles)) {}
 };
 
-/// MARK: - Expressions
+// MARK: - Expressions
 
 /// Arithmetic expression
 class AstArithmeticExpr: public AstExpr {
@@ -270,7 +341,7 @@ private:
     AstArithmeticOp op;
 };
 
-/// MARK: - Statements
+// MARK: - Statements
 
 /// Expression statement
 class AstExprStmt: public AstStmt {
@@ -287,7 +358,7 @@ public:
 class AstParamDecl: public AstDecl {
 public:
     explicit AstParamDecl(csp::unique_ptr<AstUnqualName> name, Token colon,
-                          csp::unique_ptr<AstExpr> typeSpec):
+                          csp::unique_ptr<AstTypeSpec> typeSpec):
         AstDecl(AstNodeType::AstParamDecl, name->firstToken(), std::move(name),
                 std::move(typeSpec)) {}
 
@@ -325,13 +396,13 @@ public:
 
     AST_PROPERTY(1, AstParamList, params, Params)
 
-    AST_PROPERTY(2, AstExpr, retTypeSpec, RetTypeSpec)
+    AST_PROPERTY(2, AstTypeSpec, retTypeSpec, RetTypeSpec)
 
     AST_PROPERTY(3, AstCompoundStmt, body, Body)
 
     explicit AstFuncDecl(Token declarator, csp::unique_ptr<AstName> name,
                          csp::unique_ptr<AstParamList> params,
-                         csp::unique_ptr<AstExpr> retTypeSpec,
+                         csp::unique_ptr<AstTypeSpec> retTypeSpec,
                          csp::unique_ptr<AstCompoundStmt> body):
         AstDecl(AstNodeType::AstFuncDecl, declarator, std::move(name),
                 std::move(params), std::move(retTypeSpec), std::move(body)) {}

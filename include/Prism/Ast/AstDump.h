@@ -8,9 +8,13 @@
 namespace prism {
 
 class SourceContext;
+class TreeFormatter;
 
 /// Pretty-prints the AST rooted at \p root to \p ostream
 void dumpAst(AstNode const* root, std::ostream& ostream);
+
+/// \overload
+void dumpAst(AstNode const* root, std::ostream& ostream, TreeFormatter& fmt);
 
 } // namespace prism
 

@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include <Prism/Ast/Ast.h>
+#include <Prism/ParseTree/ParseTree.h>
 
 namespace prism {
 
@@ -12,6 +13,7 @@ class SourceContext;
 
 /// Parses a single source file and returns the constructed AST
 csp::unique_ptr<AstSourceFile> parseSourceFile(SourceContext const& sourceCtx,
+                                               ParseTreeContext& ptCtx,
                                                IssueHandler& iss);
 
 } // namespace prism

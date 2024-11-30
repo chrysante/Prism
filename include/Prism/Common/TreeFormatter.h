@@ -28,37 +28,47 @@ public:
 
     /// Wraps a call to function that writes details of the current node to the
     /// associated ostream
-    template <std::invocable F>
-    void writeDetails(bool isLeaf, F&& writeCallback) {
+    void writeDetails(bool isLeaf, std::invocable auto&& writeCallback) {
         levels.push_back(isLeaf ? LastChildContinue : ChildContinue);
-        std::invoke(writeCallback);
+        std::invoke(std::forward<decltype(writeCallback)>(writeCallback));
         levels.pop_back();
     }
 
-    /// Children must be printed using recursive calls to this function. Handles
-    /// indentation and edge drawing.
+    /// Used to print a single child node. Handles indentation and edge drawing
+    void writeChild(std::invocable auto&& writeCallback) {
+        levels.push_back(LastChildBegin);
+        std::invoke(std::forward<decltype(writeCallback)>(writeCallback));
+        levels.pop_back();
+    }
+
+    /// Used to print a range of child nodes. Handles indentation and edge
+    /// drawing.
     ///
     /// \param children A range of children of the current node
     /// \param writeCallback Invocable with elements of the range of children
     /// used to print child nodes
-    template <ranges::sized_range R, std::invocable<ranges::range_value_t<R>> F>
-    void writeChildren(R&& children, F&& writeCallback) {
+    template <ranges::sized_range R>
+    void writeChildren(
+        R&& children,
+        std::invocable<ranges::range_value_t<R>> auto&& writeCallback) {
         writeChildren(std::forward<R>(children),
                       [&]<typename T>(size_t, T&& elem) {
-            std::invoke(writeCallback, std::forward<T>(elem));
+            std::invoke(std::forward<decltype(writeCallback)>(writeCallback),
+                        std::forward<T>(elem));
         });
     }
 
-    /// \overload
-    template <ranges::sized_range R,
-              std::invocable<size_t, ranges::range_value_t<R>> F>
-    void writeChildren(R&& children, F&& writeCallback) {
+    /// \overload for callbacks with indices
+    template <ranges::sized_range R>
+    void writeChildren(
+        R&& children,
+        std::invocable<size_t, ranges::range_value_t<R>> auto&& writeCallback) {
         size_t size = ranges::size(children);
         levels.push_back({});
         for (auto [index, elem]: children | ranges::views::enumerate) {
             levels.back() = index + 1 != size ? ChildBegin : LastChildBegin;
-            std::invoke(writeCallback, index,
-                        std::forward<decltype(elem)>(elem));
+            std::invoke(std::forward<decltype(writeCallback)>(writeCallback),
+                        index, std::forward<decltype(elem)>(elem));
         }
         levels.pop_back();
     }

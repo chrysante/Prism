@@ -42,8 +42,12 @@ using InvokeResult =
                                 std::invoke_result<Fn, Parser>>::type;
 
 struct Parser {
-    explicit Parser(SourceContext const& sourceCtx, IssueHandler& iss):
-        sourceCtx(sourceCtx), lexer(sourceCtx.source(), iss), iss(iss) {}
+    explicit Parser(SourceContext const& sourceCtx, ParseTreeContext& ptCtx,
+                    IssueHandler& iss):
+        sourceCtx(sourceCtx),
+        ptCtx(ptCtx),
+        lexer(sourceCtx.source(), iss),
+        iss(iss) {}
 
     csp::unique_ptr<AstSourceFile> run();
 
@@ -54,10 +58,16 @@ struct Parser {
     csp::unique_ptr<AstParamDecl> parseParamDecl();
     csp::unique_ptr<AstParamList> parseParamList();
     csp::unique_ptr<AstExprStmt> parseExprStmt();
-    csp::unique_ptr<AstExpr> parseExpr();
-    csp::unique_ptr<AstExpr> parseArithmetic();
     csp::unique_ptr<AstName> parseName();
     csp::unique_ptr<AstUnqualName> parseUnqualName();
+    csp::unique_ptr<AstFacet> parseFacet();
+    csp::unique_ptr<AstExpr> parseExpr();
+    csp::unique_ptr<AstTypeSpec> parseTypeSpec();
+    template <typename Abstract, typename Concrete>
+    csp::unique_ptr<Abstract> parseFacetImpl();
+    ParseTreeNode* parseBinaryFacet();
+    ParseTreeNode* parseUnaryFacet();
+    ParseTreeNode* parseIDFacet();
 
     template <ParserFn Fn>
     utl::small_vector<InvokeResult<Fn>> parseSequence(
@@ -88,17 +98,19 @@ struct Parser {
     InvokeResult<Fn> invoke(Fn fn);
 
     SourceContext const& sourceCtx;
-    std::optional<Token> peekToken;
-    Lexer lexer;
+    ParseTreeContext& ptCtx;
     IssueHandler& iss;
+    Lexer lexer;
+    std::optional<Token> peekToken;
     bool inRecovery = false;
 };
 
 } // namespace
 
 csp::unique_ptr<AstSourceFile> prism::parseSourceFile(
-    SourceContext const& sourceCtx, IssueHandler& iss) {
-    return Parser(sourceCtx, iss).run();
+    SourceContext const& sourceCtx, ParseTreeContext& ptCtx,
+    IssueHandler& iss) {
+    return Parser(sourceCtx, ptCtx, iss).run();
 }
 
 csp::unique_ptr<AstSourceFile> Parser::run() {
@@ -129,7 +141,7 @@ csp::unique_ptr<AstFuncDecl> Parser::parseFuncDecl() {
     if (!declarator) return nullptr;
     auto name = parseName();
     auto params = parseParamList();
-    auto retType = match(Arrow) ? parseExpr() : nullptr;
+    auto retType = match(Arrow) ? parseTypeSpec() : nullptr;
     auto body = parseCompoundStmt();
     return csp::make_unique<AstFuncDecl>(*declarator, std::move(name),
                                          std::move(params), std::move(retType),
@@ -148,8 +160,8 @@ csp::unique_ptr<AstCompoundStmt> Parser::parseCompoundStmt() {
 csp::unique_ptr<AstParamDecl> Parser::parseParamDecl() {
     auto name = parseUnqualName();
     auto colon = match(Colon);
-    auto typeSpec = colon ? parseExpr() :
-                            recover(Colon, Comma, &Parser::parseExpr);
+    auto typeSpec = colon ? parseTypeSpec() :
+                            recover(Colon, Comma, &Parser::parseTypeSpec);
     return csp::make_unique<AstParamDecl>(std::move(name),
                                           colon.value_or(Token::ErrorToken),
                                           std::move(typeSpec));
@@ -173,36 +185,73 @@ csp::unique_ptr<AstExprStmt> Parser::parseExprStmt() {
     return csp::make_unique<AstExprStmt>(std::move(expr));
 }
 
-csp::unique_ptr<AstExpr> Parser::parseExpr() { return parseArithmetic(); }
+csp::unique_ptr<AstFacet> Parser::parseFacet() {
+    return parseFacetImpl<AstFacet, AstFacetPlaceholder>();
+}
 
-static std::optional<AstArithmeticOp> toArithmeticOp(TokenKind tok) {
+csp::unique_ptr<AstExpr> Parser::parseExpr() {
+    return parseFacetImpl<AstExpr, AstExprPlaceholder>();
+}
+
+csp::unique_ptr<AstTypeSpec> Parser::parseTypeSpec() {
+    return parseFacetImpl<AstTypeSpec, AstTypeSpecPlaceholder>();
+}
+
+static Token firstToken(ParseTreeNode const* node) {
+    PRISM_ASSERT(node);
+    // clang-format off
+    csp::visit(*node, csp::overload{
+        [](ParseTreeTerminal const& node) {
+            return node.token();
+        },
+        [](ParseTreeNonTerminal const& node) {
+            return firstToken(node.childAt(0));
+        }
+    });
+    // clang-format on
+}
+
+template <typename Abstract, typename Concrete>
+csp::unique_ptr<Abstract> Parser::parseFacetImpl() {
+    auto* facet = parseBinaryFacet();
+    if (!facet) return nullptr;
+    return csp::make_unique<Concrete>(facet, firstToken(facet));
+}
+
+static bool isBinaryOpToken(TokenKind tok) {
     switch (tok) {
 #define AST_ARITHMETIC_OPERATOR(Name, AssocToken)                              \
     case AssocToken:                                                           \
-        return AstArithmeticOp::Name;
+        return true;
 #include "Prism/Ast/Ast.def"
     default:
-        return std::nullopt;
+        return false;
     }
 }
 
-csp::unique_ptr<AstExpr> Parser::parseArithmetic() {
-    csp::unique_ptr<AstExpr> lhs = parseName();
+ParseTreeNode* Parser::parseBinaryFacet() {
+    ParseTreeNode* lhs = parseUnaryFacet();
     if (!lhs) return nullptr;
     while (true) {
-        Token opTok = peek();
-        auto op = toArithmeticOp(opTok.kind);
-        if (!op) {
-            return lhs;
-        }
+        auto tok = peek();
+        if (!isBinaryOpToken(tok.kind)) return lhs;
         eat();
-        auto rhs = parseName();
+        auto* rhs = parseUnaryFacet();
         if (!rhs) {
-            assert(false); // Expected expression
+            assert(false); // Expected facet
         }
-        lhs = csp::make_unique<AstArithmeticExpr>(*op, opTok, std::move(lhs),
-                                                  std::move(rhs));
+        lhs = ptCtx.makeNonTerminal(ParseTreeNodeKind::BinaryFacet,
+                                    { { lhs, ptCtx.makeTerminal(tok), rhs } });
     }
+}
+
+ParseTreeNode* Parser::parseUnaryFacet() { return parseIDFacet(); }
+
+ParseTreeNode* Parser::parseIDFacet() {
+    if (auto tok = match(Identifier)) {
+        return ptCtx.makeTerminal(*tok);
+    }
+    return nullptr;
 }
 
 csp::unique_ptr<AstName> Parser::parseName() { return parseUnqualName(); }

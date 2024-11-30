@@ -1,0 +1,12 @@
+#ifndef PARSETREE_NODE
+#define PARSETREE_NODE(Kind)
+#endif
+
+#define TOKEN_KIND(Kind) PARSETREE_NODE(Kind)
+#include <Prism/Source/Token.def>
+
+PARSETREE_NODE(BinaryFacet)
+PARSETREE_NODE(UnaryFacet)
+PARSETREE_NODE(IDFacet)
+
+#undef PARSETREE_NODE

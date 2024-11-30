@@ -1,11 +1,14 @@
 #include "Prism/Ast/AstDump.h"
 
+#include <concepts>
+
 #include <termfmt/termfmt.h>
 #include <utl/hashtable.hpp>
 #include <utl/streammanip.hpp>
 
 #include "Prism/Ast/Ast.h"
 #include "Prism/Common/TreeFormatter.h"
+#include "Prism/ParseTree/ParseTree.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -52,12 +55,12 @@ namespace {
 struct Emitter {
     SourceContext const* ctx = nullptr;
     std::ostream& str;
-    TreeFormatter fmt;
+    TreeFormatter& fmt;
     utl::hashmap<AstNodeType, utl::hashmap<size_t, std::string>> labelMap;
 
-    Emitter(std::ostream& str):
+    Emitter(std::ostream& str, TreeFormatter& fmt):
         str(str),
-        fmt(str),
+        fmt(fmt),
         // clang-format off
         labelMap({
             { AstNodeType::AstParamDecl, { { 0, "Name" }, { 1, "Type" } } },
@@ -94,6 +97,10 @@ struct Emitter {
         });
     }
 
+    void writeChildren(std::derived_from<FacetPlaceholder> auto const& node) {
+        fmt.writeChild([&] { print(node.parseTree(), str, fmt); });
+    }
+
     void endNode(AstNode const&) {}
 
     void label(AstSourceFile const& node) {
@@ -115,5 +122,11 @@ struct Emitter {
 } // namespace
 
 void prism::dumpAst(AstNode const* root, std::ostream& str) {
-    Emitter(str).run(root);
+    TreeFormatter fmt(str);
+    dumpAst(root, str, fmt);
+}
+
+void prism::dumpAst(AstNode const* root, std::ostream& str,
+                    TreeFormatter& fmt) {
+    Emitter(str, fmt).run(root);
 }

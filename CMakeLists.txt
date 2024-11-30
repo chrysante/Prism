@@ -21,6 +21,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Ast/Ast.def
     include/Prism/Ast/Operators.h
 
+    include/Prism/Common/Allocator.h
     include/Prism/Common/Assert.h
     include/Prism/Common/EnumUtil.h
     include/Prism/Common/Functional.h
@@ -35,6 +36,9 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/Parser.h
     include/Prism/Parser/SyntaxIssue.h
 
+    include/Prism/ParseTree/ParseTree.def
+    include/Prism/ParseTree/ParseTree.h
+
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -45,6 +49,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Ast/Ast.cpp
     src/Prism/Ast/AstDump.cpp
 
+    src/Prism/Common/Allocator.cpp
     src/Prism/Common/IndentingStreambuf.cpp
     src/Prism/Common/Issue.cpp
     src/Prism/Common/IssueHandler.cpp
@@ -55,6 +60,8 @@ set(PRISM_SOURCE_FILES
     
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/SyntaxIssue.cpp
+
+    src/Prism/ParseTree/ParseTree.cpp
 
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp

@@ -2,6 +2,8 @@
 #define TOKEN_KIND(Kind)
 #endif
 
+TOKEN_KIND(Error)
+
 // Punctuation
 
 #ifndef PUNCTUATION_TOKEN_KIND
@@ -86,6 +88,5 @@ TOKEN_KIND(StringLiteral)
 TOKEN_KIND(CharLiteral)
 TOKEN_KIND(Identifier)
 TOKEN_KIND(End)
-TOKEN_KIND(Error)
 
 #undef TOKEN_KIND
