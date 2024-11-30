@@ -12,30 +12,46 @@ AST_NODE(AstParamList, AstNode, Concrete)
 AST_NODE(AstFacet, AstNode, Abstract)
 AST_NODE(AstFacetPlaceholder, AstFacet, Concrete)
 
-#ifndef AST_EXPR
-#define AST_EXPR AST_NODE
-#endif
-
-AST_EXPR(AstExpr, AstFacet, Abstract)
-AST_NODE(AstExprPlaceholder, AstExpr, Concrete)
-AST_EXPR(AstName, AstExpr, Abstract)
-AST_EXPR(AstUnqualName, AstName, Concrete)
-AST_EXPR(AstNameSeq, AstName, Concrete)
-AST_EXPR(AstArithmeticExpr, AstExpr, Concrete)
-AST_EXPR(AstAssignExpr, AstExpr, Concrete)
-
-#undef AST_EXPR
-
 #ifndef AST_TYPESPEC
 #define AST_TYPESPEC AST_NODE
 #endif
 
 AST_TYPESPEC(AstTypeSpec, AstFacet, Abstract)
 AST_TYPESPEC(AstTypeSpecPlaceholder, AstTypeSpec, Concrete)
+AST_TYPESPEC(AstUnaryTypeSpec, AstTypeSpec, Abstract)
+AST_TYPESPEC(AstTypeRef, AstUnaryTypeSpec, Concrete)
+AST_TYPESPEC(AstTypePtr, AstUnaryTypeSpec, Concrete)
+AST_TYPESPEC(AstTypeOpt, AstUnaryTypeSpec, Concrete)
 AST_TYPESPEC(AstTypeID, AstTypeSpec, Abstract)
 AST_TYPESPEC(AstTypeUnqualID, AstTypeID, Concrete)
 
 #undef AST_TYPESPEC
+
+#ifndef AST_EXPR
+#define AST_EXPR AST_NODE
+#endif
+
+AST_EXPR(AstExpr, AstFacet, Abstract)
+AST_NODE(AstExprPlaceholder, AstExpr, Concrete)
+AST_EXPR(AstBinaryExpr, AstExpr, Abstract)
+AST_EXPR(AstCommaExpr, AstBinaryExpr, Concrete)
+AST_EXPR(AstAssignExpr, AstExpr, Concrete)
+AST_EXPR(AstCastExpr, AstExpr, Concrete)
+AST_EXPR(AstCondExpr, AstExpr, Concrete)
+AST_EXPR(AstLogicalExpr, AstBinaryExpr, Concrete)
+AST_EXPR(AstArithmeticExpr, AstBinaryExpr, Concrete)
+AST_EXPR(AstUnaryExpr, AstExpr, Concrete)
+AST_EXPR(AstCallBase, AstExpr, Abstract)
+AST_EXPR(AstCallExpr, AstCallBase, Concrete)
+AST_EXPR(AstConstructExpr, AstCallBase, Concrete)
+AST_EXPR(AstAggregateExpr, AstCallBase, Concrete)
+AST_EXPR(AstIndexExpr, AstCallBase, Concrete)
+AST_EXPR(AstIndexSliceExpr, AstCallBase, Concrete)
+AST_EXPR(AstName, AstExpr, Abstract)
+AST_EXPR(AstUnqualName, AstName, Concrete)
+AST_EXPR(AstNameSeq, AstName, Concrete)
+
+#undef AST_EXPR
 
 AST_NODE(AstStmt, AstNode, Abstract)
 AST_NODE(AstCompoundStmt, AstStmt, Concrete)
@@ -46,7 +62,16 @@ AST_NODE(AstExprStmt, AstStmt, Concrete)
 
 #undef AST_NODE
 
-// Arithmetic Operators
+// Operators
+
+#ifndef AST_LOGICAL_OPERATOR
+#define AST_LOGICAL_OPERATOR(Name, AssocToken)
+#endif
+
+AST_LOGICAL_OPERATOR(Or, DoubleVertBar)
+AST_LOGICAL_OPERATOR(And, DoubleAmpersand)
+
+#undef AST_LOGICAL_OPERATOR
 
 #ifndef AST_ARITHMETIC_OPERATOR
 #define AST_ARITHMETIC_OPERATOR(Name, AssocToken)
@@ -59,4 +84,32 @@ AST_ARITHMETIC_OPERATOR(Div, Slash)
 AST_ARITHMETIC_OPERATOR(Rem, Percent)
 
 #undef AST_ARITHMETIC_OPERATOR
+
+#ifndef AST_UNARY_OPERATOR
+#define AST_UNARY_OPERATOR(Name, AssocToken)
+#endif
+
+#ifndef AST_PREFIX_OPERATOR
+#define AST_PREFIX_OPERATOR AST_UNARY_OPERATOR
+#endif
+
+AST_PREFIX_OPERATOR(Promote, Plus)
+AST_PREFIX_OPERATOR(Negate, Minus)
+AST_PREFIX_OPERATOR(Dereference, Star)
+AST_PREFIX_OPERATOR(TakeAddress, Ampersand)
+AST_PREFIX_OPERATOR(PreIncrement, DoublePlus)
+AST_PREFIX_OPERATOR(PreDecrement, DoubleMinus)
+
+#undef AST_PREFIX_OPERATOR
+
+#ifndef AST_POSTFIX_OPERATOR
+#define AST_POSTFIX_OPERATOR AST_UNARY_OPERATOR
+#endif
+
+AST_POSTFIX_OPERATOR(PostIncrement, DoublePlus)
+AST_POSTFIX_OPERATOR(PostDecrement, DoubleMinus)
+
+#undef AST_POSTFIX_OPERATOR
+
+#undef AST_UNARY_OPERATOR
 

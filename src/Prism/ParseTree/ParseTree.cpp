@@ -33,7 +33,12 @@ struct PTPrinter {
             str << NullNode << "\n";
             return;
         }
-        str << node->kind() << "\n";
+        if (auto* term = csp::dyncast<ParseTreeTerminal const*>(node)) {
+            str << term->token().kind << "\n";
+        }
+        else {
+            str << get_rtti(*node) << "\n";
+        }
         fmt.writeChildren(node->children(),
                           [&](ParseTreeNode const* child) { print(child); });
     }

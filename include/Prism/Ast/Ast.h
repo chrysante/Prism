@@ -199,6 +199,14 @@ public:
         FacetPlaceholder(pt) {}
 };
 
+class AstUnaryTypeSpec: public AstTypeSpec {};
+
+class AstTypeRef: public AstUnaryTypeSpec {};
+
+class AstTypePtr: public AstUnaryTypeSpec {};
+
+class AstTypeOpt: public AstUnaryTypeSpec {};
+
 ///
 class AstTypeID: public AstTypeSpec {
 protected:
@@ -297,48 +305,171 @@ public:
 // MARK: - Expressions
 
 /// Arithmetic expression
-class AstArithmeticExpr: public AstExpr {
+class AstBinaryExpr: public AstExpr {
 public:
-    explicit AstArithmeticExpr(AstArithmeticOp operation, Token opToken,
-                               csp::unique_ptr<AstExpr> lhs,
-                               csp::unique_ptr<AstExpr> rhs):
-        AstExpr(AstNodeType::AstArithmeticExpr,
-                lhs ? lhs->firstToken() : opToken, std::move(lhs),
-                std::move(rhs)),
-        op(operation),
-        opTok(opToken) {}
-
     AST_PROPERTY(0, AstExpr, LHS, LHS)
 
     AST_PROPERTY(1, AstExpr, RHS, RHS)
 
-    AstArithmeticOp operation() const { return op; }
+    Token opToken() const { return opTok; }
+
+protected:
+    explicit AstBinaryExpr(AstNodeType nodeType, Token opToken,
+                           csp::unique_ptr<AstExpr> lhs,
+                           csp::unique_ptr<AstExpr> rhs):
+        AstExpr(nodeType, lhs->firstToken(), std::move(lhs), std::move(rhs)),
+        opTok(opToken) {}
+
+private:
+    Token opTok;
+};
+
+class AstCommaExpr: public AstBinaryExpr {
+public:
+    explicit AstCommaExpr(Token commaToken, csp::unique_ptr<AstExpr> lhs,
+                          csp::unique_ptr<AstExpr> rhs):
+        AstBinaryExpr(AstNodeType::AstCommaExpr, commaToken, std::move(lhs),
+                      std::move(rhs)) {}
+};
+
+class AstAssignExpr: public AstBinaryExpr {
+public:
+    explicit AstAssignExpr(Token opToken, csp::unique_ptr<AstExpr> lhs,
+                           csp::unique_ptr<AstExpr> rhs):
+        AstBinaryExpr(AstNodeType::AstAssignExpr, opToken, std::move(lhs),
+                      std::move(rhs)) {}
+};
+
+class AstCastExpr: public AstExpr {
+public:
+    explicit AstCastExpr(Token opToken, csp::unique_ptr<AstExpr> operand,
+                         csp::unique_ptr<AstTypeSpec> targetType):
+        AstExpr(AstNodeType::AstCastExpr, operand->firstToken(),
+                std::move(operand), std::move(targetType)),
+        opTok(opToken) {}
+
+    AST_PROPERTY(0, AstExpr, operand, Operand)
+
+    AST_PROPERTY(1, AstTypeSpec, targetType, TargetType)
 
     Token opToken() const { return opTok; }
 
 private:
-    AstArithmeticOp op;
     Token opTok;
 };
 
-/// Assignment expression, possibly an arithmetic assignment
-class AstAssignExpr: public AstExpr {
+class AstCondExpr: public AstExpr {
 public:
-    explicit AstAssignExpr(
-        Token firstToken,
-        std::optional<AstArithmeticOp> operation = std::nullopt):
-        AstExpr(AstNodeType::AstAssignExpr, firstToken),
-        op(operation.value_or(AstArithmeticOp(-1))) {}
+    explicit AstCondExpr(csp::unique_ptr<AstExpr> cond, Token question,
+                         csp::unique_ptr<AstExpr> ifExpr, Token colon,
+                         csp::unique_ptr<AstExpr> thenExpr):
+        AstExpr(AstNodeType::AstCondExpr, cond->firstToken(), std::move(cond),
+                std::move(ifExpr), std::move(thenExpr)),
+        question(question),
+        colon(colon) {}
 
-    /// \Returns an `AstArithmeticOp` if this is an
-    /// arithmetic-assign-expression, otherwise nullopt
-    std::optional<AstArithmeticOp> arithmeticOperation() const {
-        return op == AstArithmeticOp(-1) ? std::optional<AstArithmeticOp>{} :
-                                           op;
-    }
+    AST_PROPERTY(0, AstExpr, condition, Condition)
+
+    AST_PROPERTY(1, AstExpr, thenOperand, ThenOperand)
+
+    AST_PROPERTY(2, AstExpr, elseOperand, elseOperand)
+
+    Token questionToken() const { return question; }
+
+    Token colonToken() const { return colon; }
+
+private:
+    Token question;
+    Token colon;
+};
+
+class AstLogicalExpr: public AstBinaryExpr {
+public:
+    explicit AstLogicalExpr(Token opToken, AstLogicalOp op,
+                            csp::unique_ptr<AstExpr> lhs,
+                            csp::unique_ptr<AstExpr> rhs):
+        AstBinaryExpr(AstNodeType::AstLogicalExpr, opToken, std::move(lhs),
+                      std::move(rhs)),
+        op(op) {}
+
+    AstLogicalOp operation() const { return op; }
+
+private:
+    AstLogicalOp op;
+};
+
+class AstArithmeticExpr: public AstBinaryExpr {
+public:
+    explicit AstArithmeticExpr(Token opToken, AstArithmeticOp op,
+                               csp::unique_ptr<AstExpr> lhs,
+                               csp::unique_ptr<AstExpr> rhs):
+        AstBinaryExpr(AstNodeType::AstArithmeticExpr, opToken, std::move(lhs),
+                      std::move(rhs)),
+        op(op) {}
+
+    AstArithmeticOp operation() const { return op; }
 
 private:
     AstArithmeticOp op;
+};
+
+class AstUnaryExpr: public AstExpr {
+public:
+    enum Kind { Prefix, Postfix };
+
+    AstUnaryExpr(Kind kind, AstUnaryOp op, Token opToken,
+                 csp::unique_ptr<AstExpr> operand):
+        AstExpr(AstNodeType::AstUnaryExpr,
+                /* first-token: */ kind == Prefix ? opToken :
+                                                    operand->firstToken(),
+                std::move(operand)),
+        op(op) {}
+
+    AST_PROPERTY(0, AstExpr, operand, Operand)
+
+    AstUnaryOp operation() const { return op; }
+
+private:
+    AstUnaryOp op;
+};
+
+class AstCallBase: public AstExpr {
+public:
+    AST_PROPERTY(0, AstExpr, callee, Callee)
+
+    AST_PROPERTY_RANGE(1, AstFacet, arguments, Callee)
+
+protected:
+    template <typename... Args>
+    AstCallBase(AstNodeType nodeType, Token firstToken,
+                csp::unique_ptr<AstExpr> callee, Args&&... arguments):
+        AstExpr(nodeType, firstToken, std::move(callee),
+                std::forward<Args>(arguments)...) {}
+};
+
+class AstCallExpr: public AstCallBase {
+public:
+    template <typename... Args>
+    AstCallExpr(Token firstToken, csp::unique_ptr<AstExpr> callee,
+                Args&&... arguments):
+        AstCallBase(AstNodeType::AstCallExpr, firstToken, std::move(callee),
+                    std::forward<Args>(arguments)...) {}
+};
+
+class AstConstructExpr: public AstCallBase {
+public:
+};
+
+class AstAggregateExpr: public AstCallBase {
+public:
+};
+
+class AstIndexExpr: public AstCallBase {
+public:
+};
+
+class AstIndexSliceExpr: public AstCallBase {
+public:
 };
 
 // MARK: - Statements

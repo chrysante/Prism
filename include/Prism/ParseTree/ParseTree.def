@@ -2,11 +2,15 @@
 #define PARSETREE_NODE(Kind)
 #endif
 
-#define TOKEN_KIND(Kind) PARSETREE_NODE(Kind)
-#include <Prism/Source/Token.def>
-
-PARSETREE_NODE(BinaryFacet)
-PARSETREE_NODE(UnaryFacet)
-PARSETREE_NODE(IDFacet)
+PARSETREE_NODE(Node, NoParent, Abstract)
+PARSETREE_NODE(Terminal, Node, Concrete)
+PARSETREE_NODE(NonTerminal, Node, Abstract)
+PARSETREE_NODE(CastFacet, NonTerminal, Concrete)
+PARSETREE_NODE(CondFacet, NonTerminal, Concrete)
+PARSETREE_NODE(BinaryFacet, NonTerminal, Concrete)
+PARSETREE_NODE(PrefixFacet, NonTerminal, Concrete)
+PARSETREE_NODE(PostfixFacet, NonTerminal, Concrete)
+PARSETREE_NODE(ListFacet, NonTerminal, Concrete)
+PARSETREE_NODE(CallFacet, NonTerminal, Concrete)
 
 #undef PARSETREE_NODE
