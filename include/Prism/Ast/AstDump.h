@@ -14,7 +14,7 @@ class TreeFormatter;
 void dumpAst(AstNode const* root, std::ostream& ostream);
 
 /// \overload
-void dumpAst(AstNode const* root, std::ostream& ostream, TreeFormatter& fmt);
+void dumpAst(AstNode const* root, TreeFormatter& fmt);
 
 } // namespace prism
 

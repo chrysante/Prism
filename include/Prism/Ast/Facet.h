@@ -1,5 +1,5 @@
-#ifndef PRISM_PARSETREE_PARSETREE_H
-#define PRISM_PARSETREE_PARSETREE_H
+#ifndef PRISM_AST_FACET_H
+#define PRISM_AST_FACET_H
 
 #include <algorithm>
 #include <bit>
@@ -37,7 +37,7 @@ void print(Facet const* facet, std::ostream& ostream,
            SourceContext const* srcCtx = nullptr);
 
 /// \overload
-void print(Facet const* facet, std::ostream& ostream, TreeFormatter& fmt,
+void print(Facet const* facet, TreeFormatter& fmt,
            SourceContext const* srcCtx = nullptr);
 
 } // namespace prism
@@ -303,4 +303,4 @@ inline CallFacet const* makeCallFacet(Allocator auto& alloc,
 
 } // namespace prism
 
-#endif // PRISM_PARSETREE_PARSETREE_H
+#endif // PRISM_AST_FACET_H

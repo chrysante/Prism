@@ -13,6 +13,17 @@
 
 namespace prism {
 
+/// Style structure used by `TreeFormatter`
+struct TreeStyle {
+    static TreeStyle const Default;
+
+    enum LineStyle { Ascii, Sharp, Rounded };
+
+    LineStyle lines;
+};
+
+inline constexpr TreeStyle TreeStyle::Default = { .lines = TreeStyle::Rounded };
+
 /// Helper class for pretty-printing trees
 class TreeFormatter {
 public:
@@ -23,8 +34,9 @@ public:
         LastChildContinue
     };
 
-    explicit TreeFormatter(std::ostream& ostr):
-        ostr(ostr), buf(ostr, Indenter{ this }) {}
+    explicit TreeFormatter(std::ostream& ostr,
+                           TreeStyle style = TreeStyle::Default):
+        style(style), ostr(ostr), buf(ostr, Indenter{ this }) {}
 
     /// Wraps a call to function that writes details of the current node to the
     /// associated ostream
@@ -73,12 +85,16 @@ public:
         levels.pop_back();
     }
 
+    /// \Returns the underlying `std::ostream`
+    std::ostream& ostream() const { return ostr; }
+
 private:
     struct Indenter {
         void operator()(std::streambuf* buf) const;
         TreeFormatter* fmt;
     };
 
+    TreeStyle style;
     std::ostream& ostr;
     IndentingStreambuf<Indenter> buf;
     utl::small_vector<Level> levels;

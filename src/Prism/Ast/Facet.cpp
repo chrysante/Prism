@@ -58,10 +58,10 @@ struct FacetPrinter {
 void prism::print(Facet const* root, std::ostream& str,
                   SourceContext const* srcCtx) {
     TreeFormatter fmt(str);
-    print(root, str, fmt);
+    print(root, fmt);
 }
 
-void prism::print(Facet const* root, std::ostream& str, TreeFormatter& fmt,
+void prism::print(Facet const* root, TreeFormatter& fmt,
                   SourceContext const* srcCtx) {
-    FacetPrinter{ str, fmt, srcCtx }.print(root);
+    FacetPrinter{ fmt.ostream(), fmt, srcCtx }.print(root);
 }

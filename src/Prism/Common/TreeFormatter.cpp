@@ -5,25 +5,28 @@
 using namespace prism;
 using enum TreeFormatter::Level;
 
-#if 0
-static constexpr std::string_view Repr[] = { "+- ", "|  ", "+- ", "   " };
-#else
-static constexpr std::string_view Repr[] = { "├╴", "│ ", "╰╴", "  " };
-#endif
-
 static constexpr TreeFormatter::Level Next[] = { ChildContinue, ChildContinue,
                                                  LastChildContinue,
                                                  LastChildContinue };
+
+static constexpr std::array<std::string_view, 4> Repr[] = {
+    { "+-", "| ", "\\-", "  " },
+    { "├╴", "│ ", "└╴", "  " },
+    { "├╴", "│ ", "╰╴", "  " },
+};
 
 void TreeFormatter::Indenter::operator()(std::streambuf* buf) const {
     // Can't use the global modifier stack here, because the indentation may be
     // written after users pushed modifiers that shall only appear after the
     // indentation
-    fmt->ostr << (tfmt::BrightGrey | tfmt::Bold);
+    static auto const Mod = tfmt::BrightGrey | tfmt::Bold;
+    buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
+    auto const& repr = Repr[fmt->style.lines];
     for (auto& level: fmt->levels) {
-        auto repr = Repr[level];
-        buf->sputn(repr.data(), repr.size());
+        auto reprStr = repr[level];
+        buf->sputn(reprStr.data(), reprStr.size());
         level = Next[level];
     }
-    fmt->ostr << tfmt::Reset;
+    buf->sputn(tfmt::Reset.ansiBuffer().data(),
+               tfmt::Reset.ansiBuffer().size());
 }

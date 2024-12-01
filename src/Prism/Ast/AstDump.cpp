@@ -58,8 +58,8 @@ struct Emitter {
     TreeFormatter& fmt;
     utl::hashmap<AstNodeType, utl::hashmap<size_t, std::string>> labelMap;
 
-    Emitter(std::ostream& str, TreeFormatter& fmt):
-        str(str),
+    Emitter(TreeFormatter& fmt):
+        str(fmt.ostream()),
         fmt(fmt),
         // clang-format off
         labelMap({
@@ -98,7 +98,7 @@ struct Emitter {
     }
 
     void writeChildren(std::derived_from<RawFacetBase> auto const& node) {
-        fmt.writeChild([&] { print(node.facet(), str, fmt, ctx); });
+        fmt.writeChild([&] { print(node.facet(), fmt, ctx); });
     }
 
     void endNode(AstNode const&) {}
@@ -123,10 +123,9 @@ struct Emitter {
 
 void prism::dumpAst(AstNode const* root, std::ostream& str) {
     TreeFormatter fmt(str);
-    dumpAst(root, str, fmt);
+    dumpAst(root, fmt);
 }
 
-void prism::dumpAst(AstNode const* root, std::ostream& str,
-                    TreeFormatter& fmt) {
-    Emitter(str, fmt).run(root);
+void prism::dumpAst(AstNode const* root, TreeFormatter& fmt) {
+    Emitter(fmt).run(root);
 }
