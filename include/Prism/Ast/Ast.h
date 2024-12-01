@@ -249,7 +249,7 @@ private:
 class AstDecl: public AstStmt {
 public:
     /// The keyword introducing this declaration, like `let`, `fn` or `struct`
-    Token declarator() const { return _declarator; }
+    Token declarator() const { return firstToken(); }
 
     /// The name declared by this declaration
     AST_PROPERTY(0, AstName, name, Name)
@@ -258,12 +258,8 @@ protected:
     template <typename... C>
     explicit AstDecl(AstNodeType type, Token declarator,
                      csp::unique_ptr<AstName> name, C&&... otherChildren):
-        AstStmt(type, name->firstToken(), std::move(name),
-                std::forward<C>(otherChildren)...),
-        _declarator(declarator) {}
-
-private:
-    Token _declarator;
+        AstStmt(type, declarator, std::move(name),
+                std::forward<C>(otherChildren)...) {}
 };
 
 /// List of declarations in a source file

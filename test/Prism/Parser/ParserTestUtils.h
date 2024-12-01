@@ -1,13 +1,25 @@
 #include <concepts>
 #include <initializer_list>
+#include <ostream>
 #include <span>
 #include <variant>
 
 #include <Prism/Ast/Ast.h>
+#include <Prism/Ast/AstDump.h>
 #include <Prism/Ast/Facet.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
+
+inline std::ostream& operator<<(std::ostream& str, AstNode const& node) {
+    dumpAst(&node, str);
+    return str;
+}
+
+inline std::ostream& operator<<(std::ostream& str, Facet const& facet) {
+    print(&facet, str);
+    return str;
+}
 
 using VarType = std::variant<AstNodeType, FacetType, TokenKind>;
 
@@ -30,6 +42,11 @@ private:
     bool compare(AstNode const* node) const;
 
     bool compare(Facet const* node) const;
+
+    template <typename T>
+    bool checkType(T t) const;
+
+    bool compareChildren(auto const* node) const;
 
     VarType type;
     std::span<AstRefNode const* const> children;

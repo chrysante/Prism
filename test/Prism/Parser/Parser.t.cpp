@@ -21,12 +21,22 @@ TEST_CASE("Parser", "[parser]") {
             AstCompoundStmt,
         }
     });
-    CHECK(*parseFacet("0xff + 42 * c") == BinaryFacet >> Tree{
+    CHECK(*parseFacet("0xff + 42 * ++c") == BinaryFacet >> Tree{
         IntLiteralHex,
+        Plus,
         BinaryFacet >> Tree{
             IntLiteralDec,
-            Identifier,
+            Star,
+            PrefixFacet >> Tree{ DoublePlus, Identifier },
         }
+    });
+    CHECK(*parseFacet("f(x, y, z)") == CallFacet >> Tree{
+        Identifier,
+        OpenParen,
+        ListFacet >> Tree{
+            Identifier, Identifier, Identifier
+        },
+        CloseParen
     });
 }
 

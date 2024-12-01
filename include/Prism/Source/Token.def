@@ -60,6 +60,7 @@ OPERATOR_TOKEN_KIND(AmpersandEq, "&=")
 OPERATOR_TOKEN_KIND(VertBarEq, "|=")
 OPERATOR_TOKEN_KIND(CircumflexEq, "^=")
 OPERATOR_TOKEN_KIND(Question, "?")
+OPERATOR_TOKEN_KIND(Exclam, "!")
 OPERATOR_TOKEN_KIND(QuestionColon, "?:")
 OPERATOR_TOKEN_KIND(Arrow, "->")
 
@@ -83,6 +84,10 @@ KEYWORD_TOKEN_KIND(Do, "do")
 KEYWORD_TOKEN_KIND(While, "while")
 
 KEYWORD_TOKEN_KIND(As, "as")
+KEYWORD_TOKEN_KIND(Mut, "mut")
+KEYWORD_TOKEN_KIND(Dyn, "dyn")
+KEYWORD_TOKEN_KIND(New, "new")
+KEYWORD_TOKEN_KIND(Move, "move")
 
 KEYWORD_TOKEN_KIND(Void, "void")
 KEYWORD_TOKEN_KIND(Int, "int")

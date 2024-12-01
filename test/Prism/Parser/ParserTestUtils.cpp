@@ -10,16 +10,31 @@
 using namespace prism;
 
 bool AstRefNode::compare(AstNode const* node) const {
+    if (!node) return false;
     if (auto* facetNode = csp::dyncast<AstExprFacet const*>(node)) {
         return compare(facetNode->facet());
     }
     if (auto* facetNode = csp::dyncast<AstTypeSpecFacet const*>(node)) {
         return compare(facetNode->facet());
     }
-    if (!node) return false;
-    auto* t = std::get_if<AstNodeType>(&type);
-    if (!t) return false;
-    if (get_rtti(*node) != *t) return false;
+    return checkType(get_rtti(*node)) && compareChildren(node);
+}
+
+bool AstRefNode::compare(Facet const* facet) const {
+    if (!facet) return false;
+    if (auto* term = csp::dyncast<TerminalFacet const*>(facet)) {
+        return checkType(term->token().kind);
+    }
+    return checkType(get_rtti(*facet)) && compareChildren(facet);
+}
+
+template <typename T>
+bool AstRefNode::checkType(T t) const {
+    auto* u = std::get_if<T>(&type);
+    return u && *u == t;
+}
+
+bool AstRefNode::compareChildren(auto const* node) const {
     if (!children.empty() && children.size() != node->children().size())
         return false;
     return ranges::all_of(ranges::views::zip(children, node->children()),
@@ -27,16 +42,6 @@ bool AstRefNode::compare(AstNode const* node) const {
         auto [ref, node] = p;
         return ref->compare(node);
     });
-}
-
-bool AstRefNode::compare(Facet const* node) const {
-    if (!node) return false;
-    if (auto* term = csp::dyncast<TerminalFacet const*>(node)) {
-        auto* t = std::get_if<TokenKind>(&type);
-        return t && term->token().kind == *t;
-    }
-    auto* t = std::get_if<FacetType>(&type);
-    return t && get_rtti(*node) == *t;
 }
 
 static MonotonicBufferAllocator gAlloc;

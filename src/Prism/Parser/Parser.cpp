@@ -431,11 +431,46 @@ Facet const* Parser::parseMulFacet() {
 }
 
 Facet const* Parser::parsePrefixFacet() {
-    return parsePostfixFacet(); // For now
+    auto tok = match(Plus, Minus, Tilde, Exclam, DoublePlus, DoubleMinus, Mut,
+                     Dyn, Star, Ampersand, Question, New, Move);
+    if (!tok) return parsePostfixFacet();
+    auto* operand = parsePrefixFacet();
+    return makePrefixFacet(alloc, *tok, operand);
+}
+
+static TokenKind toClosing(TokenKind open) {
+    switch (open) {
+    case OpenParen:
+        return CloseParen;
+    case OpenBracket:
+        return CloseBracket;
+    case OpenBrace:
+        return CloseBrace;
+    default:
+        PRISM_ASSERT(false);
+    }
 }
 
 Facet const* Parser::parsePostfixFacet() {
-    return parsePrimaryFacet(); // For now
+    Facet const* operand = parsePrimaryFacet();
+    if (!operand) return nullptr;
+    while (true) {
+        if (auto tok = match(DoublePlus, DoubleMinus)) {
+            operand = makePostfixFacet(alloc, operand, *tok);
+        }
+        else if (auto open = match(OpenParen, OpenBracket)) {
+            TokenKind closingKind = toClosing(open->kind);
+            auto argList =
+                parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
+            auto close = match(closingKind);
+            PRISM_ASSERT(close);
+            auto* args = makeListFacet(alloc, argList);
+            operand = makeCallFacet(alloc, operand, *open, args, *close);
+        }
+        else {
+            return operand;
+        }
+    }
 }
 
 Facet const* Parser::parsePrimaryFacet() {
@@ -508,7 +543,11 @@ utl::small_vector<InvokeResult<Fn>> Parser::parseSequence(
             assert(false); // Push error here
         }
         first = false;
-        seq.push_back(invoke(parser));
+        auto elem = invoke(parser);
+        if (!elem) {
+            assert(false); // Expected element
+        }
+        seq.push_back(std::move(elem));
     }
 }
 

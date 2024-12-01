@@ -4,6 +4,7 @@
 #include <cctype>
 
 #include <range/v3/algorithm.hpp>
+#include <utl/hashtable.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Lexer/LexicalIssue.h"
@@ -233,7 +234,7 @@ static bool isIDContinue(char c) {
     return isIDBegin(c) || (c >= '0' && c <= '9');
 }
 
-static std::unordered_map<std::string_view, TokenKind> const KeywordMap = {
+static utl::hashmap<std::string_view, TokenKind> const KeywordMap = {
 #define KEYWORD_TOKEN_KIND(Kind, Spelling) { Spelling, TokenKind::Kind },
 #include "Prism/Source/Token.def"
 };
@@ -248,7 +249,8 @@ std::optional<Token> Lexer::lexKeywordOrID() {
         increment();
     }
     size_t len = index - loc;
-    auto itr = KeywordMap.find(tokenSource(loc, index));
+    std::string_view text = tokenSource(loc, index);
+    auto itr = KeywordMap.find(text);
     auto kind = itr != KeywordMap.end() ? itr->second : TokenKind::Identifier;
     return Token{ kind, (uint16_t)len, loc };
 }

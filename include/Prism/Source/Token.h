@@ -4,12 +4,13 @@
 #include <cstdint>
 #include <iosfwd>
 
+#include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
 
 namespace prism {
 
 /// List of different token types
-enum class TokenKind {
+enum class TokenKind : unsigned {
 #define TOKEN_KIND(Kind) Kind,
 #include <Prism/Source/Token.def>
 };
