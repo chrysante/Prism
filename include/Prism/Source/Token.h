@@ -2,6 +2,7 @@
 #define PRISM_SOURCE_TOKEN_H
 
 #include <cstdint>
+#include <iosfwd>
 
 #include <Prism/Common/EnumUtil.h>
 
@@ -44,6 +45,8 @@ struct Token {
 static_assert(sizeof(Token) == 8);
 
 constexpr Token Token::ErrorToken = { TokenKind::Error, 0, 0 };
+
+std::ostream& operator<<(std::ostream& ostream, Token const& token);
 
 } // namespace prism
 

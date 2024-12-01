@@ -18,6 +18,8 @@
 
 namespace prism {
 
+class SourceContext;
+
 enum class FacetType {
 #define FACET_DEF(Type, ...) Type,
 #include <Prism/Facet/Facet.def>
@@ -31,10 +33,12 @@ PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
 class TreeFormatter;
 
 /// Prints \p facet  as a tree to \p ostream
-void print(Facet const* facet, std::ostream& ostream);
+void print(Facet const* facet, std::ostream& ostream,
+           SourceContext const* srcCtx = nullptr);
 
 /// \overload
-void print(Facet const* facet, std::ostream& ostream, TreeFormatter& fmt);
+void print(Facet const* facet, std::ostream& ostream, TreeFormatter& fmt,
+           SourceContext const* srcCtx = nullptr);
 
 } // namespace prism
 

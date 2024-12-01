@@ -1,6 +1,8 @@
 #include "Prism/Lexer/Lexer.h"
 
+#include <algorithm>
 #include <cctype>
+
 #include <range/v3/algorithm.hpp>
 
 #include "Prism/Common/Assert.h"
@@ -48,6 +50,9 @@ std::optional<Token> Lexer::nextImpl() {
     if (auto tok = lexCharLiteral()) {
         return tok;
     }
+    if (auto tok = lexIntLiteral()) {
+        return tok;
+    }
     if (auto tok = lexKeywordOrID()) {
         return tok;
     }
@@ -68,9 +73,32 @@ std::optional<Token> Lexer::lexPunctuation() {
     }
 }
 
+static constexpr auto operatorLetterArrayImpl(auto cont) {
+    char all[] =
+#define OPERATOR_TOKEN_KIND(Name, Spelling) Spelling
+#include "Prism/Source/Token.def"
+        ;
+    auto begin = std::begin(all);
+    auto end = std::end(all);
+    std::sort(begin, end);
+    auto mid = std::unique(begin, end);
+    return cont(begin, mid);
+}
+
+static constexpr size_t operatorLetterArraySize() {
+    return operatorLetterArrayImpl(ranges::distance);
+}
+
+static constexpr auto makeOperatorLetterArray() {
+    return operatorLetterArrayImpl([](auto begin, auto end) {
+        std::array<char, operatorLetterArraySize()> result;
+        std::copy(begin, end, result.begin());
+        return result;
+    });
+}
+
 static bool isOperatorBegin(char c) {
-    static constexpr std::array values = { '-', '+', '*', '/', '<', '>', ':',
-                                           '?', '=', '&', '|', '^', '?' };
+    static constexpr std::array values = makeOperatorLetterArray();
     return ranges::contains(values, c);
 }
 
@@ -149,6 +177,52 @@ std::optional<Token> Lexer::lexStringLiteral() {
 
 std::optional<Token> Lexer::lexCharLiteral() {
     return lexStringLiteralImpl(TokenKind::CharLiteral, "\'", "\'");
+}
+
+std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
+                                              std::string_view prefix,
+                                              auto isValidChar) {
+    uint32_t begin = index;
+    if (!prefix.empty()) {
+        if (!source.substr(index).starts_with(prefix)) {
+            return std::nullopt;
+        }
+        index += prefix.size();
+        if (!valid() || !std::invoke(isValidChar, current())) {
+            iss.push(std::make_unique<LexicalIssue>(
+                LexicalIssue::InvalidNumericLiteral,
+                Token(TokenKind::Error, begin, (uint32_t)prefix.size())));
+            return std::nullopt;
+        }
+    }
+    else {
+        if (!valid() || !std::invoke(isValidChar, current())) {
+            return std::nullopt;
+        }
+    }
+    while (valid() && std::invoke(isValidChar, current())) {
+        increment();
+    }
+    return Token(kind, index - begin, begin);
+}
+
+std::optional<Token> Lexer::lexIntLiteral() {
+    static constexpr auto charRange = [](char min, char max) {
+        return [=](char c) { return c >= min && c <= max; };
+    };
+    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralBin, "0b",
+                                     charRange('0', '1')))
+        return tok;
+    if (auto tok =
+            lexIntLiteralImpl(TokenKind::IntLiteralHex, "0x", [](char c) {
+        return charRange('0', '9')(c) || charRange('a', 'f')(c) ||
+               charRange('A', 'F')(c);
+    }))
+        return tok;
+    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralDec, "",
+                                     charRange('0', '9')))
+        return tok;
+    return std::nullopt;
 }
 
 static bool isIDBegin(char c) {

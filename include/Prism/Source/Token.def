@@ -94,6 +94,9 @@ KEYWORD_TOKEN_KIND(Double, "double")
 
 TOKEN_KIND(StringLiteral)
 TOKEN_KIND(CharLiteral)
+TOKEN_KIND(IntLiteralBin)
+TOKEN_KIND(IntLiteralDec)
+TOKEN_KIND(IntLiteralHex)
 TOKEN_KIND(Identifier)
 TOKEN_KIND(End)
 

@@ -9,7 +9,11 @@ namespace prism {
 
 class LexicalIssue: public Issue {
 public:
-    enum Reason { InvalidCharacterSequence, UnterminatedStringLiteral };
+    enum Reason {
+        InvalidCharacterSequence,
+        UnterminatedStringLiteral,
+        InvalidNumericLiteral
+    };
 
     explicit LexicalIssue(Reason reason, Token tok):
         Issue(tok.index), _reason(reason), tok(tok) {}

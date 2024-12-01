@@ -7,6 +7,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include(cmake/CPM.cmake)
 
+function(enable_sanitizers target)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        target_compile_options(${target} PRIVATE 
+            $<$<CONFIG:Debug>:-fsanitize=address,undefined -fno-omit-frame-pointer>)
+        target_link_options(${target} PRIVATE 
+            $<$<CONFIG:Debug>:-fsanitize=address,undefined -fno-omit-frame-pointer>)
+    endif()
+endfunction()
+
 CPMAddPackage("gh:chrysante/csp#main")
 CPMAddPackage("gh:chrysante/utility#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
@@ -74,6 +83,7 @@ set(PRISM_TEST_FILES
 )
 
 add_library(Prism SHARED)
+enable_sanitizers(Prism)
 
 target_sources(Prism 
   PRIVATE 
@@ -96,6 +106,7 @@ target_link_libraries(Prism
 target_include_directories(Prism PUBLIC include PRIVATE src)
 
 add_executable(PrismTest)
+enable_sanitizers(PrismTest)
 
 target_sources(PrismTest
   PRIVATE  
@@ -111,6 +122,7 @@ target_link_libraries(PrismTest
 )
 
 add_executable(Playground)
+enable_sanitizers(Playground)
 
 target_sources(Playground
   PRIVATE  

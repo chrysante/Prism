@@ -26,6 +26,10 @@ private:
                                               std::string_view end);
     std::optional<Token> lexStringLiteral();
     std::optional<Token> lexCharLiteral();
+    std::optional<Token> lexIntLiteralImpl(TokenKind kind,
+                                           std::string_view prefix,
+                                           auto isValidChar);
+    std::optional<Token> lexIntLiteral();
     std::optional<Token> lexKeywordOrID();
 
     void ignoreWhitespace();

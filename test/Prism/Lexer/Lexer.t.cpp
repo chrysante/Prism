@@ -19,8 +19,8 @@ struct RefToken {
 };
 
 std::ostream& operator<<(std::ostream& str, RefToken const& tok) {
-    str << "{ kind: " << tok.kind << ", line: " << tok.line
-        << ", col: " << tok.col << ", len: " << tok.len << " }";
+    return str << "{ kind: " << tok.kind << ", line: " << tok.line
+               << ", col: " << tok.col << ", len: " << tok.len << " }";
 }
 
 bool operator==(RefToken const& ref, Token const& tok) {
@@ -122,6 +122,12 @@ TEST_CASE("Literals", "[lexer]") {
           RefToken{ ctx, TokenKind::StringLiteral, 0, 0, 4 });
     CHECK(getSingle(R"('\"')") ==
           RefToken{ ctx, TokenKind::CharLiteral, 0, 0, 4 });
+    CHECK(getSingle("0b0101") ==
+          RefToken{ ctx, TokenKind::IntLiteralBin, 0, 0, 6 });
+    CHECK(getSingle("123") ==
+          RefToken{ ctx, TokenKind::IntLiteralDec, 0, 0, 3 });
+    CHECK(getSingle("0xabc") ==
+          RefToken{ ctx, TokenKind::IntLiteralHex, 0, 0, 5 });
 }
 
 TEST_CASE("Errors", "[lexer]") {

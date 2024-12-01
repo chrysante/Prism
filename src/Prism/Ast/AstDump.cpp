@@ -98,7 +98,7 @@ struct Emitter {
     }
 
     void writeChildren(std::derived_from<FacetPlaceholder> auto const& node) {
-        fmt.writeChild([&] { print(node.facet(), str, fmt); });
+        fmt.writeChild([&] { print(node.facet(), str, fmt, ctx); });
     }
 
     void endNode(AstNode const&) {}

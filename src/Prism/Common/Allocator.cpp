@@ -42,18 +42,13 @@ MonotonicBufferAllocator& MonotonicBufferAllocator::operator=(
     return *this;
 }
 
-/// Disable UBSan for method `allocate`  as it may perform pointer arithmetic on
-/// `nullptr`. This pointer will be never dereferenced though, so its all fine.
-/// (Still UB though)
-/*SC_DISABLE_UBSAN*/ void* MonotonicBufferAllocator::allocate(size_t size,
-                                                              size_t align) {
-    std::byte* const result = alignPointer(current, align);
-    std::byte* const next = result + size;
-    if (next > end) {
-        addChunk(buffer ? buffer->size * 2 : InititalSize);
-        return allocate(size, align);
+void* MonotonicBufferAllocator::allocate(size_t size, size_t align) {
+    std::byte* result = alignPointer(current, align);
+    if (end - result < size) {
+        addChunk(std::max(size, buffer ? buffer->size * 2 : InititalSize));
+        result = alignPointer(current, align);
     }
-    current = next;
+    current += size;
     return result;
 }
 

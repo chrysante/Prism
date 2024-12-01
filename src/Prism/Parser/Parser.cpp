@@ -329,13 +329,9 @@ csp::unique_ptr<AstTypeSpec> Parser::parseTypeSpec() {
 static Token firstToken(Facet const* node) {
     PRISM_ASSERT(node);
     // clang-format off
-    csp::visit(*node, csp::overload{
-        [](TerminalFacet const& node) {
-            return node.token();
-        },
-        [](NonTerminalFacet const& node) {
-            return firstToken(node.childAt(0));
-        }
+    return csp::visit(*node, csp::overload{
+        [](TerminalFacet const& node) { return node.token(); },
+        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); }
     });
     // clang-format on
 }
@@ -437,9 +433,9 @@ Facet const* Parser::parsePostfixFacet() {
 }
 
 Facet const* Parser::parsePrimaryFacet() {
-    if (auto tok = match(Identifier)) {
+    if (auto tok =
+            match(Identifier, IntLiteralBin, IntLiteralDec, IntLiteralHex))
         return makeTerminal(alloc, *tok);
-    }
     if (auto tok = match(OpenParen)) {
         auto* facet = parseCommaFacet();
         if (!facet) {

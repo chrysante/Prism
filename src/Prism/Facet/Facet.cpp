@@ -4,6 +4,7 @@
 #include <utl/streammanip.hpp>
 
 #include "Prism/Common/TreeFormatter.h"
+#include "Prism/Source/SourceContext.h"
 
 using namespace prism;
 
@@ -18,8 +19,7 @@ namespace {
 struct FacetPrinter {
     std::ostream& str;
     TreeFormatter& fmt;
-
-    FacetPrinter(std::ostream& str, TreeFormatter& fmt): str(str), fmt(fmt) {}
+    SourceContext const* srcCtx;
 
     void print(Facet const* node) {
         if (!node) {
@@ -27,10 +27,10 @@ struct FacetPrinter {
             return;
         }
         if (auto* term = csp::dyncast<TerminalFacet const*>(node)) {
-            str << term->token().kind << "\n";
+            str << term->token().kind;
         }
         else {
-            str << get_rtti(*node) << "\n";
+            str << get_rtti(*node);
         }
         csp::visit(*node, [this](auto& node) { details(node); });
         str << "\n";
@@ -39,15 +39,23 @@ struct FacetPrinter {
     }
 
     void details(Facet const&) {}
+
+    void details(TerminalFacet const& term) {
+        if (srcCtx) {
+            str << " " << srcCtx->getTokenStr(term.token());
+        }
+    }
 };
 
 } // namespace
 
-void prism::print(Facet const* root, std::ostream& str) {
+void prism::print(Facet const* root, std::ostream& str,
+                  SourceContext const* srcCtx) {
     TreeFormatter fmt(str);
     print(root, str, fmt);
 }
 
-void prism::print(Facet const* root, std::ostream& str, TreeFormatter& fmt) {
-    FacetPrinter(str, fmt).print(root);
+void prism::print(Facet const* root, std::ostream& str, TreeFormatter& fmt,
+                  SourceContext const* srcCtx) {
+    FacetPrinter{ str, fmt, srcCtx }.print(root);
 }
