@@ -28,4 +28,25 @@ PRISM_DEFINE_ENUM_FUNCTIONS(AstNodeType)
                Corporeality)
 #include <Prism/Ast/Ast.def>
 
+namespace prism {
+
+/// Runtime type identifiers for the facet nodes
+enum class FacetType {
+#define FACET_DEF(Type, ...) Type,
+#include <Prism/Ast/Facet.def>
+};
+
+PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
+
+/// Forward declarations of all facet nodes
+#define FACET_DEF(Type, ...) class Type;
+#include <Prism/Ast/Facet.def>
+
+} // namespace prism
+
+// Register the facet nodes with CSP
+#define FACET_DEF(Type, Parent, Corporeality)                                  \
+    CSP_DEFINE(prism::Type, prism::FacetType::Type, prism::Parent, Corporeality)
+#include <Prism/Ast/Facet.def>
+
 #endif // PRISM_AST_ASTFWD_H

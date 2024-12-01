@@ -34,6 +34,8 @@ private:
 /// Wraps metadata and source text for a given source file
 class SourceContext {
 public:
+    SourceContext() = default;
+
     explicit SourceContext(std::filesystem::path filepath,
                            std::string_view source):
         p(std::move(filepath)), src(source) {}

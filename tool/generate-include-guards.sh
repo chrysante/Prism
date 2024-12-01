@@ -7,3 +7,4 @@ generate_dir() {
 
 generate_dir src src
 generate_dir include include
+generate_dir test test

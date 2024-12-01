@@ -80,6 +80,9 @@ set(PRISM_SOURCE_FILES
 
 set(PRISM_TEST_FILES 
     test/Prism/Lexer/Lexer.t.cpp 
+    test/Prism/Parser/Parser.t.cpp 
+    test/Prism/Parser/ParserTestUtils.h
+    test/Prism/Parser/ParserTestUtils.cpp
 )
 
 add_library(Prism SHARED)
@@ -120,6 +123,8 @@ target_link_libraries(PrismTest
     Catch2::Catch2WithMain
     Prism
 )
+
+target_include_directories(PrismTest PRIVATE test)
 
 add_executable(Playground)
 enable_sanitizers(Playground)

@@ -32,6 +32,8 @@ public:
 
     size_t size() const { return list.size(); }
 
+    void clear() { list.clear(); }
+
     auto begin() const { return view().begin(); }
     auto end() const { return view().end(); }
     auto const& front() const { return view().front(); }

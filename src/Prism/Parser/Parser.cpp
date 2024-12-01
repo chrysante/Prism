@@ -120,6 +120,7 @@
 
 #include <utl/scope_guard.hpp>
 
+#include "Prism/Ast/Ast.h"
 #include "Prism/Ast/Facet.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
@@ -150,8 +151,7 @@ struct Parser {
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
 
-    csp::unique_ptr<AstSourceFile> run();
-
+    csp::unique_ptr<AstSourceFile> parseSourceFile();
     csp::unique_ptr<AstStmt> parseStmt();
     csp::unique_ptr<AstDecl> parseDecl();
     csp::unique_ptr<AstFuncDecl> parseFuncDecl();
@@ -236,10 +236,18 @@ struct Parser {
 csp::unique_ptr<AstSourceFile> prism::parseSourceFile(
     MonotonicBufferAllocator& alloc, SourceContext const& sourceCtx,
     IssueHandler& iss) {
-    return Parser(alloc, sourceCtx, iss).run();
+    Parser parser(alloc, sourceCtx, iss);
+    return parser.parseSourceFile();
 }
 
-csp::unique_ptr<AstSourceFile> Parser::run() {
+Facet const* prism::parseFacet(MonotonicBufferAllocator& alloc,
+                               SourceContext const& sourceCtx,
+                               IssueHandler& iss) {
+    Parser parser(alloc, sourceCtx, iss);
+    return parser.parseCommaFacet();
+}
+
+csp::unique_ptr<AstSourceFile> Parser::parseSourceFile() {
     return csp::make_unique<AstSourceFile>(sourceCtx,
                                            parseSequence(&Parser::parseDecl,
                                                          End));

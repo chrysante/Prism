@@ -7,44 +7,13 @@
 #include <span>
 
 #include <csp.hpp>
-#include <utl/common.hpp>
-#include <utl/ipp.hpp>
 
+#include <Prism/Ast/AstFwd.h>
 #include <Prism/Common/Allocator.h>
 #include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/NoParent.h>
 #include <Prism/Source/Token.h>
-
-namespace prism {
-
-class SourceContext;
-
-enum class FacetType {
-#define FACET_DEF(Type, ...) Type,
-#include <Prism/Ast/Facet.def>
-};
-
-PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
-
-#define FACET_DEF(Type, ...) class Type;
-#include <Prism/Ast/Facet.def>
-
-class TreeFormatter;
-
-/// Prints \p facet  as a tree to \p ostream
-void print(Facet const* facet, std::ostream& ostream,
-           SourceContext const* srcCtx = nullptr);
-
-/// \overload
-void print(Facet const* facet, TreeFormatter& fmt,
-           SourceContext const* srcCtx = nullptr);
-
-} // namespace prism
-
-#define FACET_DEF(Type, Parent, Corporeality)                                  \
-    CSP_DEFINE(prism::Type, prism::FacetType::Type, prism::Parent, Corporeality)
-#include <Prism/Ast/Facet.def>
 
 namespace prism {
 
@@ -300,6 +269,17 @@ inline CallFacet const* makeCallFacet(Allocator auto& alloc,
 }
 
 #undef FACET_FIELD
+
+class SourceContext;
+class TreeFormatter;
+
+/// Prints \p facet  as a tree to \p ostream
+void print(Facet const* facet, std::ostream& ostream,
+           SourceContext const* srcCtx = nullptr);
+
+/// \overload
+void print(Facet const* facet, TreeFormatter& fmt,
+           SourceContext const* srcCtx = nullptr);
 
 } // namespace prism
 
