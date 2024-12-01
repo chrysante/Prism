@@ -1,4 +1,4 @@
-#include "Prism/ParseTree/ParseTree.h"
+#include "Prism/Facet/Facet.h"
 
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
@@ -6,13 +6,6 @@
 #include "Prism/Common/TreeFormatter.h"
 
 using namespace prism;
-
-void* ParseTreeContext::allocate() { return allocate(0); }
-
-void* ParseTreeContext::allocate(size_t numChildren) {
-    return alloc.allocate(sizeof(Facet) + numChildren * sizeof(void*),
-                          alignof(Facet));
-}
 
 using namespace tfmt::modifiers;
 
@@ -22,11 +15,11 @@ static constexpr utl::streammanip NullNode = [](std::ostream& str) {
 
 namespace {
 
-struct PTPrinter {
+struct FacetPrinter {
     std::ostream& str;
     TreeFormatter& fmt;
 
-    PTPrinter(std::ostream& str, TreeFormatter& fmt): str(str), fmt(fmt) {}
+    FacetPrinter(std::ostream& str, TreeFormatter& fmt): str(str), fmt(fmt) {}
 
     void print(Facet const* node) {
         if (!node) {
@@ -39,9 +32,13 @@ struct PTPrinter {
         else {
             str << get_rtti(*node) << "\n";
         }
+        csp::visit(*node, [this](auto& node) { details(node); });
+        str << "\n";
         fmt.writeChildren(node->children(),
                           [&](Facet const* child) { print(child); });
     }
+
+    void details(Facet const&) {}
 };
 
 } // namespace
@@ -52,5 +49,5 @@ void prism::print(Facet const* root, std::ostream& str) {
 }
 
 void prism::print(Facet const* root, std::ostream& str, TreeFormatter& fmt) {
-    PTPrinter(str, fmt).print(root);
+    FacetPrinter(str, fmt).print(root);
 }

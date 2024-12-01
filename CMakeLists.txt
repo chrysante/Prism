@@ -37,8 +37,8 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/Parser.h
     include/Prism/Parser/SyntaxIssue.h
 
-    include/Prism/ParseTree/ParseTree.def
-    include/Prism/ParseTree/ParseTree.h
+    include/Prism/Facet/Facet.def
+    include/Prism/Facet/Facet.h
 
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
@@ -62,7 +62,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/SyntaxIssue.cpp
 
-    src/Prism/ParseTree/ParseTree.cpp
+    src/Prism/Facet/Facet.cpp
 
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp

@@ -1,10 +1,22 @@
 #ifndef PRISM_COMMON_ALLOCATOR_H
 #define PRISM_COMMON_ALLOCATOR_H
 
+#include <concepts>
 #include <memory>
 #include <span>
 
 namespace prism {
+
+/// Generic allocator concept
+template <typename A>
+concept Allocator = requires(A& a) {
+    {
+        a.allocate(size_t{}, size_t{})
+    } -> std::convertible_to<void*>;
+    {
+        a.deallocate((void*){}, size_t{}, size_t{})
+    };
+};
 
 /// "Arena" allocator. Allocation increases a pointer in the current memory
 /// block or allocates a new block. New blocks grow geometrically in size.

@@ -8,7 +8,7 @@
 
 #include "Prism/Ast/Ast.h"
 #include "Prism/Common/TreeFormatter.h"
-#include "Prism/ParseTree/ParseTree.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -98,7 +98,7 @@ struct Emitter {
     }
 
     void writeChildren(std::derived_from<FacetPlaceholder> auto const& node) {
-        fmt.writeChild([&] { print(node.parseTree(), str, fmt); });
+        fmt.writeChild([&] { print(node.facet(), str, fmt); });
     }
 
     void endNode(AstNode const&) {}

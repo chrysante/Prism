@@ -122,21 +122,21 @@ protected:
 /// Parse tree wrapper for an expression or type specifier
 class FacetPlaceholder {
 public:
-    explicit FacetPlaceholder(Facet const* pt): pt(pt) {}
+    explicit FacetPlaceholder(Facet const* fct): fct(fct) {}
 
-    /// \Returns the root of the raw parse tree
-    Facet const* parseTree() const { return pt; }
+    /// \Returns the raw source facet
+    Facet const* facet() const { return fct; }
 
 private:
-    Facet const* pt;
+    Facet const* fct;
 };
 
 ///
 class AstFacetPlaceholder: public AstFacet, public FacetPlaceholder {
 public:
-    explicit AstFacetPlaceholder(Facet const* pt, Token firstTok):
+    explicit AstFacetPlaceholder(Facet const* fct, Token firstTok):
         AstFacet(AstNodeType::AstFacetPlaceholder, firstTok),
-        FacetPlaceholder(pt) {}
+        FacetPlaceholder(fct) {}
 };
 
 // MARK: - Base Expressions
@@ -150,9 +150,9 @@ protected:
 ///
 class AstExprPlaceholder: public AstExpr, public FacetPlaceholder {
 public:
-    explicit AstExprPlaceholder(Facet const* pt, Token firstTok):
+    explicit AstExprPlaceholder(Facet const* fct, Token firstTok):
         AstExpr(AstNodeType::AstExprPlaceholder, firstTok),
-        FacetPlaceholder(pt) {}
+        FacetPlaceholder(fct) {}
 };
 
 ///
@@ -194,9 +194,9 @@ protected:
 ///
 class AstTypeSpecPlaceholder: public AstTypeSpec, public FacetPlaceholder {
 public:
-    explicit AstTypeSpecPlaceholder(Facet const* pt, Token firstTok):
+    explicit AstTypeSpecPlaceholder(Facet const* fct, Token firstTok):
         AstTypeSpec(AstNodeType::AstTypeSpecPlaceholder, firstTok),
-        FacetPlaceholder(pt) {}
+        FacetPlaceholder(fct) {}
 };
 
 class AstUnaryTypeSpec: public AstTypeSpec {};

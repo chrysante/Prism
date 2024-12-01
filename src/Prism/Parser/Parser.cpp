@@ -122,8 +122,8 @@
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
-#include "Prism/ParseTree/ParseTree.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -143,10 +143,10 @@ using InvokeResult =
                                 std::invoke_result<Fn, Parser>>::type;
 
 struct Parser {
-    explicit Parser(SourceContext const& sourceCtx, ParseTreeContext& ptCtx,
-                    IssueHandler& iss):
+    explicit Parser(MonotonicBufferAllocator& alloc,
+                    SourceContext const& sourceCtx, IssueHandler& iss):
+        alloc(alloc),
         sourceCtx(sourceCtx),
-        ptCtx(ptCtx),
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
 
@@ -223,8 +223,8 @@ struct Parser {
     template <ParserFn Fn>
     InvokeResult<Fn> invoke(Fn fn);
 
+    MonotonicBufferAllocator& alloc;
     SourceContext const& sourceCtx;
-    ParseTreeContext& ptCtx;
     IssueHandler& iss;
     Lexer lexer;
     std::optional<Token> peekToken;
@@ -234,9 +234,9 @@ struct Parser {
 } // namespace
 
 csp::unique_ptr<AstSourceFile> prism::parseSourceFile(
-    SourceContext const& sourceCtx, ParseTreeContext& ptCtx,
+    MonotonicBufferAllocator& alloc, SourceContext const& sourceCtx,
     IssueHandler& iss) {
-    return Parser(sourceCtx, ptCtx, iss).run();
+    return Parser(alloc, sourceCtx, iss).run();
 }
 
 csp::unique_ptr<AstSourceFile> Parser::run() {
@@ -380,7 +380,7 @@ Facet const* Parser::parseCondFacet() {
     if (!rhs) {
         assert(false); // Expected expression
     }
-    return ptCtx.condFacet(cond, *question, lhs, *colon, rhs);
+    return makeCondFacet(alloc, cond, *question, lhs, *colon, rhs);
 }
 
 Facet const* Parser::parseLogicalOrFacet() {
@@ -438,7 +438,17 @@ Facet const* Parser::parsePostfixFacet() {
 
 Facet const* Parser::parsePrimaryFacet() {
     if (auto tok = match(Identifier)) {
-        return ptCtx.terminal(*tok);
+        return makeTerminal(alloc, *tok);
+    }
+    if (auto tok = match(OpenParen)) {
+        auto* facet = parseCommaFacet();
+        if (!facet) {
+            assert(false); // Expected facet
+        }
+        if (!match(CloseParen)) {
+            assert(false); // Expected ')'
+        }
+        return facet;
     }
     return nullptr;
 }
@@ -456,7 +466,7 @@ Facet const* Parser::parseBinaryFacetLTR(
         if (!rhs) {
             assert(false); // Expected facet
         }
-        lhs = ptCtx.binaryFacet(lhs, *tok, rhs);
+        lhs = makeBinaryFacet(alloc, lhs, *tok, rhs);
     }
 }
 
@@ -469,7 +479,7 @@ Facet const* Parser::parseBinaryFacetRTL(
         if (!rhs) {
             assert(false); // Expected facet
         }
-        return ptCtx.binaryFacet(lhs, *tok, rhs);
+        return makeBinaryFacet(alloc, lhs, *tok, rhs);
     }
     return lhs;
 }
