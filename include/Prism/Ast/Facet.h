@@ -22,13 +22,13 @@ class SourceContext;
 
 enum class FacetType {
 #define FACET_DEF(Type, ...) Type,
-#include <Prism/Facet/Facet.def>
+#include <Prism/Ast/Facet.def>
 };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
 
 #define FACET_DEF(Type, ...) class Type;
-#include <Prism/Facet/Facet.def>
+#include <Prism/Ast/Facet.def>
 
 class TreeFormatter;
 
@@ -44,7 +44,7 @@ void print(Facet const* facet, std::ostream& ostream, TreeFormatter& fmt,
 
 #define FACET_DEF(Type, Parent, Corporeality)                                  \
     CSP_DEFINE(prism::Type, prism::FacetType::Type, prism::Parent, Corporeality)
-#include <Prism/Facet/Facet.def>
+#include <Prism/Ast/Facet.def>
 
 namespace prism {
 

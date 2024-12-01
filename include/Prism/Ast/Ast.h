@@ -119,10 +119,10 @@ protected:
     using AstNode::AstNode;
 };
 
-/// Parse tree wrapper for an expression or type specifier
-class FacetPlaceholder {
+/// Facet wrapper for an expression or type specifier
+class RawFacetBase {
 public:
-    explicit FacetPlaceholder(Facet const* fct): fct(fct) {}
+    explicit RawFacetBase(Facet const* fct): fct(fct) {}
 
     /// \Returns the raw source facet
     Facet const* facet() const { return fct; }
@@ -132,11 +132,10 @@ private:
 };
 
 ///
-class AstFacetPlaceholder: public AstFacet, public FacetPlaceholder {
+class AstRawFacet: public AstFacet, public RawFacetBase {
 public:
-    explicit AstFacetPlaceholder(Facet const* fct, Token firstTok):
-        AstFacet(AstNodeType::AstFacetPlaceholder, firstTok),
-        FacetPlaceholder(fct) {}
+    explicit AstRawFacet(Facet const* fct, Token firstTok):
+        AstFacet(AstNodeType::AstRawFacet, firstTok), RawFacetBase(fct) {}
 };
 
 // MARK: - Base Expressions
@@ -148,11 +147,10 @@ protected:
 };
 
 ///
-class AstExprPlaceholder: public AstExpr, public FacetPlaceholder {
+class AstExprFacet: public AstExpr, public RawFacetBase {
 public:
-    explicit AstExprPlaceholder(Facet const* fct, Token firstTok):
-        AstExpr(AstNodeType::AstExprPlaceholder, firstTok),
-        FacetPlaceholder(fct) {}
+    explicit AstExprFacet(Facet const* fct, Token firstTok):
+        AstExpr(AstNodeType::AstExprFacet, firstTok), RawFacetBase(fct) {}
 };
 
 ///
@@ -192,11 +190,11 @@ protected:
 };
 
 ///
-class AstTypeSpecPlaceholder: public AstTypeSpec, public FacetPlaceholder {
+class AstTypeSpecFacet: public AstTypeSpec, public RawFacetBase {
 public:
-    explicit AstTypeSpecPlaceholder(Facet const* fct, Token firstTok):
-        AstTypeSpec(AstNodeType::AstTypeSpecPlaceholder, firstTok),
-        FacetPlaceholder(fct) {}
+    explicit AstTypeSpecFacet(Facet const* fct, Token firstTok):
+        AstTypeSpec(AstNodeType::AstTypeSpecFacet, firstTok),
+        RawFacetBase(fct) {}
 };
 
 class AstUnaryTypeSpec: public AstTypeSpec {};

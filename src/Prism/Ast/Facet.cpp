@@ -1,4 +1,4 @@
-#include "Prism/Facet/Facet.h"
+#include "Prism/Ast/Facet.h"
 
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
@@ -11,7 +11,18 @@ using namespace prism;
 using namespace tfmt::modifiers;
 
 static constexpr utl::streammanip NullNode = [](std::ostream& str) {
-    str << tfmt::format(BrightRed | Bold, "NULL");
+    str << tfmt::format(BrightRed | Bold, "NULL FACET");
+};
+
+static constexpr utl::streammanip FacetName = [](std::ostream& str,
+                                                 Facet const& facet) {
+    tfmt::FormatGuard fmt(BrightBlue | Italic, str);
+    if (auto* term = csp::dyncast<TerminalFacet const*>(&facet)) {
+        str << term->token().kind;
+    }
+    else {
+        str << get_rtti(facet);
+    }
 };
 
 namespace {
@@ -26,12 +37,7 @@ struct FacetPrinter {
             str << NullNode << "\n";
             return;
         }
-        if (auto* term = csp::dyncast<TerminalFacet const*>(node)) {
-            str << term->token().kind;
-        }
-        else {
-            str << get_rtti(*node);
-        }
+        str << FacetName(*node);
         csp::visit(*node, [this](auto& node) { details(node); });
         str << "\n";
         fmt.writeChildren(node->children(),

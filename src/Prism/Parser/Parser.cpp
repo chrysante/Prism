@@ -120,9 +120,9 @@
 
 #include <utl/scope_guard.hpp>
 
+#include "Prism/Ast/Facet.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
-#include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -312,17 +312,15 @@ csp::unique_ptr<AstExprStmt> Parser::parseExprStmt() {
 }
 
 csp::unique_ptr<AstFacet> Parser::parseFacet() {
-    return parseFacetImpl<AstFacet, AstFacetPlaceholder>(
-        &Parser::parseCommaFacet);
+    return parseFacetImpl<AstFacet, AstRawFacet>(&Parser::parseCommaFacet);
 }
 
 csp::unique_ptr<AstExpr> Parser::parseExpr() {
-    return parseFacetImpl<AstExpr, AstExprPlaceholder>(
-        &Parser::parseCommaFacet);
+    return parseFacetImpl<AstExpr, AstExprFacet>(&Parser::parseCommaFacet);
 }
 
 csp::unique_ptr<AstTypeSpec> Parser::parseTypeSpec() {
-    return parseFacetImpl<AstTypeSpec, AstTypeSpecPlaceholder>(
+    return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
         &Parser::parsePrefixFacet);
 }
 

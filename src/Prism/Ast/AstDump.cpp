@@ -7,8 +7,8 @@
 #include <utl/streammanip.hpp>
 
 #include "Prism/Ast/Ast.h"
+#include "Prism/Ast/Facet.h"
 #include "Prism/Common/TreeFormatter.h"
-#include "Prism/Facet/Facet.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -97,7 +97,7 @@ struct Emitter {
         });
     }
 
-    void writeChildren(std::derived_from<FacetPlaceholder> auto const& node) {
+    void writeChildren(std::derived_from<RawFacetBase> auto const& node) {
         fmt.writeChild([&] { print(node.facet(), str, fmt, ctx); });
     }
 
