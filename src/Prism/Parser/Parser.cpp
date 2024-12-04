@@ -105,8 +105,6 @@
 //                        | <string-literal>
 //                        | <fstring-facet>
 //                        | 'this'
-//                        | '(' <comma-facet> ')'
-//                        | '[' <assign-facet>* ']'
 // <fstring-facet>      ::= <fstring-begin> <assign-facet> <fstring-mid-facet>* <fstring-end>
 // <fstring-mid-facet>  ::= <fstring-mid> <assign-facet>
 
@@ -142,6 +140,8 @@ template <ParserFn Fn>
 using InvokeResult =
     typename std::conditional_t<std::invocable<Fn>, std::invoke_result<Fn>,
                                 std::invoke_result<Fn, Parser>>::type;
+
+enum class FacetState { General, Type };
 
 struct Parser {
     explicit Parser(MonotonicBufferResource& alloc,
@@ -235,11 +235,23 @@ struct Parser {
         return prism::allocate<T>(alloc, &alloc, std::forward<Args>(args)...);
     }
 
+    decltype(auto) withFacetState(FacetState s, ParserFn auto f) {
+        FacetState stash = facetState;
+        facetState = s;
+        decltype(auto) result = invoke(f);
+        facetState = stash;
+        if constexpr (std::is_reference_v<decltype(result)>)
+            return std::forward<decltype(result)>(result);
+        else
+            return result;
+    }
+
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
     IssueHandler& iss;
     Lexer lexer;
     std::optional<Token> peekToken;
+    FacetState facetState = FacetState::General;
     bool inRecovery = false;
 };
 
@@ -338,8 +350,10 @@ AstExpr* Parser::parseExpr() {
 }
 
 AstTypeSpec* Parser::parseTypeSpec() {
-    return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
-        &Parser::parsePrefixFacet);
+    return withFacetState(FacetState::Type, [this] {
+        return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
+            &Parser::parsePrefixFacet);
+    });
 }
 
 static Token firstToken(Facet const* node) {
@@ -417,7 +431,8 @@ Facet const* Parser::parseAndFacet() {
 }
 
 Facet const* Parser::parseEqFacet() {
-    return parseBinaryFacetLTR({ { Equal, NotEq } }, &Parser::parseRelFacet);
+    return parseBinaryFacetLTR({ { DoubleEqual, NotEq } },
+                               &Parser::parseRelFacet);
 }
 
 Facet const* Parser::parseRelFacet() {
@@ -467,8 +482,14 @@ Facet const* Parser::parsePostfixFacet() {
     while (true) {
         if (auto tok = match(DoublePlus, DoubleMinus)) {
             operand = makePostfixFacet(alloc, operand, *tok);
+            continue;
         }
-        else if (auto open = match(OpenParen, OpenBracket)) {
+        constexpr TokenKind AllParenTypes[] = { OpenParen, OpenBracket,
+                                                OpenBrace };
+        auto parenTypes = facetState == FacetState::General ?
+                              AllParenTypes :
+                              std::span(AllParenTypes).subspan(0, 2);
+        if (auto open = match(parenTypes)) {
             TokenKind closingKind = toClosing(open->kind);
             auto argList =
                 parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
@@ -476,10 +497,9 @@ Facet const* Parser::parsePostfixFacet() {
             PRISM_ASSERT(close);
             auto* args = makeListFacet(alloc, argList);
             operand = makeCallFacet(alloc, operand, *open, args, *close);
+            continue;
         }
-        else {
-            return operand;
-        }
+        return operand;
     }
 }
 

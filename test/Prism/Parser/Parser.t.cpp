@@ -13,12 +13,18 @@ TEST_CASE("Parser", "[parser]") {
     using enum AstNodeType;
     using enum FacetType;
     using enum TokenKind;
-    CHECK(*parseFile("fn test() -> T {}") == AstSourceFile >> Tree{
+    CHECK(*parseFile("fn test() -> T { T{}; }") == AstSourceFile >> Tree{
         AstFuncDecl >> Tree{
             AstUnqualName,
             AstParamList,
             Identifier,
-            AstCompoundStmt,
+            AstCompoundStmt >> Tree{
+                AstExprStmt >> Tree{
+                    CallFacet >> Tree{
+                        Identifier, OpenBrace, ListFacet, CloseBrace
+                    }
+                }
+            },
         }
     });
     CHECK(*parseFacet("0xff + 42 * ++c") == BinaryFacet >> Tree{
@@ -37,6 +43,20 @@ TEST_CASE("Parser", "[parser]") {
             Identifier, Identifier, Identifier
         },
         CloseParen
+    });
+    CHECK(*parseFacet("x < y < z") == BinaryFacet >> Tree{
+        BinaryFacet >> Tree{
+            Identifier, LeftAngle, Identifier
+        },
+        LeftAngle,
+        Identifier
+    });
+    CHECK(*parseFacet("x = y = z") == BinaryFacet >> Tree{
+        Identifier,
+        Equal,
+        BinaryFacet >> Tree{
+            Identifier, Equal, Identifier
+        }
     });
 }
 
