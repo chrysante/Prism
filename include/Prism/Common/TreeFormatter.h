@@ -17,7 +17,7 @@ namespace prism {
 struct TreeStyle {
     static TreeStyle const Default;
 
-    enum LineStyle { Ascii, Sharp, Rounded };
+    enum LineStyle { None, Ascii, Sharp, Rounded };
 
     LineStyle lines;
 };

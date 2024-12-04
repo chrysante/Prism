@@ -10,15 +10,13 @@ static constexpr TreeFormatter::Level Next[] = { ChildContinue, ChildContinue,
                                                  LastChildContinue };
 
 static constexpr std::array<std::string_view, 4> Repr[] = {
-    { "+-", "| ", "\\-", "  " },
+    { "  ", "  ", "  ", "  " },
+    { "+-", "| ", "+-", "  " },
     { "├╴", "│ ", "└╴", "  " },
     { "├╴", "│ ", "╰╴", "  " },
 };
 
 void TreeFormatter::Indenter::operator()(std::streambuf* buf) const {
-    // Can't use the global modifier stack here, because the indentation may be
-    // written after users pushed modifiers that shall only appear after the
-    // indentation
     static auto const Mod = tfmt::BrightGrey | tfmt::Bold;
     buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
     auto const& repr = Repr[fmt->style.lines];
