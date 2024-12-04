@@ -69,7 +69,7 @@ AstRefNode const* operator>>(std::convertible_to<VarType> auto type,
     return type >> Tree{ child };
 }
 
-csp::unique_ptr<AstSourceFile> parseFile(std::string_view text);
+AstSourceFile* parseFile(std::string_view text);
 
 Facet const* parseFacet(std::string_view text);
 

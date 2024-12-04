@@ -14,24 +14,24 @@ static std::byte* alignPointer(std::byte* ptr, size_t alignment) {
     return ptr;
 }
 
-MonotonicBufferAllocator::MonotonicBufferAllocator() {}
+MonotonicBufferResource::MonotonicBufferResource() {}
 
-MonotonicBufferAllocator::MonotonicBufferAllocator(size_t initSize) {
+MonotonicBufferResource::MonotonicBufferResource(size_t initSize) {
     addChunk(initSize);
 }
 
-MonotonicBufferAllocator::MonotonicBufferAllocator(
-    MonotonicBufferAllocator&& rhs) noexcept:
+MonotonicBufferResource::MonotonicBufferResource(
+    MonotonicBufferResource&& rhs) noexcept:
     buffer(rhs.buffer), current(rhs.current), end(rhs.end) {
     rhs.buffer = nullptr;
     rhs.current = nullptr;
     rhs.end = nullptr;
 }
 
-MonotonicBufferAllocator::~MonotonicBufferAllocator() { release(); }
+MonotonicBufferResource::~MonotonicBufferResource() { release(); }
 
-MonotonicBufferAllocator& MonotonicBufferAllocator::operator=(
-    MonotonicBufferAllocator&& rhs) noexcept {
+MonotonicBufferResource& MonotonicBufferResource::operator=(
+    MonotonicBufferResource&& rhs) noexcept {
     release();
     buffer = rhs.buffer;
     current = rhs.current;
@@ -42,7 +42,7 @@ MonotonicBufferAllocator& MonotonicBufferAllocator::operator=(
     return *this;
 }
 
-void* MonotonicBufferAllocator::allocate(size_t size, size_t align) {
+void* MonotonicBufferResource::allocate(size_t size, size_t align) {
     std::byte* result = alignPointer(current, align);
     if (end - result < size) {
         addChunk(std::max(size, buffer ? buffer->size * 2 : InititalSize));
@@ -52,7 +52,7 @@ void* MonotonicBufferAllocator::allocate(size_t size, size_t align) {
     return result;
 }
 
-void MonotonicBufferAllocator::release() {
+void MonotonicBufferResource::release() {
     InternalBufferHeader* buf = buffer;
     while (buf) {
         size_t const size = buf->size;
@@ -66,7 +66,7 @@ void MonotonicBufferAllocator::release() {
     end = nullptr;
 }
 
-void MonotonicBufferAllocator::addChunk(size_t size) {
+void MonotonicBufferResource::addChunk(size_t size) {
     InternalBufferHeader* const newBuffer = static_cast<InternalBufferHeader*>(
         std::malloc(size + sizeof(InternalBufferHeader)));
     newBuffer->prev = buffer;

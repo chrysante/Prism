@@ -15,14 +15,14 @@ class AstSourceFile;
 class Facet;
 
 /// Parses a single source file and returns the constructed AST
-csp::unique_ptr<AstSourceFile> parseSourceFile(MonotonicBufferAllocator& alloc,
-                                               SourceContext const& sourceCtx,
-                                               IssueHandler& iss);
+AstSourceFile* parseSourceFile(MonotonicBufferResource& alloc,
+                               SourceContext const& sourceCtx,
+                               IssueHandler& iss);
 
 /// Parses a single facet, i.e. expression or type specifier.
 ///
 /// This function is only exposed for testing
-Facet const* parseFacet(MonotonicBufferAllocator& alloc,
+Facet const* parseFacet(MonotonicBufferResource& alloc,
                         SourceContext const& sourceCtx, IssueHandler& iss);
 
 } // namespace prism

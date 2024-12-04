@@ -5,33 +5,118 @@
 #include <memory>
 #include <span>
 
+#include <Prism/Common/Assert.h>
+
 namespace prism {
 
 /// Generic allocator concept
-template <typename A>
-concept Allocator = requires(A& a) {
+template <typename R>
+concept MemoryResource = requires(R& r) {
     {
-        a.allocate(size_t{}, size_t{})
+        r.allocate(size_t{}, size_t{})
     } -> std::convertible_to<void*>;
     {
-        a.deallocate((void*){}, size_t{}, size_t{})
+        r.deallocate((void*){}, size_t{}, size_t{})
     };
 };
+
+namespace detail {
+
+template <typename T, typename Allocator, typename... Args>
+concept AllocConstructibleBullet1 =
+    std::constructible_from<T, std::allocator_arg_t, Allocator, Args...>;
+
+template <typename T, typename Allocator, typename... Args>
+concept AllocConstructibleBullet2 =
+    std::constructible_from<T, Args..., Allocator>;
+
+template <typename T, typename Allocator, typename... Args>
+concept AllocConstructibleBullet3 = std::constructible_from<T, Args...>;
+
+template <typename T, typename Allocator, typename... Args>
+concept AllocConstructible = AllocConstructibleBullet1<T, Allocator, Args...> ||
+                             AllocConstructibleBullet2<T, Allocator, Args...> ||
+                             AllocConstructibleBullet3<T, Allocator, Args...>;
+
+} // namespace detail
+
+///
+template <typename T, typename R>
+class ResourceAllocator {
+public:
+    using value_type = T;
+
+    ResourceAllocator(ResourceAllocator const&) = default;
+
+    template <typename S>
+    ResourceAllocator(ResourceAllocator<S, R> const& other) noexcept:
+        r(other.resource()) {}
+
+    ResourceAllocator(R* resource): r(resource) {}
+
+    ResourceAllocator& operator=(ResourceAllocator const&) = delete;
+
+    T* allocate(size_t n) {
+        return static_cast<T*>(resource()->allocate(n * sizeof(T), alignof(T)));
+    }
+
+    void deallocate(T* p, size_t n) {
+        PRISM_ASSERT(p != nullptr, "passing NULL is not allowed");
+        resource()->deallocate(p, n * sizeof(T), alignof(T));
+    }
+
+    template <typename U, typename... Args>
+        requires detail::AllocConstructible<T, R*, Args...>
+    void construct(U* p, Args&&... args) {
+        if constexpr (detail::AllocConstructibleBullet1<T, R*, Args...>) {
+            std::construct_at(p, std::allocator_arg, resource(),
+                              std::forward<Args>(args)...);
+        }
+        else if constexpr (detail::AllocConstructibleBullet2<T, R*, Args...>) {
+            std::construct_at(p, std::forward<Args>(args)..., resource());
+        }
+        else {
+            static_assert(detail::AllocConstructibleBullet3<T, R*, Args...>);
+            std::construct_at(p, std::forward<Args>(args)...);
+        }
+    }
+
+    void* allocate_bytes(size_t size,
+                         size_t alignment = alignof(std::max_align_t)) {
+        return resource()->allocate(size, alignment);
+    }
+
+    void deallocate_bytes(void* p, size_t size,
+                          size_t alignment = alignof(std::max_align_t)) {
+        resource()->deallocate(p, size, alignment);
+    }
+
+    R* resource() const noexcept { return r; }
+
+private:
+    R* r;
+};
+
+template <typename T, typename U, typename R>
+bool operator==(ResourceAllocator<T, R> const& lhs,
+                ResourceAllocator<U, R> const& rhs) noexcept {
+    return *lhs.resource() == *rhs.resource();
+}
 
 /// "Arena" allocator. Allocation increases a pointer in the current memory
 /// block or allocates a new block. New blocks grow geometrically in size.
 /// Deallocation is a no-op. Memory gets freed when the allocator is destroyed
 /// or when `release()` is called.
-class MonotonicBufferAllocator {
+class MonotonicBufferResource {
 public:
     /// Default value for the size of the first allocated block
     static constexpr size_t InititalSize = 128;
 
-    MonotonicBufferAllocator();
-    explicit MonotonicBufferAllocator(size_t initSize);
-    MonotonicBufferAllocator(MonotonicBufferAllocator&&) noexcept;
-    ~MonotonicBufferAllocator();
-    MonotonicBufferAllocator& operator=(MonotonicBufferAllocator&&) noexcept;
+    MonotonicBufferResource();
+    explicit MonotonicBufferResource(size_t initSize);
+    MonotonicBufferResource(MonotonicBufferResource&&) noexcept;
+    ~MonotonicBufferResource();
+    MonotonicBufferResource& operator=(MonotonicBufferResource&&) noexcept;
 
     /// Allocate \p size number of bytes aligned to boundary specified by \p
     /// align
@@ -57,12 +142,17 @@ private:
     std::byte* end = nullptr;
 };
 
+inline bool operator==(MonotonicBufferResource const& a,
+                       MonotonicBufferResource const& b) {
+    return &a == &b;
+}
+
 /// Allocates memory for object of type `T` using the allocator \p alloc and
 /// constructs the object with arguments \p args... \Returns a pointer the the
 /// constructed object
 template <typename T, typename... Args>
     requires requires(Args&&... args) { T{ std::forward<Args>(args)... }; }
-T* allocate(MonotonicBufferAllocator& alloc, Args&&... args) {
+T* allocate(MonotonicBufferResource& alloc, Args&&... args) {
     T* result = static_cast<T*>(alloc.allocate(sizeof(T), alignof(T)));
     std::construct_at(result, std::forward<Args>(args)...);
     return result;
@@ -71,7 +161,7 @@ T* allocate(MonotonicBufferAllocator& alloc, Args&&... args) {
 /// Allocates memory for an array of element type `T` with \p count elements
 /// using the allocator \p alloc Does not construct the elements
 template <typename T>
-T* allocateArrayUninit(MonotonicBufferAllocator& alloc, size_t count) {
+T* allocateArrayUninit(MonotonicBufferResource& alloc, size_t count) {
     T* result = static_cast<T*>(alloc.allocate(count * sizeof(T), alignof(T)));
     return result;
 }
@@ -79,8 +169,7 @@ T* allocateArrayUninit(MonotonicBufferAllocator& alloc, size_t count) {
 /// Allocates memory for an array of element type `T` with \p count elements
 /// using the allocator \p alloc and default constructs the elements
 template <typename T, typename Itr>
-std::span<T> allocateArray(MonotonicBufferAllocator& alloc, Itr begin,
-                           Itr end) {
+std::span<T> allocateArray(MonotonicBufferResource& alloc, Itr begin, Itr end) {
     size_t const count = std::distance(begin, end);
     T* result = allocateArrayUninit<T>(alloc, count);
     std::uninitialized_copy(begin, end, result);
@@ -89,7 +178,7 @@ std::span<T> allocateArray(MonotonicBufferAllocator& alloc, Itr begin,
 
 } // namespace prism
 
-inline void* operator new(size_t size, prism::MonotonicBufferAllocator& alloc) {
+inline void* operator new(size_t size, prism::MonotonicBufferResource& alloc) {
     return alloc.allocate(size, alignof(std::max_align_t));
 }
 

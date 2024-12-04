@@ -79,6 +79,7 @@ set(PRISM_SOURCE_FILES
 )
 
 set(PRISM_TEST_FILES 
+    test/Prism/Common/Allocator.t.cpp 
     test/Prism/Lexer/Lexer.t.cpp 
     test/Prism/Parser/Parser.t.cpp 
     test/Prism/Parser/ParserTestUtils.h

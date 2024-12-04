@@ -144,28 +144,28 @@ using InvokeResult =
                                 std::invoke_result<Fn, Parser>>::type;
 
 struct Parser {
-    explicit Parser(MonotonicBufferAllocator& alloc,
+    explicit Parser(MonotonicBufferResource& alloc,
                     SourceContext const& sourceCtx, IssueHandler& iss):
         alloc(alloc),
         sourceCtx(sourceCtx),
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
 
-    csp::unique_ptr<AstSourceFile> parseSourceFile();
-    csp::unique_ptr<AstStmt> parseStmt();
-    csp::unique_ptr<AstDecl> parseDecl();
-    csp::unique_ptr<AstFuncDecl> parseFuncDecl();
-    csp::unique_ptr<AstCompoundStmt> parseCompoundStmt();
-    csp::unique_ptr<AstParamDecl> parseParamDecl();
-    csp::unique_ptr<AstParamList> parseParamList();
-    csp::unique_ptr<AstExprStmt> parseExprStmt();
-    csp::unique_ptr<AstName> parseName();
-    csp::unique_ptr<AstUnqualName> parseUnqualName();
-    csp::unique_ptr<AstFacet> parseFacet();
-    csp::unique_ptr<AstExpr> parseExpr();
-    csp::unique_ptr<AstTypeSpec> parseTypeSpec();
+    AstSourceFile* parseSourceFile();
+    AstStmt* parseStmt();
+    AstDecl* parseDecl();
+    AstFuncDecl* parseFuncDecl();
+    AstCompoundStmt* parseCompoundStmt();
+    AstParamDecl* parseParamDecl();
+    AstParamList* parseParamList();
+    AstExprStmt* parseExprStmt();
+    AstName* parseName();
+    AstUnqualName* parseUnqualName();
+    AstFacet* parseFacet();
+    AstExpr* parseExpr();
+    AstTypeSpec* parseTypeSpec();
     template <typename Abstract, typename Concrete>
-    csp::unique_ptr<Abstract> parseFacetImpl(ParserFn auto start);
+    Abstract* parseFacetImpl(ParserFn auto start);
 
     // MARK: - Facets
     Facet const* parseCommaFacet();
@@ -223,7 +223,19 @@ struct Parser {
     template <ParserFn Fn>
     InvokeResult<Fn> invoke(Fn fn);
 
-    MonotonicBufferAllocator& alloc;
+    template <typename T, typename... Args>
+        requires std::constructible_from<T, Args&&...>
+    T* allocate(Args&&... args) {
+        return prism::allocate<T>(alloc, std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+        requires std::constructible_from<T, MonotonicBufferResource*, Args&&...>
+    T* allocate(Args&&... args) {
+        return prism::allocate<T>(alloc, &alloc, std::forward<Args>(args)...);
+    }
+
+    MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
     IssueHandler& iss;
     Lexer lexer;
@@ -233,27 +245,26 @@ struct Parser {
 
 } // namespace
 
-csp::unique_ptr<AstSourceFile> prism::parseSourceFile(
-    MonotonicBufferAllocator& alloc, SourceContext const& sourceCtx,
-    IssueHandler& iss) {
+AstSourceFile* prism::parseSourceFile(MonotonicBufferResource& alloc,
+                                      SourceContext const& sourceCtx,
+                                      IssueHandler& iss) {
     Parser parser(alloc, sourceCtx, iss);
     return parser.parseSourceFile();
 }
 
-Facet const* prism::parseFacet(MonotonicBufferAllocator& alloc,
+Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
                                SourceContext const& sourceCtx,
                                IssueHandler& iss) {
     Parser parser(alloc, sourceCtx, iss);
     return parser.parseCommaFacet();
 }
 
-csp::unique_ptr<AstSourceFile> Parser::parseSourceFile() {
-    return csp::make_unique<AstSourceFile>(sourceCtx,
-                                           parseSequence(&Parser::parseDecl,
-                                                         End));
+AstSourceFile* Parser::parseSourceFile() {
+    return allocate<AstSourceFile>(sourceCtx,
+                                   parseSequence(&Parser::parseDecl, End));
 }
 
-csp::unique_ptr<AstStmt> Parser::parseStmt() {
+AstStmt* Parser::parseStmt() {
     if (auto decl = parseDecl()) {
         return decl;
     }
@@ -263,71 +274,70 @@ csp::unique_ptr<AstStmt> Parser::parseStmt() {
     return nullptr;
 }
 
-csp::unique_ptr<AstDecl> Parser::parseDecl() {
+AstDecl* Parser::parseDecl() {
     if (auto function = parseFuncDecl()) {
         return function;
     }
     return nullptr;
 }
 
-csp::unique_ptr<AstFuncDecl> Parser::parseFuncDecl() {
+AstFuncDecl* Parser::parseFuncDecl() {
     auto declarator = match(Function);
     if (!declarator) return nullptr;
     auto name = parseName();
     auto params = parseParamList();
     auto retType = match(Arrow) ? parseTypeSpec() : nullptr;
     auto body = parseCompoundStmt();
-    return csp::make_unique<AstFuncDecl>(*declarator, std::move(name),
-                                         std::move(params), std::move(retType),
-                                         std::move(body));
+    return allocate<AstFuncDecl>(*declarator, std::move(name),
+                                 std::move(params), std::move(retType),
+                                 std::move(body));
 }
 
-csp::unique_ptr<AstCompoundStmt> Parser::parseCompoundStmt() {
+AstCompoundStmt* Parser::parseCompoundStmt() {
     auto openBrace = match(OpenBrace);
     if (!openBrace) return nullptr;
     auto statements = parseSequence(&Parser::parseStmt, CloseBrace);
     auto closeBrace = match(CloseBrace).value_or(Token::ErrorToken);
-    return csp::make_unique<AstCompoundStmt>(*openBrace, closeBrace,
-                                             std::move(statements));
+    return allocate<AstCompoundStmt>(*openBrace, closeBrace,
+                                     std::move(statements));
 }
 
-csp::unique_ptr<AstParamDecl> Parser::parseParamDecl() {
+AstParamDecl* Parser::parseParamDecl() {
     auto name = parseUnqualName();
     auto colon = match(Colon);
     auto typeSpec = colon ? parseTypeSpec() :
                             recover(Colon, Comma, &Parser::parseTypeSpec);
-    return csp::make_unique<AstParamDecl>(std::move(name),
-                                          colon.value_or(Token::ErrorToken),
-                                          std::move(typeSpec));
+    return allocate<AstParamDecl>(std::move(name),
+                                  colon.value_or(Token::ErrorToken),
+                                  std::move(typeSpec));
 }
 
-csp::unique_ptr<AstParamList> Parser::parseParamList() {
+AstParamList* Parser::parseParamList() {
     auto openParen = match(OpenParen);
     if (!openParen) return nullptr;
     auto seq = parseSequence(&Parser::parseParamDecl, CloseParen, Comma);
     auto closeParen = match(CloseParen).value_or(Token::ErrorToken);
-    return csp::make_unique<AstParamList>(*openParen, closeParen,
-                                          std::move(seq));
+    return allocate<AstParamList>(*openParen, closeParen, std::move(seq));
 }
 
-csp::unique_ptr<AstExprStmt> Parser::parseExprStmt() {
+AstExprStmt* Parser::parseExprStmt() {
     auto expr = parseExpr();
     if (!expr) return nullptr;
     if (!match(Semicolon)) {
         assert(false); // Push error
     }
-    return csp::make_unique<AstExprStmt>(std::move(expr));
+    return allocate<AstExprStmt>(std::move(expr));
 }
 
-csp::unique_ptr<AstFacet> Parser::parseFacet() {
+AstFacet* Parser::parseFacet() {
     return parseFacetImpl<AstFacet, AstRawFacet>(&Parser::parseCommaFacet);
 }
 
-csp::unique_ptr<AstExpr> Parser::parseExpr() {
+AstExpr* Parser::parseExpr() {
     return parseFacetImpl<AstExpr, AstExprFacet>(&Parser::parseCommaFacet);
 }
 
-csp::unique_ptr<AstTypeSpec> Parser::parseTypeSpec() {
+AstTypeSpec* Parser::parseTypeSpec() {
     return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
         &Parser::parsePrefixFacet);
 }
@@ -343,10 +353,10 @@ static Token firstToken(Facet const* node) {
 }
 
 template <typename Abstract, typename Concrete>
-csp::unique_ptr<Abstract> Parser::parseFacetImpl(ParserFn auto start) {
+Abstract* Parser::parseFacetImpl(ParserFn auto start) {
     auto* facet = invoke(start);
     if (!facet) return nullptr;
-    return csp::make_unique<Concrete>(facet, firstToken(facet));
+    return allocate<Concrete>(facet, firstToken(facet));
 }
 
 // MARK: - Facets
@@ -521,11 +531,11 @@ Facet const* Parser::parseBinaryFacetRTL(
     return lhs;
 }
 
-csp::unique_ptr<AstName> Parser::parseName() { return parseUnqualName(); }
+AstName* Parser::parseName() { return parseUnqualName(); }
 
-csp::unique_ptr<AstUnqualName> Parser::parseUnqualName() {
+AstUnqualName* Parser::parseUnqualName() {
     if (auto tok = match(Identifier)) {
-        return csp::make_unique<AstUnqualName>(*tok);
+        return allocate<AstUnqualName>(*tok);
     }
     return nullptr;
 }

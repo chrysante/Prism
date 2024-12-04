@@ -44,7 +44,7 @@ bool AstRefNode::compareChildren(auto const* node) const {
     });
 }
 
-static MonotonicBufferAllocator gAlloc;
+static MonotonicBufferResource gAlloc;
 
 static AstRefNode const* allocateNode(
     VarType type, std::span<AstRefNode const* const> children = {}) {
@@ -72,7 +72,7 @@ AstRefNode const* prism::operator>>(VarType type, Tree children) {
 static SourceContext gCtx;
 static IssueHandler gIssueHandler;
 
-csp::unique_ptr<AstSourceFile> prism::parseFile(std::string_view text) {
+AstSourceFile* prism::parseFile(std::string_view text) {
     gCtx = SourceContext({}, text);
     gIssueHandler.clear();
     return parseSourceFile(gAlloc, gCtx, gIssueHandler);

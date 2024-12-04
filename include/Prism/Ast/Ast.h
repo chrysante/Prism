@@ -1,6 +1,7 @@
 #ifndef PRISM_AST_AST_H
 #define PRISM_AST_AST_H
 
+#include <bit>
 #include <optional>
 #include <span>
 
@@ -10,6 +11,7 @@
 
 #include <Prism/Ast/AstFwd.h>
 #include <Prism/Ast/Operators.h>
+#include <Prism/Common/Allocator.h>
 #include <Prism/Common/Functional.h>
 #include <Prism/Source/Token.h>
 
@@ -20,13 +22,9 @@
     Type const* Name() const { return childAt<Type>(Index); }
 
 #define AST_PROPERTY_RANGE(BeginIndex, Type, Name, CapName)                    \
-    auto Name##s() {                                                           \
-        return children() | ranges::views::drop(BeginIndex) |                  \
-               ranges::views::transform(csp::cast<Type*>);                     \
-    }                                                                          \
-    auto Name##s() const {                                                     \
-        return children() | ranges::views::drop(BeginIndex) |                  \
-               ranges::views::transform(csp::cast<Type const*>);               \
+    std::span<Type* const> Name##s() { return children<Type>(BeginIndex); }    \
+    std::span<Type const* const> Name##s() const {                             \
+        return children<Type>(BeginIndex);                                     \
     }
 
 namespace prism {
@@ -41,40 +39,50 @@ class AstNode: public csp::base_helper<AstNode> {
 public:
     Token firstToken() const { return firstTok; }
 
-    AstNode* childAt(size_t index) { return _children[index].get(); }
+    AstNode* childAt(size_t index) { return _children[index]; }
 
-    AstNode const* childAt(size_t index) const {
-        return _children[index].get();
-    }
+    AstNode const* childAt(size_t index) const { return _children[index]; }
 
-    template <typename T>
+    template <std::derived_from<AstNode> T>
     T* childAt(size_t index) {
         return csp::cast<T*>(childAt(index));
     }
 
-    template <typename T>
+    template <std::derived_from<AstNode> T>
     T const* childAt(size_t index) const {
         return csp::cast<T const*>(childAt(index));
     }
 
-    auto children() {
-        return _children | ranges::views::transform(GetAs<AstNode*>);
+    std::span<AstNode* const> children() { return _children; }
+
+    std::span<AstNode const* const> children() const { return _children; }
+
+    template <std::derived_from<AstNode> C>
+    std::span<C* const> children(size_t drop = 0) {
+        auto c = std::as_const(*this).children<C>(drop);
+        return { const_cast<C* const*>(c.data()), c.size() };
     }
 
-    auto children() const {
-        return _children | ranges::views::transform(GetAs<AstNode const*>);
+    template <std::derived_from<AstNode> C>
+    std::span<C const* const> children(size_t drop = 0) const {
+        auto c = children().subspan(drop);
+        PRISM_ASSERT(ranges::all_of(c, csp::isa<C>));
+        return { std::bit_cast<C const* const*>(c.data()), c.size() };
     }
 
 protected:
+    template <typename T>
+    using Vector =
+        utl::vector<T, ResourceAllocator<T, MonotonicBufferResource>>;
+
     template <typename... C>
-    explicit AstNode(AstNodeType type, Token firstToken, C&&... children):
+    explicit AstNode(AstNodeType type, MonotonicBufferResource* res,
+                     Token firstToken, C&&... children):
         base_helper(type),
         firstTok(firstToken),
-        _children(toSmallVec(std::forward<C>(children)...)) {}
+        _children(toVec(res, std::forward<C>(children)...)) {}
 
 private:
-    static constexpr size_t NumInlineChildren = 2;
-
     template <typename T>
     static size_t vecSize(T const& child) {
         if constexpr (ranges::range<T>) {
@@ -85,30 +93,32 @@ private:
         }
     }
 
-    template <typename T>
-    static void insertChildren(utl::vector<csp::unique_ptr<AstNode>>& vec,
-                               T&& child) {
-        if constexpr (ranges::range<T>) {
-            ranges::for_each(child, [&](auto& elem) {
-                insertChildren(vec, std::move(elem));
-            });
-        }
-        else {
-            vec.push_back(std::move(child));
-        }
+    static void insertChildren(Vector<AstNode*>& vec, auto* child) {
+        vec.push_back(child);
+    }
+
+    static void insertChildren(Vector<AstNode*>& vec,
+                               ranges::range auto&& children) {
+        ranges::for_each(children, [&](auto&& elem) {
+            insertChildren(vec, std::move(elem));
+        });
+    }
+
+    static Vector<AstNode*> toVec(MonotonicBufferResource* res) {
+        return Vector<AstNode*>(nullptr);
     }
 
     template <typename... T>
-    static utl::small_vector<csp::unique_ptr<AstNode>, NumInlineChildren>
-        toSmallVec(T&&... children) {
-        utl::small_vector<csp::unique_ptr<AstNode>, NumInlineChildren> result;
+    static Vector<AstNode*> toVec(MonotonicBufferResource* res,
+                                  T&&... children) {
+        Vector<AstNode*> result(res);
         result.reserve((0 + ... + vecSize(children)));
         (insertChildren(result, std::forward<T>(children)), ...);
-        return result;
+        return { std::move(result), res };
     }
 
     Token firstTok;
-    utl::small_vector<csp::unique_ptr<AstNode>, NumInlineChildren> _children;
+    Vector<AstNode*> _children;
 };
 
 // MARK: - Facets
@@ -134,8 +144,9 @@ private:
 ///
 class AstRawFacet: public AstFacet, public RawFacetBase {
 public:
-    explicit AstRawFacet(Facet const* fct, Token firstTok):
-        AstFacet(AstNodeType::AstRawFacet, firstTok), RawFacetBase(fct) {}
+    explicit AstRawFacet(MonotonicBufferResource* res, Facet const* fct,
+                         Token firstTok):
+        AstFacet(AstNodeType::AstRawFacet, res, firstTok), RawFacetBase(fct) {}
 };
 
 // MARK: - Base Expressions
@@ -149,8 +160,9 @@ protected:
 ///
 class AstExprFacet: public AstExpr, public RawFacetBase {
 public:
-    explicit AstExprFacet(Facet const* fct, Token firstTok):
-        AstExpr(AstNodeType::AstExprFacet, firstTok), RawFacetBase(fct) {}
+    explicit AstExprFacet(MonotonicBufferResource* res, Facet const* fct,
+                          Token firstTok):
+        AstExpr(AstNodeType::AstExprFacet, res, firstTok), RawFacetBase(fct) {}
 };
 
 ///
@@ -163,7 +175,7 @@ protected:
 class AstUnqualName: public AstName {
 public:
     explicit AstUnqualName(Token name):
-        AstName(AstNodeType::AstUnqualName, name) {}
+        AstName(AstNodeType::AstUnqualName, nullptr, name) {}
 
     Token nameToken() const { return firstToken(); }
 };
@@ -171,14 +183,15 @@ public:
 /// Qualified name, consisting of a sequence of tokens separated by `.`
 class AstNameSeq: public AstName {
 public:
-    explicit AstNameSeq(std::span<Token const> seq):
-        AstName(AstNodeType::AstNameSeq, seq.front()),
-        _seq(seq.begin(), seq.end()) {}
+    explicit AstNameSeq(MonotonicBufferResource* res,
+                        std::span<Token const> seq):
+        AstName(AstNodeType::AstNameSeq, res, seq.front()),
+        _seq(seq.begin(), seq.end(), res) {}
 
     std::span<Token const> tokenSeq() const { return _seq; }
 
 private:
-    utl::small_vector<Token, 3> _seq;
+    Vector<Token> _seq;
 };
 
 // MARK: - Type Specifiers
@@ -193,7 +206,7 @@ protected:
 class AstTypeSpecFacet: public AstTypeSpec, public RawFacetBase {
 public:
     explicit AstTypeSpecFacet(Facet const* fct, Token firstTok):
-        AstTypeSpec(AstNodeType::AstTypeSpecFacet, firstTok),
+        AstTypeSpec(AstNodeType::AstTypeSpecFacet, nullptr, firstTok),
         RawFacetBase(fct) {}
 };
 
@@ -214,7 +227,8 @@ protected:
 ///
 class AstTypeUnqualID: public AstTypeID {
 public:
-    AstTypeUnqualID(Token tok): AstTypeID(AstNodeType::AstTypeUnqualID, tok) {}
+    AstTypeUnqualID(Token tok):
+        AstTypeID(AstNodeType::AstTypeUnqualID, nullptr, tok) {}
 
     Token nameToken() const { return firstToken(); }
 };
@@ -230,9 +244,10 @@ protected:
 /// Brace-enclosed sequence of statements
 class AstCompoundStmt: public AstStmt {
 public:
-    explicit AstCompoundStmt(Token openBrace, Token closeBrace,
-                             utl::small_vector<csp::unique_ptr<AstStmt>> stmts):
-        AstStmt(AstNodeType::AstCompoundStmt, openBrace, std::move(stmts)) {}
+    explicit AstCompoundStmt(MonotonicBufferResource* res, Token openBrace,
+                             Token closeBrace, std::span<AstStmt* const> stmts):
+        AstStmt(AstNodeType::AstCompoundStmt, res, openBrace,
+                std::move(stmts)) {}
 
     Token openBrace() const { return firstToken(); }
 
@@ -256,9 +271,9 @@ public:
 
 protected:
     template <typename... C>
-    explicit AstDecl(AstNodeType type, Token declarator,
-                     csp::unique_ptr<AstName> name, C&&... otherChildren):
-        AstStmt(type, declarator, std::move(name),
+    explicit AstDecl(AstNodeType type, MonotonicBufferResource* res,
+                     Token declarator, AstName* name, C&&... otherChildren):
+        AstStmt(type, res, declarator, name,
                 std::forward<C>(otherChildren)...) {}
 };
 
@@ -270,10 +285,10 @@ public:
     /// The top level declarations
     AST_PROPERTY_RANGE(0, AstDecl, decl, Decl)
 
-    explicit AstSourceFile(SourceContext const& ctx,
-                           utl::small_vector<csp::unique_ptr<AstDecl>> decls):
-        AstNode(AstNodeType::AstSourceFile, Token{}, std::move(decls)),
-        ctx(ctx) {}
+    explicit AstSourceFile(MonotonicBufferResource* res,
+                           SourceContext const& ctx,
+                           std::span<AstDecl* const> decls):
+        AstNode(AstNodeType::AstSourceFile, res, Token{}, decls), ctx(ctx) {}
 
     /// \Returns the source context corresponding this source file
     SourceContext const& sourceContext() const { return ctx; }
@@ -290,9 +305,9 @@ public:
     /// The source files in this translation unit
     AST_PROPERTY_RANGE(0, AstSourceFile, sourceFile, SourceFile)
 
-    explicit AstTranslationUnit(
-        utl::small_vector<csp::unique_ptr<AstSourceFile>> sourceFiles):
-        AstNode(AstNodeType::AstTranslationUnit, Token{},
+    explicit AstTranslationUnit(MonotonicBufferResource* res,
+                                std::span<AstSourceFile* const> sourceFiles):
+        AstNode(AstNodeType::AstTranslationUnit, res, Token{},
                 std::move(sourceFiles)) {}
 };
 
@@ -308,11 +323,9 @@ public:
     Token opToken() const { return opTok; }
 
 protected:
-    explicit AstBinaryExpr(AstNodeType nodeType, Token opToken,
-                           csp::unique_ptr<AstExpr> lhs,
-                           csp::unique_ptr<AstExpr> rhs):
-        AstExpr(nodeType, lhs->firstToken(), std::move(lhs), std::move(rhs)),
-        opTok(opToken) {}
+    explicit AstBinaryExpr(AstNodeType nodeType, MonotonicBufferResource* res,
+                           Token opToken, AstExpr* lhs, AstExpr* rhs):
+        AstExpr(nodeType, res, lhs->firstToken(), lhs, rhs), opTok(opToken) {}
 
 private:
     Token opTok;
@@ -320,26 +333,24 @@ private:
 
 class AstCommaExpr: public AstBinaryExpr {
 public:
-    explicit AstCommaExpr(Token commaToken, csp::unique_ptr<AstExpr> lhs,
-                          csp::unique_ptr<AstExpr> rhs):
-        AstBinaryExpr(AstNodeType::AstCommaExpr, commaToken, std::move(lhs),
-                      std::move(rhs)) {}
+    explicit AstCommaExpr(MonotonicBufferResource* res, Token commaToken,
+                          AstExpr* lhs, AstExpr* rhs):
+        AstBinaryExpr(AstNodeType::AstCommaExpr, res, commaToken, lhs, rhs) {}
 };
 
 class AstAssignExpr: public AstBinaryExpr {
 public:
-    explicit AstAssignExpr(Token opToken, csp::unique_ptr<AstExpr> lhs,
-                           csp::unique_ptr<AstExpr> rhs):
-        AstBinaryExpr(AstNodeType::AstAssignExpr, opToken, std::move(lhs),
-                      std::move(rhs)) {}
+    explicit AstAssignExpr(MonotonicBufferResource* res, Token opToken,
+                           AstExpr* lhs, AstExpr* rhs):
+        AstBinaryExpr(AstNodeType::AstAssignExpr, res, opToken, lhs, rhs) {}
 };
 
 class AstCastExpr: public AstExpr {
 public:
-    explicit AstCastExpr(Token opToken, csp::unique_ptr<AstExpr> operand,
-                         csp::unique_ptr<AstTypeSpec> targetType):
-        AstExpr(AstNodeType::AstCastExpr, operand->firstToken(),
-                std::move(operand), std::move(targetType)),
+    explicit AstCastExpr(MonotonicBufferResource* res, Token opToken,
+                         AstExpr* operand, AstTypeSpec* targetType):
+        AstExpr(AstNodeType::AstCastExpr, res, operand->firstToken(), operand,
+                targetType),
         opTok(opToken) {}
 
     AST_PROPERTY(0, AstExpr, operand, Operand)
@@ -354,11 +365,11 @@ private:
 
 class AstCondExpr: public AstExpr {
 public:
-    explicit AstCondExpr(csp::unique_ptr<AstExpr> cond, Token question,
-                         csp::unique_ptr<AstExpr> ifExpr, Token colon,
-                         csp::unique_ptr<AstExpr> thenExpr):
-        AstExpr(AstNodeType::AstCondExpr, cond->firstToken(), std::move(cond),
-                std::move(ifExpr), std::move(thenExpr)),
+    explicit AstCondExpr(MonotonicBufferResource* res, AstExpr* cond,
+                         Token question, AstExpr* ifExpr, Token colon,
+                         AstExpr* thenExpr):
+        AstExpr(AstNodeType::AstCondExpr, res, cond->firstToken(), cond, ifExpr,
+                thenExpr),
         question(question),
         colon(colon) {}
 
@@ -379,11 +390,9 @@ private:
 
 class AstLogicalExpr: public AstBinaryExpr {
 public:
-    explicit AstLogicalExpr(Token opToken, AstLogicalOp op,
-                            csp::unique_ptr<AstExpr> lhs,
-                            csp::unique_ptr<AstExpr> rhs):
-        AstBinaryExpr(AstNodeType::AstLogicalExpr, opToken, std::move(lhs),
-                      std::move(rhs)),
+    explicit AstLogicalExpr(MonotonicBufferResource* res, Token opToken,
+                            AstLogicalOp op, AstExpr* lhs, AstExpr* rhs):
+        AstBinaryExpr(AstNodeType::AstLogicalExpr, res, opToken, lhs, rhs),
         op(op) {}
 
     AstLogicalOp operation() const { return op; }
@@ -394,11 +403,9 @@ private:
 
 class AstArithmeticExpr: public AstBinaryExpr {
 public:
-    explicit AstArithmeticExpr(Token opToken, AstArithmeticOp op,
-                               csp::unique_ptr<AstExpr> lhs,
-                               csp::unique_ptr<AstExpr> rhs):
-        AstBinaryExpr(AstNodeType::AstArithmeticExpr, opToken, std::move(lhs),
-                      std::move(rhs)),
+    explicit AstArithmeticExpr(MonotonicBufferResource* res, Token opToken,
+                               AstArithmeticOp op, AstExpr* lhs, AstExpr* rhs):
+        AstBinaryExpr(AstNodeType::AstArithmeticExpr, res, opToken, lhs, rhs),
         op(op) {}
 
     AstArithmeticOp operation() const { return op; }
@@ -411,12 +418,12 @@ class AstUnaryExpr: public AstExpr {
 public:
     enum Kind { Prefix, Postfix };
 
-    AstUnaryExpr(Kind kind, AstUnaryOp op, Token opToken,
-                 csp::unique_ptr<AstExpr> operand):
-        AstExpr(AstNodeType::AstUnaryExpr,
+    AstUnaryExpr(MonotonicBufferResource* res, Kind kind, AstUnaryOp op,
+                 Token opToken, AstExpr* operand):
+        AstExpr(AstNodeType::AstUnaryExpr, res,
                 /* first-token: */ kind == Prefix ? opToken :
                                                     operand->firstToken(),
-                std::move(operand)),
+                operand),
         op(op) {}
 
     AST_PROPERTY(0, AstExpr, operand, Operand)
@@ -435,18 +442,18 @@ public:
 
 protected:
     template <typename... Args>
-    AstCallBase(AstNodeType nodeType, Token firstToken,
-                csp::unique_ptr<AstExpr> callee, Args&&... arguments):
-        AstExpr(nodeType, firstToken, std::move(callee),
+    AstCallBase(AstNodeType nodeType, MonotonicBufferResource* res,
+                Token firstToken, AstExpr* callee, Args&&... arguments):
+        AstExpr(nodeType, res, firstToken, callee,
                 std::forward<Args>(arguments)...) {}
 };
 
 class AstCallExpr: public AstCallBase {
 public:
     template <typename... Args>
-    AstCallExpr(Token firstToken, csp::unique_ptr<AstExpr> callee,
+    AstCallExpr(MonotonicBufferResource* res, Token firstToken, AstExpr* callee,
                 Args&&... arguments):
-        AstCallBase(AstNodeType::AstCallExpr, firstToken, std::move(callee),
+        AstCallBase(AstNodeType::AstCallExpr, res, firstToken, callee,
                     std::forward<Args>(arguments)...) {}
 };
 
@@ -471,9 +478,8 @@ public:
 /// Expression statement
 class AstExprStmt: public AstStmt {
 public:
-    explicit AstExprStmt(csp::unique_ptr<AstExpr> expr):
-        AstStmt(AstNodeType::AstExprStmt, expr->firstToken(), std::move(expr)) {
-    }
+    explicit AstExprStmt(MonotonicBufferResource* res, AstExpr* expr):
+        AstStmt(AstNodeType::AstExprStmt, res, expr->firstToken(), expr) {}
 
     /// The wrapped expression
     AST_PROPERTY(0, AstExpr, expr, Expr)
@@ -482,10 +488,10 @@ public:
 ///
 class AstParamDecl: public AstDecl {
 public:
-    explicit AstParamDecl(csp::unique_ptr<AstUnqualName> name, Token colon,
-                          csp::unique_ptr<AstTypeSpec> typeSpec):
-        AstDecl(AstNodeType::AstParamDecl, name->firstToken(), std::move(name),
-                std::move(typeSpec)) {}
+    explicit AstParamDecl(MonotonicBufferResource* res, AstUnqualName* name,
+                          Token colon, AstTypeSpec* typeSpec):
+        AstDecl(AstNodeType::AstParamDecl, res, name->firstToken(), name,
+                typeSpec) {}
 
     AST_PROPERTY(1, AstExpr, typeSpec, TypeSpec)
 
@@ -498,10 +504,10 @@ private:
 /// Comma separated sequence of parameter declarations
 class AstParamList: public AstNode {
 public:
-    explicit AstParamList(
-        Token openParen, Token closeParen,
-        utl::small_vector<csp::unique_ptr<AstParamDecl>> params):
-        AstNode(AstNodeType::AstParamList, openParen, std::move(params)),
+    explicit AstParamList(MonotonicBufferResource* res, Token openParen,
+                          Token closeParen,
+                          std::span<AstParamDecl* const> params):
+        AstNode(AstNodeType::AstParamList, res, openParen, params),
         _closeParen(closeParen) {}
 
     AST_PROPERTY_RANGE(0, AstParamDecl, param, Param)
@@ -525,12 +531,11 @@ public:
 
     AST_PROPERTY(3, AstCompoundStmt, body, Body)
 
-    explicit AstFuncDecl(Token declarator, csp::unique_ptr<AstName> name,
-                         csp::unique_ptr<AstParamList> params,
-                         csp::unique_ptr<AstTypeSpec> retTypeSpec,
-                         csp::unique_ptr<AstCompoundStmt> body):
-        AstDecl(AstNodeType::AstFuncDecl, declarator, std::move(name),
-                std::move(params), std::move(retTypeSpec), std::move(body)) {}
+    explicit AstFuncDecl(MonotonicBufferResource* res, Token declarator,
+                         AstName* name, AstParamList* params,
+                         AstTypeSpec* retTypeSpec, AstCompoundStmt* body):
+        AstDecl(AstNodeType::AstFuncDecl, res, declarator, name, params,
+                retTypeSpec, body) {}
 };
 
 } // namespace prism

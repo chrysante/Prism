@@ -79,19 +79,19 @@ static_assert(alignof(Facet) == alignof(void*));
 namespace detail {
 
 struct FacetFactory {
-    static void* allocate(Allocator auto& alloc, size_t numChildren) {
+    static void* allocate(MemoryResource auto& alloc, size_t numChildren) {
         return alloc.allocate(sizeof(Facet) + numChildren * sizeof(void*),
                               alignof(Facet));
     }
 
     template <typename T = TerminalFacet>
-    static T const* makeTerminal(Allocator auto& alloc, Token tok) {
+    static T const* makeTerminal(MemoryResource auto& alloc, Token tok) {
         void* buf = detail::FacetFactory::allocate(alloc, 0);
         return new (buf) T(tok);
     }
 
     template <typename T>
-    static T const* makeNonTerminal(Allocator auto& alloc,
+    static T const* makeNonTerminal(MemoryResource auto& alloc,
                                     std::span<Facet const* const> children) {
         void* buf = allocate(alloc, children.size());
         return new (buf) T(children);
@@ -115,7 +115,8 @@ private:
     TerminalFacet(Token tok): Facet(tok) {}
 };
 
-inline TerminalFacet const* makeTerminal(Allocator auto& alloc, Token tok) {
+inline TerminalFacet const* makeTerminal(MemoryResource auto& alloc,
+                                         Token tok) {
     return detail::FacetFactory::makeTerminal(alloc, tok);
 }
 
@@ -149,7 +150,7 @@ private:
         NonTerminalFacet(FacetType::CastFacet, args) {}
 };
 
-inline CastFacet const* makeCastFacet(Allocator auto& alloc,
+inline CastFacet const* makeCastFacet(MemoryResource auto& alloc,
                                       Facet const* operand, Token operation,
                                       Facet const* target) {
     return detail::FacetFactory::makeNonTerminal<CastFacet>(
@@ -170,7 +171,7 @@ private:
         NonTerminalFacet(FacetType::CondFacet, args) {}
 };
 
-inline CondFacet const* makeCondFacet(Allocator auto& alloc,
+inline CondFacet const* makeCondFacet(MemoryResource auto& alloc,
                                       Facet const* condition, Token question,
                                       Facet const* ifFacet, Token colon,
                                       Facet const* thenFacet) {
@@ -191,7 +192,7 @@ private:
         NonTerminalFacet(FacetType::BinaryFacet, args) {}
 };
 
-inline BinaryFacet const* makeBinaryFacet(Allocator auto& alloc,
+inline BinaryFacet const* makeBinaryFacet(MemoryResource auto& alloc,
                                           Facet const* lhs, Token operation,
                                           Facet const* rhs) {
     return detail::FacetFactory::makeNonTerminal<BinaryFacet>(
@@ -209,7 +210,7 @@ private:
         NonTerminalFacet(FacetType::PrefixFacet, args) {}
 };
 
-inline PrefixFacet const* makePrefixFacet(Allocator auto& alloc,
+inline PrefixFacet const* makePrefixFacet(MemoryResource auto& alloc,
                                           Token operation,
                                           Facet const* operand) {
     return detail::FacetFactory::makeNonTerminal<PrefixFacet>(
@@ -227,7 +228,7 @@ private:
         NonTerminalFacet(FacetType::PostfixFacet, args) {}
 };
 
-inline PostfixFacet const* makePostfixFacet(Allocator auto& alloc,
+inline PostfixFacet const* makePostfixFacet(MemoryResource auto& alloc,
                                             Facet const* operand,
                                             Token operation) {
     return detail::FacetFactory::makeNonTerminal<PostfixFacet>(
@@ -241,7 +242,7 @@ private:
         NonTerminalFacet(FacetType::ListFacet, children) {}
 };
 
-inline ListFacet const* makeListFacet(Allocator auto& alloc,
+inline ListFacet const* makeListFacet(MemoryResource auto& alloc,
                                       std::span<Facet const* const> children) {
     return detail::FacetFactory::makeNonTerminal<ListFacet>(alloc, children);
 }
@@ -259,7 +260,7 @@ private:
         NonTerminalFacet(FacetType::CallFacet, args) {}
 };
 
-inline CallFacet const* makeCallFacet(Allocator auto& alloc,
+inline CallFacet const* makeCallFacet(MemoryResource auto& alloc,
                                       Facet const* callee, Token openBracket,
                                       ListFacet const* arguments,
                                       Token closeBracket) {
