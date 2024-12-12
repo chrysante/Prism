@@ -127,9 +127,13 @@
 #include "Prism/Parser/SyntaxIssue.h"
 #include "Prism/Source/SourceContext.h"
 
+#include "Prism/Common/SyntaxMacros.h"
+
 using namespace prism;
 
 using enum TokenKind;
+
+static constexpr Token ErrorToken = Token::ErrorToken;
 
 namespace {
 
@@ -145,8 +149,16 @@ using InvokeResult =
 
 enum class FacetState { General, Type };
 
+template <typename T>
+struct VolatileList: std::span<T> {
+    VolatileList(std::span<T> s): std::span<T>(s) {}
+    VolatileList(std::initializer_list<std::remove_const_t<T>> ilist):
+        std::span<T>(ilist) {}
+    VolatileList(T& kind): std::span<T>(&kind, 1) {}
+};
+
 struct RecoveryOptions {
-    std::optional<TokenKind> stop;
+    VolatileList<TokenKind const> stop;
     int numAttempts = 3;
 };
 
@@ -235,6 +247,18 @@ struct Parser {
     ///
     template <ParserFn Fn>
     InvokeResult<Fn> parseOrRecover(Fn next, RecoveryOptions options);
+
+    template <ParserFn Fn>
+    InvokeResult<Fn> parseOrRecover(Fn next, RecoveryOptions options,
+                                    ParserFn auto raiseIssue);
+
+    template <std::derived_from<Issue> I, typename... Args>
+        requires std::constructible_from<I, Token, Args&&...>
+    auto raiseCb(Args&&... args) {
+        return [this, ... args = std::forward<Args>(args)] {
+            raise<I>(peek(), args...);
+        };
+    }
 
     template <std::derived_from<Issue> I, typename... Args>
         requires std::constructible_from<I, Args&&...>
@@ -331,7 +355,7 @@ AstCompoundStmt* Parser::parseCompoundStmt() {
     auto openBrace = match(OpenBrace);
     if (!openBrace) return nullptr;
     auto statements = parseSequence(&Parser::parseStmt, CloseBrace);
-    auto closeBrace = match(CloseBrace).value_or(Token::ErrorToken);
+    auto closeBrace = match(CloseBrace).value_or(ErrorToken);
     return allocate<AstCompoundStmt>(*openBrace, closeBrace,
                                      std::move(statements));
 }
@@ -341,8 +365,7 @@ AstParamDecl* Parser::parseParamDecl() {
     auto colon = match(Colon);
     auto typeSpec = colon ? parseTypeSpec() :
                             recover(&Parser::parseTypeSpec, { .stop = Comma });
-    return allocate<AstParamDecl>(std::move(name),
-                                  colon.value_or(Token::ErrorToken),
+    return allocate<AstParamDecl>(std::move(name), colon.value_or(ErrorToken),
                                   std::move(typeSpec));
 }
 
@@ -350,7 +373,7 @@ AstParamList* Parser::parseParamList() {
     auto openParen = match(OpenParen);
     if (!openParen) return nullptr;
     auto seq = parseSequence(&Parser::parseParamDecl, CloseParen, Comma);
-    auto closeParen = match(CloseParen).value_or(Token::ErrorToken);
+    auto closeParen = match(CloseParen).value_or(ErrorToken);
     return allocate<AstParamList>(*openParen, closeParen, std::move(seq));
 }
 
@@ -416,17 +439,34 @@ Facet const* Parser::parseCondFacet() {
     if (!cond) return nullptr;
     auto question = match(Question);
     if (!question) return cond;
-    auto* lhs = parseOrRecover(&Parser::parseCommaFacet, { .stop = Colon });
-    if (!lhs) raise<ExpectedExpression>(peek());
+    auto* lhs = parseOrRecover(&Parser::parseCommaFacet,
+                               { .stop = { Colon, Semicolon } },
+                               raiseCb<ExpectedExpression>());
     auto colon = match(Colon);
-    if (!colon) {
-        assert(false); // Expected colon
-    }
-    auto* rhs = parseCondFacet();
-    if (!rhs) {
-        assert(false); // Expected expression
-    }
-    return makeCondFacet(alloc, cond, *question, lhs, *colon, rhs);
+    auto* rhs = eval_as (Facet const*) {
+        if (colon) {
+            return parseOrRecover(&Parser::parseCondFacet,
+                                  { .stop = Semicolon },
+                                  raiseCb<ExpectedExpression>());
+        }
+        Token expColon = peek();
+        if (auto* rhs = parseOrRecover(&Parser::parseCondFacet,
+                                       { .stop = { Colon, Semicolon } }))
+        {
+            raise<ExpectedToken>(expColon, Colon);
+            return rhs;
+        }
+        if ((colon = match(Colon))) {
+            return parseOrRecover(&Parser::parseCondFacet,
+                                  { .stop = Semicolon },
+                                  raiseCb<ExpectedExpression>());
+        }
+        raise<ExpectedToken>(peek(), Colon);
+        raise<ExpectedExpression>(peek());
+        return nullptr;
+    };
+    return makeCondFacet(alloc, cond, *question, lhs,
+                         colon.value_or(ErrorToken), rhs);
 }
 
 Facet const* Parser::parseLogicalOrFacet() {
@@ -654,7 +694,7 @@ InvokeResult<Fn> Parser::recover(Fn next, RecoveryOptions options) {
     inRecovery = true;
     utl::scope_guard reset = [this] { inRecovery = false; };
     for (size_t i = 0; i < options.numAttempts; ++i) {
-        if (options.stop && peekMatch(*options.stop)) {
+        if (ranges::contains(options.stop, peek().kind)) {
             return nullptr;
         }
         if (auto result = invoke(next)) {
@@ -676,6 +716,14 @@ template <ParserFn Fn>
 InvokeResult<Fn> Parser::parseOrRecover(Fn next, RecoveryOptions options) {
     auto obj = invoke(next);
     validOrRecover(obj, next, options);
+    return obj;
+}
+
+template <ParserFn Fn>
+InvokeResult<Fn> Parser::parseOrRecover(Fn next, RecoveryOptions options,
+                                        ParserFn auto raiseIssue) {
+    auto obj = parseOrRecover(next, options);
+    if (!obj) invoke(raiseIssue);
     return obj;
 }
 

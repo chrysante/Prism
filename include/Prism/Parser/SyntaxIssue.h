@@ -9,22 +9,30 @@
 
 namespace prism {
 
+/// Base class of all syntax issues
 class SyntaxIssue: public Issue {
 public:
     Token token() const { return tok; }
 
 protected:
-    explicit SyntaxIssue(Token tok): Issue(tok.index), tok(tok) {}
+    explicit SyntaxIssue(Token tok, auto&&...): Issue(tok.index), tok(tok) {}
 
 private:
     Token tok;
 };
+
+} // namespace prism
+
+// Definition of all derived syntax issue classes. The classes are defined in a
+// concise manner in SyntaxIssue.def
 
 #define PRISM_PARAM_DECLARE(...)             PRISM_PARAM_DECLARE_IMPL __VA_ARGS__
 #define PRISM_PARAM_DECLARE_IMPL(type, name) type name
 
 #define PRISM_PARAM_ID(...)             PRISM_PARAM_ID_IMPL __VA_ARGS__
 #define PRISM_PARAM_ID_IMPL(type, name) name
+
+namespace prism {
 
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
     class Name: public Base {                                                  \

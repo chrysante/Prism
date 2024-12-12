@@ -4,15 +4,21 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "Prism/Parser/ParserTestUtils.h"
+#include "Prism/Parser/SyntaxIssue.h"
 
-using namespace prism;
+using enum prism::AstNodeType;
+using enum prism::FacetType;
+using enum prism::TokenKind;
+
+using prism::IssueOnLine;
+using prism::NullNode;
+using prism::parseFacet;
+using prism::parseFile;
+using prism::Tree;
 
 // clang-format off
 
-TEST_CASE("Parser", "[parser]") {
-    using enum AstNodeType;
-    using enum FacetType;
-    using enum TokenKind;
+TEST_CASE("FuncDecl", "[parser]") {
     CHECK(*parseFile("fn test() -> T { T{}; }") == AstSourceFile >> Tree{
         AstFuncDecl >> Tree{
             AstUnqualName,
@@ -27,6 +33,9 @@ TEST_CASE("Parser", "[parser]") {
             },
         }
     });
+}
+
+TEST_CASE("Simple expressions", "[parser]") {
     CHECK(*parseFacet("0xff + 42 * ++c") == BinaryFacet >> Tree{
         IntLiteralHex,
         Plus,
@@ -36,6 +45,7 @@ TEST_CASE("Parser", "[parser]") {
             PrefixFacet >> Tree{ DoublePlus, Identifier },
         }
     });
+    
     CHECK(*parseFacet("f(x, y, z)") == CallFacet >> Tree{
         Identifier,
         OpenParen,
@@ -44,6 +54,7 @@ TEST_CASE("Parser", "[parser]") {
         },
         CloseParen
     });
+    
     CHECK(*parseFacet("x < y < z") == BinaryFacet >> Tree{
         BinaryFacet >> Tree{
             Identifier, LeftAngle, Identifier
@@ -51,6 +62,7 @@ TEST_CASE("Parser", "[parser]") {
         LeftAngle,
         Identifier
     });
+    
     CHECK(*parseFacet("x = y = z") == BinaryFacet >> Tree{
         Identifier,
         Equal,
@@ -58,6 +70,67 @@ TEST_CASE("Parser", "[parser]") {
             Identifier, Equal, Identifier
         }
     });
+}
+    
+TEST_CASE("Conditionals", "[parser]") {
+    CHECK(*parseFacet("x ? a, b : y ? c : d") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        BinaryFacet >> Tree {
+            Identifier, Comma, Identifier
+        },
+        Colon,
+        CondFacet >> Tree{
+            Identifier,
+            Question,
+            Identifier,
+            Colon,
+            Identifier
+        }
+    });
+    
+    CHECK(*parseFacet("x ? : b") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        NullNode,
+        Colon,
+        Identifier
+    } >> IssueOnLine<prism::ExpectedExpression>(0, 4));
+    
+    CHECK(*parseFacet("x ? a b") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        Identifier,
+        Error,
+        Identifier
+    } >> IssueOnLine<prism::ExpectedToken>(0, 6));
+    
+    CHECK(*parseFacet("x ? a :") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        Identifier,
+        Colon,
+        NullNode
+    } >> IssueOnLine<prism::ExpectedExpression>(0, 7));
+    
+    CHECK(*parseFacet("x ? :") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        NullNode,
+        Colon,
+        NullNode
+    } >> IssueOnLine<prism::ExpectedExpression>(0, 4)
+      >> IssueOnLine<prism::ExpectedExpression>(0, 5));
+    
+    CHECK(*parseFacet("x ?") == CondFacet >> Tree{
+        Identifier,
+        Question,
+        NullNode,
+        Error,
+        NullNode
+    } >> IssueOnLine<prism::ExpectedExpression>(0, 3)
+      >> IssueOnLine<prism::ExpectedToken>(0, 3)
+      >> IssueOnLine<prism::ExpectedExpression>(0, 3));
 }
 
 // clang-format on

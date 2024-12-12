@@ -9,9 +9,10 @@ SYNTAX_ISSUE_DEF(ExpectedExpression, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
-SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue, ((Token, have)), ({
-                     message(Primary, [this](std::ostream& str) {
-                         str << "Expected " << lowercase(token().kind);
+SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue,
+                 ((Token, have), (TokenKind, expected)), ({
+                     message(Primary, [=, this](std::ostream& str) {
+                         str << "Expected " << lowercase(expected);
                      });
                  }))
 

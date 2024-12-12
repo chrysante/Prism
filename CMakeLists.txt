@@ -66,6 +66,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/IndentingStreambuf.cpp
     src/Prism/Common/Issue.cpp
     src/Prism/Common/IssueHandler.cpp
+    src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
 
     src/Prism/Lexer/Lexer.cpp

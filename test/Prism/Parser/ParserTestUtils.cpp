@@ -9,8 +9,20 @@
 
 using namespace prism;
 
+bool ExpectedIssue::verify(IssueHandler const& iss,
+                           SourceContext const& ctx) const {
+    for (auto& issue: iss) {
+        if (!checkType(&issue)) continue;
+        auto sourceLoc = ctx.getSourceLocation(issue.sourceIndex());
+        if (sourceLoc.line != line) continue;
+        if (column && sourceLoc.column != *column) continue;
+        return true;
+    }
+    return false;
+}
+
 bool AstRefNode::compare(AstNode const* node) const {
-    if (!node) return false;
+    if (!node) return std::holds_alternative<NullNodeT>(type);
     if (auto* facetNode = csp::dyncast<AstExprFacet const*>(node)) {
         return compare(facetNode->facet());
     }
@@ -21,7 +33,7 @@ bool AstRefNode::compare(AstNode const* node) const {
 }
 
 bool AstRefNode::compare(Facet const* facet) const {
-    if (!facet) return false;
+    if (!facet) return std::holds_alternative<NullNodeT>(type);
     if (auto* term = csp::dyncast<TerminalFacet const*>(facet)) {
         return checkType(term->token().kind);
     }
@@ -44,9 +56,23 @@ bool AstRefNode::compareChildren(auto const* node) const {
     });
 }
 
-static MonotonicBufferResource gAlloc;
+MonotonicBufferResource internal::gAlloc;
+using internal::gAlloc;
+static SourceContext gCtx;
+static IssueHandler gIssueHandler;
 
-static AstRefNode const* allocateNode(
+bool AstRefNode::verifyIssues() const {
+    return ranges::all_of(expectedIssues, [](auto* e) {
+        return e->verify(gIssueHandler, gCtx);
+    });
+}
+
+AstRefNode* prism::operator>>(AstRefNode* node, ExpectedIssue const& e) {
+    node->expectedIssues.push_back(&e);
+    return node;
+}
+
+static AstRefNode* allocateNode(
     VarType type, std::span<AstRefNode const* const> children = {}) {
     return allocate<AstRefNode>(gAlloc, type, children);
 }
@@ -54,7 +80,7 @@ static AstRefNode const* allocateNode(
 static AstRefNode const* toNode(std::variant<AstRefNode const*, VarType> v) {
     csp::overload visitor{
         [](AstRefNode const* p) { return p; },
-        [](auto type) { return allocateNode(type); },
+        [](auto type) -> AstRefNode const* { return allocateNode(type); },
     };
     return std::visit(visitor, v);
 }
@@ -65,12 +91,9 @@ Tree::Tree(
     value = allocateArray<AstRefNode const*>(gAlloc, t.begin(), t.end());
 };
 
-AstRefNode const* prism::operator>>(VarType type, Tree children) {
+AstRefNode* prism::operator>>(VarType type, Tree children) {
     return allocateNode(type, children.value);
 }
-
-static SourceContext gCtx;
-static IssueHandler gIssueHandler;
 
 AstSourceFile* prism::parseFile(std::string_view text) {
     gCtx = SourceContext({}, text);
