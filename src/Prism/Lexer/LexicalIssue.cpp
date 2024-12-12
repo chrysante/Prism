@@ -4,4 +4,8 @@
 
 using namespace prism;
 
-void LexicalIssue::doFormat(std::ostream& str) const { str << "lexical issue"; }
+LexicalIssue::LexicalIssue(Reason reason, Token tok):
+    Issue(tok.index), _reason(reason), tok(tok) {
+    message(MessageKind::Primary,
+            [](std::ostream& str) { str << "lexical issue"; });
+}

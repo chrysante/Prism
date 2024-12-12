@@ -22,8 +22,6 @@ static_assert(EnumCount<TokenKind> < 128, "We store the token kind in 7 bits");
 /// Tokens produced by the lexer and consumed by the parser. AST nodes also
 /// carry tokens.
 struct Token {
-    constexpr Token() = default;
-
     constexpr Token(TokenKind kind, uint32_t sourceLen, uint32_t index):
         kind(kind), sourceLen(sourceLen), index(index) {}
 

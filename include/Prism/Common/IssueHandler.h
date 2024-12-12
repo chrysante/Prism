@@ -39,6 +39,10 @@ public:
     auto const& front() const { return view().front(); }
     auto const& back() const { return view().back(); }
 
+    /// Writes all issues to `std::cerr`
+    void print(SourceContext const& ctx);
+
+    /// Writes all issues formatted to \p os
     void format(std::ostream& os, SourceContext const& ctx) const;
 
 private:

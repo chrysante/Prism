@@ -15,16 +15,13 @@ public:
         InvalidNumericLiteral
     };
 
-    explicit LexicalIssue(Reason reason, Token tok):
-        Issue(tok.index), _reason(reason), tok(tok) {}
+    explicit LexicalIssue(Reason reason, Token tok);
 
     Reason reason() const { return _reason; }
 
     Token token() const { return tok; }
 
 private:
-    void doFormat(std::ostream& str) const override;
-
     Reason _reason;
     Token tok;
 };

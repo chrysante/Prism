@@ -246,8 +246,8 @@ class AstCompoundStmt: public AstStmt {
 public:
     explicit AstCompoundStmt(MonotonicBufferResource* res, Token openBrace,
                              Token closeBrace, std::span<AstStmt* const> stmts):
-        AstStmt(AstNodeType::AstCompoundStmt, res, openBrace,
-                std::move(stmts)) {}
+        AstStmt(AstNodeType::AstCompoundStmt, res, openBrace, std::move(stmts)),
+        _closeBrace(closeBrace) {}
 
     Token openBrace() const { return firstToken(); }
 
@@ -288,7 +288,8 @@ public:
     explicit AstSourceFile(MonotonicBufferResource* res,
                            SourceContext const& ctx,
                            std::span<AstDecl* const> decls):
-        AstNode(AstNodeType::AstSourceFile, res, Token{}, decls), ctx(ctx) {}
+        AstNode(AstNodeType::AstSourceFile, res, Token::ErrorToken, decls),
+        ctx(ctx) {}
 
     /// \Returns the source context corresponding this source file
     SourceContext const& sourceContext() const { return ctx; }
@@ -307,7 +308,7 @@ public:
 
     explicit AstTranslationUnit(MonotonicBufferResource* res,
                                 std::span<AstSourceFile* const> sourceFiles):
-        AstNode(AstNodeType::AstTranslationUnit, res, Token{},
+        AstNode(AstNodeType::AstTranslationUnit, res, Token::ErrorToken,
                 std::move(sourceFiles)) {}
 };
 
@@ -491,7 +492,8 @@ public:
     explicit AstParamDecl(MonotonicBufferResource* res, AstUnqualName* name,
                           Token colon, AstTypeSpec* typeSpec):
         AstDecl(AstNodeType::AstParamDecl, res, name->firstToken(), name,
-                typeSpec) {}
+                typeSpec),
+        _colon(colon) {}
 
     AST_PROPERTY(1, AstExpr, typeSpec, TypeSpec)
 

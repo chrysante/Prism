@@ -37,6 +37,8 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/IndentingStreambuf.h
     include/Prism/Common/Issue.h
     include/Prism/Common/IssueHandler.h
+    include/Prism/Common/MacroUtils.h
+    include/Prism/Common/MacroUtilsUndef.h
     include/Prism/Common/NoParent.h
     include/Prism/Common/TreeFormatter.h
 
@@ -45,6 +47,7 @@ set(PRISM_HEADER_FILES
     
     include/Prism/Parser/Parser.h
     include/Prism/Parser/SyntaxIssue.h
+    include/Prism/Parser/SyntaxIssue.def
 
     include/Prism/Ast/Facet.def
     include/Prism/Ast/Facet.h

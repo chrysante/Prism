@@ -116,6 +116,7 @@
 #include <cstdint>
 #include <optional>
 
+#include <utl/function_view.hpp>
 #include <utl/scope_guard.hpp>
 
 #include "Prism/Ast/Ast.h"
@@ -123,6 +124,7 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
 #include "Prism/Lexer/Lexer.h"
+#include "Prism/Parser/SyntaxIssue.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -142,6 +144,11 @@ using InvokeResult =
                                 std::invoke_result<Fn, Parser>>::type;
 
 enum class FacetState { General, Type };
+
+struct RecoveryOptions {
+    std::optional<TokenKind> stop;
+    int numAttempts = 3;
+};
 
 struct Parser {
     explicit Parser(MonotonicBufferResource& alloc,
@@ -216,9 +223,24 @@ struct Parser {
     /// \Returns the next token in the stream and consumes it
     Token eat();
 
+    ///
     template <ParserFn Fn>
-    InvokeResult<Fn> recover(TokenKind missing, std::optional<TokenKind> stop,
-                             Fn next);
+    InvokeResult<Fn> recover(Fn next, RecoveryOptions options);
+
+    ///
+    template <ParserFn Fn>
+    bool validOrRecover(InvokeResult<Fn>& obj, Fn next,
+                        RecoveryOptions options);
+
+    ///
+    template <ParserFn Fn>
+    InvokeResult<Fn> parseOrRecover(Fn next, RecoveryOptions options);
+
+    template <std::derived_from<Issue> I, typename... Args>
+        requires std::constructible_from<I, Args&&...>
+    void raise(Args&&... args) {
+        iss.push<I>(std::forward<Args>(args)...);
+    }
 
     template <ParserFn Fn>
     InvokeResult<Fn> invoke(Fn fn);
@@ -318,7 +340,7 @@ AstParamDecl* Parser::parseParamDecl() {
     auto name = parseUnqualName();
     auto colon = match(Colon);
     auto typeSpec = colon ? parseTypeSpec() :
-                            recover(Colon, Comma, &Parser::parseTypeSpec);
+                            recover(&Parser::parseTypeSpec, { .stop = Comma });
     return allocate<AstParamDecl>(std::move(name),
                                   colon.value_or(Token::ErrorToken),
                                   std::move(typeSpec));
@@ -379,10 +401,10 @@ Facet const* Parser::parseCommaFacet() {
 }
 
 Facet const* Parser::parseAssignFacet() {
-    return parseBinaryFacetRTL({ { Equal, PlusEq, MinusEq, StarEq, SlashEq,
-                                   PercentEq, AmpersandEq, VertBarEq,
-                                   CircumflexEq } },
-                               &Parser::parseCastFacet);
+    static constexpr TokenKind Ops[] = { Equal,       PlusEq,    MinusEq,
+                                         StarEq,      SlashEq,   PercentEq,
+                                         AmpersandEq, VertBarEq, CircumflexEq };
+    return parseBinaryFacetRTL(Ops, &Parser::parseCastFacet);
 }
 
 Facet const* Parser::parseCastFacet() {
@@ -394,10 +416,8 @@ Facet const* Parser::parseCondFacet() {
     if (!cond) return nullptr;
     auto question = match(Question);
     if (!question) return cond;
-    auto lhs = parseCommaFacet();
-    if (!lhs) {
-        assert(false); // Expected expression
-    }
+    auto* lhs = parseOrRecover(&Parser::parseCommaFacet, { .stop = Colon });
+    if (!lhs) raise<ExpectedExpression>(peek());
     auto colon = match(Colon);
     if (!colon) {
         assert(false); // Expected colon
@@ -627,32 +647,42 @@ Token Parser::eat() {
 }
 
 template <ParserFn Fn>
-InvokeResult<Fn> Parser::recover(TokenKind missing,
-                                 std::optional<TokenKind> stop, Fn next) {
+InvokeResult<Fn> Parser::recover(Fn next, RecoveryOptions options) {
     if (inRecovery) {
-        return nullptr;
+        return {};
     }
     inRecovery = true;
     utl::scope_guard reset = [this] { inRecovery = false; };
-    static size_t const NumAttempts = 3;
-    for (size_t i = 0; i < NumAttempts; ++i) {
-        if (stop && peekMatch(*stop)) {
+    for (size_t i = 0; i < options.numAttempts; ++i) {
+        if (options.stop && peekMatch(*options.stop)) {
             return nullptr;
         }
         if (auto result = invoke(next)) {
             return result;
         }
-        eat();
+        auto token = eat();
+        raise<UnexpectedToken>(token);
     }
-    return nullptr;
+    return {};
+}
+
+template <ParserFn Fn>
+bool Parser::validOrRecover(InvokeResult<Fn>& obj, Fn next,
+                            RecoveryOptions options) {
+    return obj || (obj = recover(next, options));
+}
+
+template <ParserFn Fn>
+InvokeResult<Fn> Parser::parseOrRecover(Fn next, RecoveryOptions options) {
+    auto obj = invoke(next);
+    validOrRecover(obj, next, options);
+    return obj;
 }
 
 template <ParserFn Fn>
 InvokeResult<Fn> Parser::invoke(Fn fn) {
-    if constexpr (std::invocable<Fn>) {
+    if constexpr (std::invocable<Fn>)
         return std::invoke(fn);
-    }
-    else {
+    else
         return std::invoke(fn, *this);
-    }
 }

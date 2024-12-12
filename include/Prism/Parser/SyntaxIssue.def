@@ -1,0 +1,24 @@
+
+#ifndef SYNTAX_ISSUE_DEF
+#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)
+#endif
+
+SYNTAX_ISSUE_DEF(ExpectedExpression, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected expression";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue, ((Token, have)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected " << lowercase(token().kind);
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(UnexpectedToken, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Unexpected " << lowercase(token().kind);
+                     });
+                 }))
+
+#undef SYNTAX_ISSUE_DEF
