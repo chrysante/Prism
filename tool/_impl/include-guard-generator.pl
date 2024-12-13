@@ -87,6 +87,21 @@ sub has_include_guard {
     return 0;
 }
 
+# Checks if the first non-blank, non-comment line is "// NO-INCLUDE-GUARD"
+sub has_no_include_guard_directive {
+    my ($lines) = @_;
+    foreach my $line (@$lines) {
+        if ($line =~ /^\s*\/\/\s*NO-INCLUDE-GUARD\s*$/) {
+            return 1;
+        }
+        if (is_blank_or_comment($line)) {
+            next;
+        }
+        last; 
+    }
+    return 0;
+}
+
 # Fixes existing include guards, i.e. sets the name to $include_guard and fixes
 # #endif comment
 # Must only be called if `has_include_guard()` returns `true`
@@ -163,6 +178,9 @@ sub main {
     foreach my $filepath (@ARGV) {
         my $relpath = File::Spec->abs2rel($filepath, $rootdir);
         my @lines = read_file_to_array($filepath);
+        if (has_no_include_guard_directive(\@lines)) {
+            next;
+        }
         fix_include_guard(\@lines, $relpath);
         if ($options{i}) {
             open(my $fh, '>', $filepath) or die $!;
