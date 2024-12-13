@@ -1,0 +1,92 @@
+<source-file>        ::= <global-decl>*
+<global-decl>        ::= [<access-spec>] <decl>
+<decl>               ::= <func-decl> | <struct-decl> | <var-decl>
+<access-spec>        ::= 'public' | 'private'
+<func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] <compound-stmt>
+<param-list>         ::= '(' ')'
+                       | '(' [<param-decl> (',' <param-decl>)*] ')'
+<param-decl>         ::= <name> ':' <type-spec>
+<struct-decl>        ::= ('struct' | 'trait') <name> [':' <base-list>] <struct-body>
+<base-list>          ::= <base-decl> (',' <base-decl>)*
+<base-decl>          ::= [<access-spec>] <name>
+<struct-body>        ::= '{' <global-decl>* '}'
+<var-decl>           ::= ('var' | 'let') <name> [':' <type-spec>] ['=' <assign-expr>] ';'
+<stmt>               ::= <decl>
+                       | <ctrl-flow-stmt>
+                       | <compound-stmt>
+                       | <import-stmt>
+                       | <expr-stmt>
+                       | ';'
+<import-stmt>        ::= TODO
+<expr-stmt>          ::= <expr> ';'
+<compound-stmt>      ::= '{' <statement>* '}'
+<ctrl-flow-stmt>     ::= <return-stmt>
+                       | <if-stmt>
+                       | <while-stmt>
+                       | <do-while-stmt>
+                       | <for-stmt>
+<return-stmt>        ::= 'return' [<facet>] ';'
+<if-stmt>            ::= 'if' <comma-expr> <compound-stmt> ['else' (<if-stmt> | <compound-stmt>)]
+<while-stmt>         ::= 'while' <comma-expr> <compound-stmt>
+<do-while-stmt>      ::= 'do' <compound-stmt> 'while' <comma-expr> ';'
+<for-stmt>           ::= 'for' <var-decl> <comma-expr> ';' <comma-expr> <compound-stmt>
+<jump-stmt>          ::= ('break' | 'continue') ';'
+<expr>               ::= <facet>
+<assign-expr>        ::= <assign-facet>
+<type-spec>          ::= <prefix-facet>
+<facet>              ::= <comma-facet>
+<comma-facet>        ::= <assign-facet>
+                       | <comma-facet> ',' <assign-facet>
+<assign-facet>       ::= <cast-facet>
+                       | <cast-facet> ('=', '+=', ...) <assign-facet>
+<cast-facet>         ::= <ternary-cond-facet>
+                       | <cast-facet> 'as' <type-spec>
+<ternay-cond-facet>  ::= <binary-cond-facet>
+                       | <binary-cond-facet> '?' <comma-facet> ':' <cond-facet>
+<binary-cond-facet>  ::= <logical-or-facet>
+                       | <logical-or-facet> '?:' <binary-cond-facet>
+<logical-or-facet>   ::= <logical-and-facet>
+                       | <logical-or-facet> '||' <logical-and-facet>
+<logical-and-facet>  ::= <or-facet>
+                       | <logical-and-facet> '&&' <or-facet>
+<or-facet>           ::= <xor-facet>
+                       | <or-facet> '|' <xor-facet>
+<xor-facet>          ::= <and-facet>
+                       | <xor-facet> '^' <and-facet>
+<and-facet>          ::= <eq-facet>
+                       | <and-facet> '^' <eq-facet>
+<eq-facet>           ::= <rel-facet>
+                       | <eq-facet> ('==' | '!=') <rel-facet>
+<rel-facet>          ::= <shift-facet>
+                       | <rel-facet> ('<' | '<=' | '>' | '>=')  <shift-facet>
+<shift-facet>        ::= <add-facet>
+                       | <shift-facet> ('<<' | '>>') <add-facet>
+<add-facet>          ::= <mul-facet>
+                       | <add-facet> ('+' | '-') <mul-facet>
+<mul-facet>          ::= <prefix-facet>
+                       | <mul-facet> ('*' | '/' | '%') <prefix-facet>
+<prefix-facet>       ::= <postfix-facet>
+                       | <prefix-op> <prefix-facet>
+<prefix-op>          ::= '+' | '-' | '~' | '!' | '++' | '--'
+                       | <ref-spec-facet>
+                       | '*' | '&' | '?'
+                       | 'new' ['unique' | 'shared']
+                       | 'move'
+<ref-spec-facet>     ::= 'mut' | 'dyn'
+<postfix-facet>      ::= <primary-facet>
+                       | <postfix-facet> ('++' | '--')
+                       | <postfix-facet> '(' ')'
+                       | <postfix-facet> '(' <arg-list> ')'
+                       | <postfix-facet> '{' <arg-list> '}'
+                       | <postfix-facet> '[' <assign-facet> ']'
+                       | <postfix-facet> '[' <assign-facet> (',' | ':') <assign-facet> ']'
+<arg-list>           ::= <assign-facet> (',' <assign-facet>)*
+<primary-facet>      ::= <identifier>
+                       | <integer-literal>
+                       | <boolean-literal>
+                       | <floating-point-literal>
+                       | <string-literal>
+                       | <fstring-facet>
+                       | 'this'
+<fstring-facet>      ::= <fstring-begin> <assign-facet> <fstring-mid-facet>* <fstring-end>
+<fstring-mid-facet>  ::= <fstring-mid> <assign-facet>

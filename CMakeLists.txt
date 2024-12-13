@@ -72,6 +72,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Lexer/Lexer.cpp
     src/Prism/Lexer/LexicalIssue.cpp
     
+    src/Prism/Parser/Grammar.txt
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/SyntaxIssue.cpp
 
