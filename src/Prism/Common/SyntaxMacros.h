@@ -1,3 +1,6 @@
+#ifndef PRISM_COMMON_SYNTAXMACROS_H
+#define PRISM_COMMON_SYNTAXMACROS_H
+
 #include <concepts>
 
 #define eval internal::DoToken{}->*[&]
@@ -14,3 +17,5 @@ decltype(auto) operator->*(DoToken, F&& f) {
 }
 
 } // namespace internal
+
+#endif // PRISM_COMMON_SYNTAXMACROS_H

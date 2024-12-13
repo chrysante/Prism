@@ -137,6 +137,7 @@ enable_sanitizers(Playground)
 target_sources(Playground
   PRIVATE  
     src/Playground/Playground.cpp
+    examples/Playground.prism
 )
 
 target_link_libraries(Playground

@@ -20,3 +20,6 @@
 #undef PRISM_FOR_EACH_IMPL_8
 #undef PRISM_FOR_EACH_IMPL_9
 #undef PRISM_FOR_EACH_IMPL_10
+
+#undef PRISM_COMMON_MACROUTILS_H // Undef include guard so the next include
+                                 // defines the macros again

@@ -58,10 +58,12 @@
 //                        | <comma-facet> ',' <assign-facet>
 // <assign-facet>       ::= <cast-facet>
 //                        | <cast-facet> ('=', '+=', ...) <assign-facet>
-// <cast-facet>         ::= <cond-facet>
+// <cast-facet>         ::= <ternary-cond-facet>
 //                        | <cast-facet> 'as' <type-spec>
-// <cond-facet>         ::= <logical-or-facet>
-//                        | <logical-or-facet> '?' <comma-facet> ':' <cond-facet>
+// <ternay-cond-facet>  ::= <binary-cond-facet>
+//                        | <binary-cond-facet> '?' <comma-facet> ':' <cond-facet>
+// <binary-cond-facet>  ::= <logical-or-facet>
+//                        | <logical-or-facet> '?:' <binary-cond-facet>
 // <logical-or-facet>   ::= <logical-and-facet>
 //                        | <logical-or-facet> '||' <logical-and-facet>
 // <logical-and-facet>  ::= <or-facet>
@@ -151,6 +153,9 @@ enum class FacetState { General, Type };
 
 template <typename T>
 struct VolatileList: std::span<T> {
+    template <typename... Args>
+        requires std::constructible_from<std::span<T>, Args&&...>
+    VolatileList(Args&&... args): std::span<T>(std::forward<Args>(args)...) {}
     VolatileList(std::span<T> s): std::span<T>(s) {}
     VolatileList(std::initializer_list<std::remove_const_t<T>> ilist):
         std::span<T>(ilist) {}
@@ -190,7 +195,8 @@ struct Parser {
     Facet const* parseCommaFacet();
     Facet const* parseAssignFacet();
     Facet const* parseCastFacet();
-    Facet const* parseCondFacet();
+    Facet const* parseTernCondFacet();
+    Facet const* parseBinCondFacet();
     Facet const* parseLogicalOrFacet();
     Facet const* parseLogicalAndFacet();
     Facet const* parseOrFacet();
@@ -207,9 +213,9 @@ struct Parser {
     Facet const* parseFstringFacet();
 
     Facet const* parseBinaryFacetLTR(
-        std::span<TokenKind const> acceptedOperators, ParserFn auto next);
+        VolatileList<TokenKind const> acceptedOperators, ParserFn auto next);
     Facet const* parseBinaryFacetRTL(
-        std::span<TokenKind const> acceptedOperators, ParserFn auto next);
+        VolatileList<TokenKind const> acceptedOperators, ParserFn auto next);
 
     template <ParserFn Fn>
     utl::small_vector<InvokeResult<Fn>> parseSequence(
@@ -420,7 +426,7 @@ Abstract* Parser::parseFacetImpl(ParserFn auto start) {
 
 // MARK: - Facets
 Facet const* Parser::parseCommaFacet() {
-    return parseBinaryFacetLTR({ { Comma } }, &Parser::parseAssignFacet);
+    return parseBinaryFacetLTR(Comma, &Parser::parseAssignFacet);
 }
 
 Facet const* Parser::parseAssignFacet() {
@@ -431,11 +437,21 @@ Facet const* Parser::parseAssignFacet() {
 }
 
 Facet const* Parser::parseCastFacet() {
-    return parseCondFacet(); // For now
+    Facet const* facet = parseTernCondFacet();
+    if (!facet) return nullptr;
+    while (true) {
+        auto as = match(As);
+        if (!as) return facet;
+        auto* type = parsePrefixFacet();
+        if (!type) {
+            assert(false); // Expected type spec
+        }
+        facet = makeBinaryFacet(alloc, facet, *as, type);
+    }
 }
 
-Facet const* Parser::parseCondFacet() {
-    auto* cond = parseLogicalOrFacet();
+Facet const* Parser::parseTernCondFacet() {
+    auto* cond = parseBinCondFacet();
     if (!cond) return nullptr;
     auto question = match(Question);
     if (!question) return cond;
@@ -445,19 +461,19 @@ Facet const* Parser::parseCondFacet() {
     auto colon = match(Colon);
     auto* rhs = eval_as (Facet const*) {
         if (colon) {
-            return parseOrRecover(&Parser::parseCondFacet,
+            return parseOrRecover(&Parser::parseTernCondFacet,
                                   { .stop = Semicolon },
                                   raiseCb<ExpectedExpression>());
         }
         Token expColon = peek();
-        if (auto* rhs = parseOrRecover(&Parser::parseCondFacet,
+        if (auto* rhs = parseOrRecover(&Parser::parseTernCondFacet,
                                        { .stop = { Colon, Semicolon } }))
         {
             raise<ExpectedToken>(expColon, Colon);
             return rhs;
         }
         if ((colon = match(Colon))) {
-            return parseOrRecover(&Parser::parseCondFacet,
+            return parseOrRecover(&Parser::parseTernCondFacet,
                                   { .stop = Semicolon },
                                   raiseCb<ExpectedExpression>());
         }
@@ -469,49 +485,51 @@ Facet const* Parser::parseCondFacet() {
                          colon.value_or(ErrorToken), rhs);
 }
 
+Facet const* Parser::parseBinCondFacet() {
+    return parseBinaryFacetRTL(QuestionColon, &Parser::parseLogicalOrFacet);
+}
+
 Facet const* Parser::parseLogicalOrFacet() {
-    return parseBinaryFacetLTR({ { DoubleVertBar } },
-                               &Parser::parseLogicalAndFacet);
+    return parseBinaryFacetLTR(DoubleVertBar, &Parser::parseLogicalAndFacet);
 }
 
 Facet const* Parser::parseLogicalAndFacet() {
-    return parseBinaryFacetLTR({ { DoubleAmpersand } }, &Parser::parseOrFacet);
+    return parseBinaryFacetLTR(DoubleAmpersand, &Parser::parseOrFacet);
 }
 
 Facet const* Parser::parseOrFacet() {
-    return parseBinaryFacetLTR({ { VertBar } }, &Parser::parseXorFacet);
+    return parseBinaryFacetLTR(VertBar, &Parser::parseXorFacet);
 }
 
 Facet const* Parser::parseXorFacet() {
-    return parseBinaryFacetLTR({ { Circumflex } }, &Parser::parseAndFacet);
+    return parseBinaryFacetLTR(Circumflex, &Parser::parseAndFacet);
 }
 
 Facet const* Parser::parseAndFacet() {
-    return parseBinaryFacetLTR({ { Ampersand } }, &Parser::parseEqFacet);
+    return parseBinaryFacetLTR(Ampersand, &Parser::parseEqFacet);
 }
 
 Facet const* Parser::parseEqFacet() {
-    return parseBinaryFacetLTR({ { DoubleEqual, NotEq } },
-                               &Parser::parseRelFacet);
+    return parseBinaryFacetLTR({ DoubleEqual, NotEq }, &Parser::parseRelFacet);
 }
 
 Facet const* Parser::parseRelFacet() {
-    return parseBinaryFacetLTR({ { LeftAngle, LeftAngleEq, RightAngle,
-                                   RightAngleEq } },
+    return parseBinaryFacetLTR({ LeftAngle, LeftAngleEq, RightAngle,
+                                 RightAngleEq },
                                &Parser::parseShiftFacet);
 }
 
 Facet const* Parser::parseShiftFacet() {
-    return parseBinaryFacetLTR({ { DoubleLeftAngle, DoubleRightAngle } },
+    return parseBinaryFacetLTR({ DoubleLeftAngle, DoubleRightAngle },
                                &Parser::parseAddFacet);
 }
 
 Facet const* Parser::parseAddFacet() {
-    return parseBinaryFacetLTR({ { Plus, Minus } }, &Parser::parseMulFacet);
+    return parseBinaryFacetLTR({ Plus, Minus }, &Parser::parseMulFacet);
 }
 
 Facet const* Parser::parseMulFacet() {
-    return parseBinaryFacetLTR({ { Star, Slash, Percent } },
+    return parseBinaryFacetLTR({ Star, Slash, Percent },
                                &Parser::parsePrefixFacet);
 }
 
@@ -583,7 +601,7 @@ Facet const* Parser::parsePrimaryFacet() {
 Facet const* Parser::parseFstringFacet() { return nullptr; }
 
 Facet const* Parser::parseBinaryFacetLTR(
-    std::span<TokenKind const> acceptedOperators, ParserFn auto next) {
+    VolatileList<TokenKind const> acceptedOperators, ParserFn auto next) {
     auto* lhs = invoke(next);
     if (!lhs) return nullptr;
     while (true) {
@@ -598,7 +616,7 @@ Facet const* Parser::parseBinaryFacetLTR(
 }
 
 Facet const* Parser::parseBinaryFacetRTL(
-    std::span<TokenKind const> acceptedOperators, ParserFn auto next) {
+    VolatileList<TokenKind const> acceptedOperators, ParserFn auto next) {
     auto* lhs = invoke(next);
     if (!lhs) return nullptr;
     if (auto tok = match(acceptedOperators)) {

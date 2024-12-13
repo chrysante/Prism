@@ -1,3 +1,6 @@
+#ifndef PRISM_COMMON_MACROUTILS_H
+#define PRISM_COMMON_MACROUTILS_H
+
 #define PRISM_COUNT_ARGS_IMPL(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
 #define PRISM_COUNT_ARGS(...)                                                  \
     PRISM_COUNT_ARGS_IMPL(__VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
@@ -68,3 +71,5 @@
     PRISM_SEPARATOR macro(h)                                                   \
     PRISM_SEPARATOR macro(i)                                                   \
     PRISM_SEPARATOR macro(j)
+
+#endif // PRISM_COMMON_MACROUTILS_H

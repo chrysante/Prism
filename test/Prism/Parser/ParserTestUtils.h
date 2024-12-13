@@ -1,3 +1,6 @@
+#ifndef PRISM_PARSER_PARSERTESTUTILS_H
+#define PRISM_PARSER_PARSERTESTUTILS_H
+
 #include <concepts>
 #include <initializer_list>
 #include <ostream>
@@ -133,3 +136,5 @@ AstSourceFile* parseFile(std::string_view text);
 Facet const* parseFacet(std::string_view text);
 
 } // namespace prism
+
+#endif // PRISM_PARSER_PARSERTESTUTILS_H
