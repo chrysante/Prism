@@ -256,9 +256,43 @@ std::optional<Token> Lexer::lexKeywordOrID() {
 }
 
 void Lexer::ignoreWhitespace() {
-    while (valid() && isSpace(current())) {
-        increment();
+    while (valid()) {
+        if (isSpace(current())) {
+            increment();
+            continue;
+        }
+        if (ignoreComment()) continue;
+        break;
     }
+}
+
+bool Lexer::ignoreComment() {
+    if (source.substr(index).starts_with("//")) {
+        index += 2;
+        while (valid() && current() != '\n')
+            increment();
+        return true;
+    }
+    if (source.substr(index).starts_with("/*")) {
+        index += 2;
+        int level = 1;
+        while (valid()) {
+            if (source.substr(index).starts_with("/*")) {
+                index += 2;
+                ++level;
+                continue;
+            }
+            if (source.substr(index).starts_with("*/")) {
+                index += 2;
+                --level;
+                if (level == 0) break;
+                continue;
+            }
+            increment();
+        }
+        return true;
+    }
+    return false;
 }
 
 void Lexer::increment() { increment(index); }

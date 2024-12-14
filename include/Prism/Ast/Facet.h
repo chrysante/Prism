@@ -20,6 +20,7 @@ namespace prism {
 class Facet {
 public:
     std::span<Facet const* const> children() const {
+        PRISM_ASSERT(get_rtti(*this) != FacetType::StmtListFacet);
         return { getChildrenPtr(), getNumChildren() };
     }
 
@@ -121,10 +122,6 @@ inline TerminalFacet const* makeTerminal(MemoryResource auto& alloc,
 }
 
 class NonTerminalFacet: public Facet {
-    std::span<Facet const* const> children() const {
-        return { getChildrenPtr(), nonTerm.numChildren };
-    }
-
 protected:
     NonTerminalFacet(FacetType type, std::span<Facet const* const> children):
         Facet(type, children) {}
@@ -235,23 +232,45 @@ inline PostfixFacet const* makePostfixFacet(MemoryResource auto& alloc,
         alloc, { { operand, makeTerminal(alloc, operation) } });
 }
 
-class ListFacet: public NonTerminalFacet {
+class ExprListFacet: public NonTerminalFacet {
 private:
     friend class detail::FacetFactory;
-    explicit ListFacet(std::span<Facet const* const> children):
-        NonTerminalFacet(FacetType::ListFacet, children) {}
+    explicit ExprListFacet(std::span<Facet const* const> children):
+        NonTerminalFacet(FacetType::ExprListFacet, children) {}
 };
 
-inline ListFacet const* makeListFacet(MemoryResource auto& alloc,
-                                      std::span<Facet const* const> children) {
-    return detail::FacetFactory::makeNonTerminal<ListFacet>(alloc, children);
+inline ExprListFacet const* makeExprListFacet(
+    MemoryResource auto& alloc, std::span<Facet const* const> children) {
+    return detail::FacetFactory::makeNonTerminal<ExprListFacet>(alloc,
+                                                                children);
+}
+
+class StmtListFacet: public NonTerminalFacet {
+public:
+    std::span<AstStmt* const> statements() const {
+        auto facetData = NonTerminalFacet::getChildrenPtr();
+        auto* data = std::bit_cast<AstStmt* const*>(facetData);
+        return { data, getNumChildren() };
+    }
+
+private:
+    friend class detail::FacetFactory;
+    explicit StmtListFacet(std::span<Facet const* const> children):
+        NonTerminalFacet(FacetType::StmtListFacet, children) {}
+};
+
+inline StmtListFacet const* makeStmtListFacet(
+    MemoryResource auto& alloc, std::span<AstStmt* const> children) {
+    return detail::FacetFactory::makeNonTerminal<StmtListFacet>(
+        alloc, { std::bit_cast<Facet const* const*>(children.data()),
+                 children.size() });
 }
 
 class CallFacet: public NonTerminalFacet {
 public:
     FACET_FIELD(0, Facet, callee)
     FACET_FIELD(1, TerminalFacet, openBracket)
-    FACET_FIELD(2, ListFacet, arguments)
+    FACET_FIELD(2, ExprListFacet, arguments)
     FACET_FIELD(3, TerminalFacet, closeBracket)
 
 private:
@@ -262,11 +281,34 @@ private:
 
 inline CallFacet const* makeCallFacet(MemoryResource auto& alloc,
                                       Facet const* callee, Token openBracket,
-                                      ListFacet const* arguments,
+                                      ExprListFacet const* arguments,
                                       Token closeBracket) {
     return detail::FacetFactory::makeNonTerminal<CallFacet>(
         alloc, { { callee, makeTerminal(alloc, openBracket), arguments,
                    makeTerminal(alloc, closeBracket) } });
+}
+
+class CompoundFacet: public NonTerminalFacet {
+public:
+    FACET_FIELD(0, TerminalFacet, openBrace)
+    FACET_FIELD(1, StmtListFacet, statements)
+    FACET_FIELD(2, Facet, returnFacet)
+    FACET_FIELD(3, TerminalFacet, closeBrace)
+
+private:
+    friend class detail::FacetFactory;
+    explicit CompoundFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::CompoundFacet, args) {}
+};
+
+inline CompoundFacet const* makeCompoundFacet(MemoryResource auto& alloc,
+                                              Token openBrace,
+                                              StmtListFacet const* stmts,
+                                              Facet const* returnFacet,
+                                              Token closeBrace) {
+    return detail::FacetFactory::makeNonTerminal<CompoundFacet>(
+        alloc, { { makeTerminal(alloc, openBrace), stmts, returnFacet,
+                   makeTerminal(alloc, closeBrace) } });
 }
 
 #undef FACET_FIELD

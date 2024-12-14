@@ -1,0 +1,86 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/syntax.html
+name:
+  - Prism
+file_extensions:
+  - prism
+version:
+  - 0
+scope: source.prism
+variables:
+  ident: '[A-Za-z_][A-Za-z_0-9]*'
+
+contexts:
+  main:
+    # Comments begin with a '//' and finish at the end of the line
+    - match: '//'
+      scope: punctuation.definition.comment.prism
+      push: line_comment
+
+    # C-style block comment
+    - match: '\/\*'
+      scope: punctuation.definition.comment.prism
+      push:
+        # This is an anonymous context push for brevity.
+        - meta_scope: comment.line.double-slash.prism
+        - match: ($|\n)?\*\/
+          pop: true
+
+  # Keywords are if, else for and while.
+    # Note that blackslashes don't need to be escaped within single quoted
+    # strings in YAML. When using single quoted strings, only single quotes
+    # need to be escaped: this is done by using two single quotes next to each
+    # other.
+    - match: \b(if|else|for|while|do|return|break|continue)\b
+      scope: keyword.control
+
+    # Builtins
+    - match: \b(fn|var|let|struct|trait|public|internal|private|mut|dyn|new|delete|move|unique|shared|import|extern|reinterpret|as)\b
+      scope: punctuation.definition.keyword
+
+    - match: \b(void|bool|byte|int|float|double|str|true|false|this|nil)\b
+      scope: punctuation.definition.keyword
+
+    - match: \b(s8|s16|s32|s64|u8|u16|u32|u64)\b
+      scope: punctuation.definition.keyword
+
+    - match: '(\$|\&)[0-9]+'
+      scope: keyword.operator
+
+    - match: '(=|\+=|-=|\*=|\/=|%=|>>=|<<=|&=|\|=|\^=)'
+      scope: keyword.operator.assignment
+    - match: '(\+|-|\*|\/|%)'
+      scope: keyword.operator.arithmetic
+    - match: '(<<|>>|&|\||\^)'
+      scope: keyword.operator.bitwise
+    - match: '(&&|\|\|)'
+      scope: keyword.operator.logical
+    - match: '(==|!=|<|<=|>|>=|\?|:)'
+      scope: keyword.operator
+
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character
+    - match: '"'
+      scope: punctuation.definition.string.begin.prism
+      push: double_quoted_string
+    
+    - match: '\b{{ident}}\b'
+      scope: variable.other
+
+    # Numbers
+    - match: '\b(-)?[0-9.]+\b'
+      scope: constant.numeric.prism
+
+  double_quoted_string:
+    - meta_scope: string.quoted.double.prism
+    - match: '\\.'
+      scope: constant.character.escape.prism
+    - match: '"'
+      scope: punctuation.definition.string.end.prism
+      pop: true
+
+  line_comment:
+    - meta_scope: comment.line.prism
+    - match: $
+      pop: true

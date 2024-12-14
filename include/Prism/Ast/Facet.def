@@ -10,7 +10,9 @@ FACET_DEF(CondFacet, NonTerminalFacet, Concrete)
 FACET_DEF(BinaryFacet, NonTerminalFacet, Concrete)
 FACET_DEF(PrefixFacet, NonTerminalFacet, Concrete)
 FACET_DEF(PostfixFacet, NonTerminalFacet, Concrete)
-FACET_DEF(ListFacet, NonTerminalFacet, Concrete)
+FACET_DEF(ExprListFacet, NonTerminalFacet, Concrete)
+FACET_DEF(StmtListFacet, NonTerminalFacet, Concrete)
 FACET_DEF(CallFacet, NonTerminalFacet, Concrete)
+FACET_DEF(CompoundFacet, NonTerminalFacet, Concrete)
 
 #undef FACET_DEF

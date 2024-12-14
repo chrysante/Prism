@@ -50,15 +50,17 @@ AST_EXPR(AstIndexSliceExpr, AstCallBase, Concrete)
 AST_EXPR(AstName, AstExpr, Abstract)
 AST_EXPR(AstUnqualName, AstName, Concrete)
 AST_EXPR(AstNameSeq, AstName, Concrete)
+AST_EXPR(AstCompoundExpr, AstExpr, Concrete)
 
 #undef AST_EXPR
 
 AST_NODE(AstStmt, AstNode, Abstract)
-AST_NODE(AstCompoundStmt, AstStmt, Concrete)
 AST_NODE(AstDecl, AstStmt, Abstract)
 AST_NODE(AstParamDecl, AstDecl, Concrete)
 AST_NODE(AstFuncDecl, AstDecl, Concrete)
 AST_NODE(AstExprStmt, AstStmt, Concrete)
+AST_NODE(AstYieldStmt, AstStmt, Concrete)
+AST_NODE(AstEmptyStmt, AstStmt, Concrete)
 
 #undef AST_NODE
 

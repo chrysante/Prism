@@ -65,7 +65,6 @@ struct Parser {
     AstStmt* parseStmt();
     AstDecl* parseDecl();
     AstFuncDecl* parseFuncDecl();
-    AstCompoundStmt* parseCompoundStmt();
     AstParamDecl* parseParamDecl();
     AstParamList* parseParamList();
     AstExprStmt* parseExprStmt();
@@ -73,6 +72,7 @@ struct Parser {
     AstUnqualName* parseUnqualName();
     AstFacet* parseFacet();
     AstExpr* parseExpr();
+    AstCompoundExpr* parseCompoundExpr();
     AstTypeSpec* parseTypeSpec();
     template <typename Abstract, typename Concrete>
     Abstract* parseFacetImpl(ParserFn auto start);
@@ -97,6 +97,7 @@ struct Parser {
     Facet const* parsePostfixFacet();
     Facet const* parsePrimaryFacet();
     Facet const* parseFstringFacet();
+    CompoundFacet const* parseCompoundFacet();
 
     Facet const* parseBinaryFacetLTR(
         VolatileList<TokenKind const> acceptedOperators, ParserFn auto next);
@@ -209,6 +210,16 @@ Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
     return parser.parseCommaFacet();
 }
 
+static Token firstToken(Facet const* node) {
+    PRISM_ASSERT(node);
+    // clang-format off
+    return csp::visit(*node, csp::overload{
+        [](TerminalFacet const& node) { return node.token(); },
+        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); }
+    });
+    // clang-format on
+}
+
 AstSourceFile* Parser::parseSourceFile() {
     return allocate<AstSourceFile>(sourceCtx,
                                    parseSequence(&Parser::parseDecl, End));
@@ -220,6 +231,9 @@ AstStmt* Parser::parseStmt() {
     }
     if (auto stmt = parseExprStmt()) {
         return stmt;
+    }
+    if (auto tok = match(Semicolon)) {
+        return allocate<AstEmptyStmt>(&alloc, *tok);
     }
     return nullptr;
 }
@@ -234,22 +248,11 @@ AstDecl* Parser::parseDecl() {
 AstFuncDecl* Parser::parseFuncDecl() {
     auto declarator = match(Function);
     if (!declarator) return nullptr;
-    auto name = parseName();
-    auto params = parseParamList();
-    auto retType = match(Arrow) ? parseTypeSpec() : nullptr;
-    auto body = parseCompoundStmt();
-    return allocate<AstFuncDecl>(*declarator, std::move(name),
-                                 std::move(params), std::move(retType),
-                                 std::move(body));
-}
-
-AstCompoundStmt* Parser::parseCompoundStmt() {
-    auto openBrace = match(OpenBrace);
-    if (!openBrace) return nullptr;
-    auto statements = parseSequence(&Parser::parseStmt, CloseBrace);
-    auto closeBrace = match(CloseBrace).value_or(ErrorToken);
-    return allocate<AstCompoundStmt>(*openBrace, closeBrace,
-                                     std::move(statements));
+    auto* name = parseName();
+    auto* params = parseParamList();
+    auto* retType = match(Arrow) ? parseTypeSpec() : nullptr;
+    auto* body = parseCompoundExpr();
+    return allocate<AstFuncDecl>(*declarator, name, params, retType, body);
 }
 
 AstParamDecl* Parser::parseParamDecl() {
@@ -270,12 +273,13 @@ AstParamList* Parser::parseParamList() {
 }
 
 AstExprStmt* Parser::parseExprStmt() {
-    auto expr = parseExpr();
+    if (auto* expr = parseCompoundExpr()) return allocate<AstExprStmt>(expr);
+    auto* expr = parseExpr();
     if (!expr) return nullptr;
     if (!match(Semicolon)) {
         assert(false); // Push error
     }
-    return allocate<AstExprStmt>(std::move(expr));
+    return allocate<AstExprStmt>(expr);
 }
 
 AstFacet* Parser::parseFacet() {
@@ -286,21 +290,25 @@ AstExpr* Parser::parseExpr() {
     return parseFacetImpl<AstExpr, AstExprFacet>(&Parser::parseCommaFacet);
 }
 
+AstCompoundExpr* Parser::parseCompoundExpr() {
+    auto* compound = parseCompoundFacet();
+    if (!compound) return nullptr;
+    auto stmtsList = compound->statements()->statements();
+    utl::small_vector<AstStmt*> stmts(stmtsList.begin(), stmtsList.end());
+    if (auto* retFct = compound->returnFacet()) {
+        auto* expr = allocate<AstExprFacet>(&alloc, retFct, firstToken(retFct));
+        auto* stmt = allocate<AstYieldStmt>(&alloc, expr);
+        stmts.push_back(stmt);
+    }
+    return allocate<AstCompoundExpr>(&alloc, compound->openBrace()->token(),
+                                     stmts);
+}
+
 AstTypeSpec* Parser::parseTypeSpec() {
     return withFacetState(FacetState::Type, [this] {
         return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
             &Parser::parsePrefixFacet);
     });
-}
-
-static Token firstToken(Facet const* node) {
-    PRISM_ASSERT(node);
-    // clang-format off
-    return csp::visit(*node, csp::overload{
-        [](TerminalFacet const& node) { return node.token(); },
-        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); }
-    });
-    // clang-format on
 }
 
 template <typename Abstract, typename Concrete>
@@ -459,7 +467,7 @@ Facet const* Parser::parsePostfixFacet() {
                 parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
             auto close = match(closingKind);
             PRISM_ASSERT(close);
-            auto* args = makeListFacet(alloc, argList);
+            auto* args = makeExprListFacet(alloc, argList);
             operand = makeCallFacet(alloc, operand, *open, args, *close);
             continue;
         }
@@ -468,10 +476,10 @@ Facet const* Parser::parsePostfixFacet() {
 }
 
 Facet const* Parser::parsePrimaryFacet() {
-    if (auto tok =
-            match(Identifier, IntLiteralBin, IntLiteralDec, IntLiteralHex))
+    if (auto tok = match(Identifier, IntLiteralBin, IntLiteralDec,
+                         IntLiteralHex, True, False, This))
         return makeTerminal(alloc, *tok);
-    if (auto tok = match(OpenParen)) {
+    if (auto open = match(OpenParen)) {
         auto* facet = parseCommaFacet();
         if (!facet) {
             assert(false); // Expected facet
@@ -481,7 +489,42 @@ Facet const* Parser::parsePrimaryFacet() {
         }
         return facet;
     }
+    if (auto open = match(OpenBracket)) {
+        assert(false); // Unimplemented
+        if (auto close = match(CloseBracket)) {
+        }
+    }
+    if (auto* cmpFacet = parseCompoundFacet()) return cmpFacet;
     return nullptr;
+}
+
+CompoundFacet const* Parser::parseCompoundFacet() {
+    auto open = match(OpenBrace);
+    if (!open) return nullptr;
+    utl::small_vector<AstStmt*> stmts;
+    auto* returnFacet = eval_as (Facet const*) {
+        while (true) {
+            Facet const* facet = parseCommaFacet();
+            if (facet) {
+                if (peekMatch(CloseBrace)) return facet;
+                auto semicolon = match(Semicolon);
+                if (!semicolon) raise<ExpectedToken>(peek(), Semicolon);
+                auto* expr =
+                    allocate<AstExprFacet>(&alloc, facet, firstToken(facet));
+                auto* stmt = allocate<AstExprStmt>(&alloc, expr);
+                stmts.push_back(stmt);
+                continue;
+            }
+            if (auto* stmt = parseStmt())
+                stmts.push_back(stmt);
+            else
+                return nullptr;
+        }
+    };
+    auto close = match(CloseBrace);
+    if (!close) raise<ExpectedToken>(peek(), CloseBrace);
+    return makeCompoundFacet(alloc, *open, makeStmtListFacet(alloc, stmts),
+                             returnFacet, close.value_or(ErrorToken));
 }
 
 Facet const* Parser::parseFstringFacet() { return nullptr; }

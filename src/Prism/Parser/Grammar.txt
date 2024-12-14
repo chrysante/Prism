@@ -2,7 +2,7 @@
 <global-decl>        ::= [<access-spec>] <decl>
 <decl>               ::= <func-decl> | <struct-decl> | <var-decl>
 <access-spec>        ::= 'public' | 'private'
-<func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] <compound-stmt>
+<func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] <compound-expr>
 <param-list>         ::= '(' ')'
                        | '(' [<param-decl> (',' <param-decl>)*] ')'
 <param-decl>         ::= <name> ':' <type-spec>
@@ -13,23 +13,22 @@
 <var-decl>           ::= ('var' | 'let') <name> [':' <type-spec>] ['=' <assign-expr>] ';'
 <stmt>               ::= <decl>
                        | <ctrl-flow-stmt>
-                       | <compound-stmt>
                        | <import-stmt>
                        | <expr-stmt>
                        | ';'
 <import-stmt>        ::= TODO
-<expr-stmt>          ::= <expr> ';'
-<compound-stmt>      ::= '{' <statement>* '}'
+<expr-stmt>          ::= <compound-expr> |
+                       | <expr> ';'
 <ctrl-flow-stmt>     ::= <return-stmt>
                        | <if-stmt>
                        | <while-stmt>
                        | <do-while-stmt>
                        | <for-stmt>
 <return-stmt>        ::= 'return' [<facet>] ';'
-<if-stmt>            ::= 'if' <comma-expr> <compound-stmt> ['else' (<if-stmt> | <compound-stmt>)]
-<while-stmt>         ::= 'while' <comma-expr> <compound-stmt>
-<do-while-stmt>      ::= 'do' <compound-stmt> 'while' <comma-expr> ';'
-<for-stmt>           ::= 'for' <var-decl> <comma-expr> ';' <comma-expr> <compound-stmt>
+<if-stmt>            ::= 'if' '(' <comma-expr> ')' <stmt> ['else' <stmt>]
+<while-stmt>         ::= 'while' '(' <comma-expr> ')' <stmt>
+<do-while-stmt>      ::= 'do' <stmt> 'while' '(' <comma-expr> ')' ';'
+<for-stmt>           ::= 'for' '(' <var-decl> <comma-expr> ';' <comma-expr> ')' <stmt>
 <jump-stmt>          ::= ('break' | 'continue') ';'
 <expr>               ::= <facet>
 <assign-expr>        ::= <assign-facet>
@@ -88,5 +87,10 @@
                        | <string-literal>
                        | <fstring-facet>
                        | 'this'
+                       | '(' <comma-facet> ')'
+                       | '[' ']'
+                       | '[' <assign-facet> (',' <assign-facet>)* [','] ']'
+                       | <compound-expr>
+<compound-expr>      ::= '{' <stmt>* [<cast-facet>] '}'
 <fstring-facet>      ::= <fstring-begin> <assign-facet> <fstring-mid-facet>* <fstring-end>
 <fstring-mid-facet>  ::= <fstring-mid> <assign-facet>

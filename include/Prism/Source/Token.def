@@ -89,6 +89,10 @@ KEYWORD_TOKEN_KIND(Dyn, "dyn")
 KEYWORD_TOKEN_KIND(New, "new")
 KEYWORD_TOKEN_KIND(Move, "move")
 
+KEYWORD_TOKEN_KIND(True, "true")
+KEYWORD_TOKEN_KIND(False, "false")
+KEYWORD_TOKEN_KIND(This, "this")
+
 KEYWORD_TOKEN_KIND(Void, "void")
 KEYWORD_TOKEN_KIND(Int, "int")
 KEYWORD_TOKEN_KIND(Double, "double")

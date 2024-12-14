@@ -33,6 +33,7 @@ private:
     std::optional<Token> lexKeywordOrID();
 
     void ignoreWhitespace();
+    bool ignoreComment();
     void increment();
     void increment(uint32_t& loc) const;
 

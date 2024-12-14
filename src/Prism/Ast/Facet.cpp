@@ -3,6 +3,8 @@
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
 
+#include "Prism/Ast/Ast.h"
+#include "Prism/Ast/AstDump.h"
 #include "Prism/Common/TreeFormatter.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -40,8 +42,14 @@ struct FacetPrinter {
         str << FacetName(*node);
         csp::visit(*node, [this](auto& node) { details(node); });
         str << "\n";
-        fmt.writeChildren(node->children(),
-                          [&](Facet const* child) { print(child); });
+        if (auto* stmtList = csp::dyncast<StmtListFacet const*>(node)) {
+            fmt.writeChildren(stmtList->statements(),
+                              [&](AstStmt const* stmt) { dumpAst(stmt, fmt); });
+        }
+        else {
+            fmt.writeChildren(node->children(),
+                              [&](Facet const* child) { print(child); });
+        }
     }
 
     void details(Facet const&) {}

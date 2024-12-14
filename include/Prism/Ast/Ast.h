@@ -121,6 +121,12 @@ private:
     Vector<AstNode*> _children;
 };
 
+/// Base class of all AST statements
+class AstStmt: public AstNode {
+protected:
+    using AstNode::AstNode;
+};
+
 // MARK: - Facets
 
 /// Base class of expressions and type specifiers
@@ -194,6 +200,16 @@ private:
     Vector<Token> _seq;
 };
 
+///
+class AstCompoundExpr: public AstExpr {
+public:
+    explicit AstCompoundExpr(MonotonicBufferResource* res, Token openBrace,
+                             std::span<AstStmt* const> stmts):
+        AstExpr(AstNodeType::AstCompoundExpr, res, openBrace, stmts) {}
+
+    AST_PROPERTY_RANGE(0, AstStmt, statement, Statement)
+};
+
 // MARK: - Type Specifiers
 
 /// Base class of all type specifiers
@@ -234,31 +250,6 @@ public:
 };
 
 // MARK: - Statements
-
-/// Base class of all AST statements
-class AstStmt: public AstNode {
-protected:
-    using AstNode::AstNode;
-};
-
-/// Brace-enclosed sequence of statements
-class AstCompoundStmt: public AstStmt {
-public:
-    explicit AstCompoundStmt(MonotonicBufferResource* res, Token openBrace,
-                             Token closeBrace, std::span<AstStmt* const> stmts):
-        AstStmt(AstNodeType::AstCompoundStmt, res, openBrace, std::move(stmts)),
-        _closeBrace(closeBrace) {}
-
-    Token openBrace() const { return firstToken(); }
-
-    Token closeBrace() const { return _closeBrace; }
-
-    /// The sequence of statements
-    AST_PROPERTY_RANGE(0, AstStmt, statement, Statement)
-
-private:
-    Token _closeBrace;
-};
 
 /// Base class of all AST declarations
 class AstDecl: public AstStmt {
@@ -486,6 +477,21 @@ public:
     AST_PROPERTY(0, AstExpr, expr, Expr)
 };
 
+/// A yield statement is a "statement-wrapper" around the terminating expression
+/// in a compound expression
+class AstYieldStmt: public AstStmt {
+public:
+    explicit AstYieldStmt(MonotonicBufferResource* res, AstExpr* expr):
+        AstStmt(AstNodeType::AstYieldStmt, res, expr->firstToken(), expr) {}
+};
+
+///
+class AstEmptyStmt: public AstStmt {
+public:
+    explicit AstEmptyStmt(MonotonicBufferResource* res, Token semicolon):
+        AstStmt(AstNodeType::AstEmptyStmt, res, semicolon) {}
+};
+
 ///
 class AstParamDecl: public AstDecl {
 public:
@@ -531,11 +537,11 @@ public:
 
     AST_PROPERTY(2, AstTypeSpec, retTypeSpec, RetTypeSpec)
 
-    AST_PROPERTY(3, AstCompoundStmt, body, Body)
+    AST_PROPERTY(3, AstCompoundExpr, body, Body)
 
     explicit AstFuncDecl(MonotonicBufferResource* res, Token declarator,
                          AstName* name, AstParamList* params,
-                         AstTypeSpec* retTypeSpec, AstCompoundStmt* body):
+                         AstTypeSpec* retTypeSpec, AstCompoundExpr* body):
         AstDecl(AstNodeType::AstFuncDecl, res, declarator, name, params,
                 retTypeSpec, body) {}
 };
