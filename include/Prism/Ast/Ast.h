@@ -155,6 +155,17 @@ public:
         AstFacet(AstNodeType::AstRawFacet, res, firstTok), RawFacetBase(fct) {}
 };
 
+// MARK: - Type Specifier
+
+/// Type specifier. This is populated with a type facet during parsing and sema
+/// will directly assign the analyzed type symbol
+class AstTypeSpec: public AstFacet, public RawFacetBase {
+public:
+    explicit AstTypeSpec(MonotonicBufferResource* res, Facet const* fct,
+                         Token firstTok):
+        AstFacet(AstNodeType::AstTypeSpec, res, firstTok), RawFacetBase(fct) {}
+};
+
 // MARK: - Base Expressions
 
 /// Abstract base class of AST expressions
@@ -210,18 +221,6 @@ public:
     AST_PROPERTY_RANGE(0, AstStmt, statement, Statement)
 };
 
-// MARK: - Type Specifier
-
-/// Base class of all type specifiers
-class AstTypeSpec: public AstFacet, public RawFacetBase {
-public:
-    explicit AstTypeSpec(MonotonicBufferResource* res, Facet const* fct,
-                         Token firstTok):
-        AstFacet(AstNodeType::AstTypeSpec, res, firstTok), RawFacetBase(fct) {}
-};
-
-// MARK: - Statements
-
 /// Base class of all AST declarations
 class AstDecl: public AstStmt {
 public:
@@ -238,6 +237,93 @@ protected:
         AstStmt(type, res, declarator, name,
                 std::forward<C>(otherChildren)...) {}
 };
+
+/// Base class of all declaration introducing a variable, i.e. variable
+/// declarations and parameter declarations
+class AstVarDeclBase: public AstDecl {
+public:
+    AST_PROPERTY(1, AstTypeSpec, typeSpec, TypeSpec)
+
+    std::optional<Token> colon() const { return _colon; }
+
+protected:
+    explicit AstVarDeclBase(AstNodeType astType, MonotonicBufferResource* res,
+                            Token firstToken, AstName* name,
+                            std::optional<Token> colon, AstTypeSpec* typeSpec,
+                            auto*... args):
+        AstDecl(astType, res, firstToken, name, typeSpec, args...),
+        _colon(colon) {}
+
+private:
+    std::optional<Token> _colon;
+};
+
+///
+class AstParamDecl: public AstVarDeclBase {
+public:
+    explicit AstParamDecl(MonotonicBufferResource* res, AstUnqualName* name,
+                          Token colon, AstTypeSpec* typeSpec):
+        AstVarDeclBase(AstNodeType::AstParamDecl, res, name->firstToken(), name,
+                       colon, typeSpec) {}
+
+    Token colon() const { return AstVarDeclBase::colon().value(); }
+};
+
+///
+class AstVarDecl: public AstVarDeclBase {
+public:
+    explicit AstVarDecl(MonotonicBufferResource* res, Token declarator,
+                        AstName* name, std::optional<Token> colon,
+                        AstTypeSpec* typeSpec, std::optional<Token> eq,
+                        AstExpr* initExpr):
+        AstVarDeclBase(AstNodeType::AstVarDecl, res, declarator, name, colon,
+                       typeSpec, initExpr),
+        eq(eq) {}
+
+    AST_PROPERTY(2, AstExpr, initExpr, InitExpr)
+
+    std::optional<Token> eqToken() const { return eq; }
+
+private:
+    std::optional<Token> eq;
+};
+
+/// Comma separated sequence of parameter declarations
+class AstParamList: public AstNode {
+public:
+    explicit AstParamList(MonotonicBufferResource* res, Token openParen,
+                          Token closeParen,
+                          std::span<AstParamDecl* const> params):
+        AstNode(AstNodeType::AstParamList, res, openParen, params),
+        _closeParen(closeParen) {}
+
+    AST_PROPERTY_RANGE(0, AstParamDecl, param, Param)
+
+    Token openParen() const { return firstToken(); }
+
+    Token closeParen() const { return _closeParen; }
+
+private:
+    Token _closeParen;
+};
+
+/// Closure expressions. This will be rewritten by sema, so we never generate
+/// code for these directly
+class AstClosureExpr: public AstExpr {
+public:
+    explicit AstClosureExpr(MonotonicBufferResource* res, Token fn,
+                            AstParamList* params, AstTypeSpec* retType,
+                            AstExpr* body):
+        AstExpr(AstNodeType::AstClosureExpr, res, fn, params, retType, body) {}
+
+    AST_PROPERTY(0, AstParamList, params, Params)
+
+    AST_PROPERTY(1, AstTypeSpec, retTypeSpec, RetTypeSpec)
+
+    AST_PROPERTY(2, AstExpr, body, Body)
+};
+
+// MARK: - Statements
 
 /// List of declarations in a source file
 class AstSourceFile: public AstNode {
@@ -461,42 +547,6 @@ class AstEmptyStmt: public AstStmt {
 public:
     explicit AstEmptyStmt(MonotonicBufferResource* res, Token semicolon):
         AstStmt(AstNodeType::AstEmptyStmt, res, semicolon) {}
-};
-
-///
-class AstParamDecl: public AstDecl {
-public:
-    explicit AstParamDecl(MonotonicBufferResource* res, AstUnqualName* name,
-                          Token colon, AstTypeSpec* typeSpec):
-        AstDecl(AstNodeType::AstParamDecl, res, name->firstToken(), name,
-                typeSpec),
-        _colon(colon) {}
-
-    AST_PROPERTY(1, AstExpr, typeSpec, TypeSpec)
-
-    Token colon() const { return _colon; }
-
-private:
-    Token _colon;
-};
-
-/// Comma separated sequence of parameter declarations
-class AstParamList: public AstNode {
-public:
-    explicit AstParamList(MonotonicBufferResource* res, Token openParen,
-                          Token closeParen,
-                          std::span<AstParamDecl* const> params):
-        AstNode(AstNodeType::AstParamList, res, openParen, params),
-        _closeParen(closeParen) {}
-
-    AST_PROPERTY_RANGE(0, AstParamDecl, param, Param)
-
-    Token openParen() const { return firstToken(); }
-
-    Token closeParen() const { return _closeParen; }
-
-private:
-    Token _closeParen;
 };
 
 /// Function declaration or definition

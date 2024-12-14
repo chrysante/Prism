@@ -36,27 +36,14 @@ Token Lexer::next() {
 }
 
 std::optional<Token> Lexer::nextImpl() {
-    if (!valid()) {
-        return Token{ TokenKind::End, 0, index };
-    }
-    if (auto tok = lexPunctuation()) {
-        return tok;
-    }
-    if (auto tok = lexOperator()) {
-        return tok;
-    }
-    if (auto tok = lexStringLiteral()) {
-        return tok;
-    }
-    if (auto tok = lexCharLiteral()) {
-        return tok;
-    }
-    if (auto tok = lexIntLiteral()) {
-        return tok;
-    }
-    if (auto tok = lexKeywordOrID()) {
-        return tok;
-    }
+    if (!valid()) return Token{ TokenKind::End, 0, index };
+    if (auto tok = lexPunctuation()) return tok;
+    if (auto tok = lexAutoArg()) return tok;
+    if (auto tok = lexOperator()) return tok;
+    if (auto tok = lexStringLiteral()) return tok;
+    if (auto tok = lexCharLiteral()) return tok;
+    if (auto tok = lexIntLiteral()) return tok;
+    if (auto tok = lexKeywordOrID()) return tok;
     return std::nullopt;
 }
 
@@ -72,6 +59,32 @@ std::optional<Token> Lexer::lexPunctuation() {
     default:
         return std::nullopt;
     }
+}
+
+static bool isInCharRange(char c, char min, char max) {
+    return c >= min && c <= max;
+};
+
+static bool isBin(char c) { return isInCharRange(c, '0', '1'); }
+
+static bool isDec(char c) { return isInCharRange(c, '0', '9'); }
+
+static bool isHex(char c) {
+    return isDec(c) || isInCharRange(c, 'A', 'F') || isInCharRange(c, 'a', 'f');
+}
+
+static bool isIDBegin(char c) {
+    return isInCharRange(c, 'A', 'Z') || isInCharRange(c, 'a', 'z') || c == '_';
+}
+
+static bool isIDContinue(char c) { return isIDBegin(c) || isDec(c); }
+
+std::optional<Token> Lexer::lexAutoArg() {
+    if (auto tok = lexIntLiteralImpl(TokenKind::AutoArg, "$", isDec))
+        return tok;
+    if (auto tok = lexIntLiteralImpl(TokenKind::AutoArg, "&", isDec))
+        return tok;
+    return std::nullopt;
 }
 
 static constexpr auto operatorLetterArrayImpl(auto cont) {
@@ -193,30 +206,13 @@ std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
 }
 
 std::optional<Token> Lexer::lexIntLiteral() {
-    static constexpr auto charRange = [](char min, char max) {
-        return [=](char c) { return c >= min && c <= max; };
-    };
-    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralBin, "0b",
-                                     charRange('0', '1')))
+    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralBin, "0b", isBin))
         return tok;
-    if (auto tok =
-            lexIntLiteralImpl(TokenKind::IntLiteralHex, "0x", [](char c) {
-        return charRange('0', '9')(c) || charRange('a', 'f')(c) ||
-               charRange('A', 'F')(c);
-    }))
+    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralHex, "0x", isHex))
         return tok;
-    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralDec, "",
-                                     charRange('0', '9')))
+    if (auto tok = lexIntLiteralImpl(TokenKind::IntLiteralDec, "", isDec))
         return tok;
     return std::nullopt;
-}
-
-static bool isIDBegin(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-}
-
-static bool isIDContinue(char c) {
-    return isIDBegin(c) || (c >= '0' && c <= '9');
 }
 
 static utl::hashmap<std::string_view, TokenKind> const KeywordMap = {

@@ -63,9 +63,12 @@ struct Parser {
         iss(iss) {}
 
     AstSourceFile* parseSourceFile();
-    AstStmt* parseStmt();
-    AstDecl* parseDecl();
+    AstDecl* parseGlobalDecl();
     AstFuncDecl* parseFuncDecl();
+    AstDecl* parseStructDecl();
+    AstDecl* parseVarDecl();
+    AstStmt* parseStmt();
+    AstDecl* parseLocalDecl();
     AstParamDecl* parseParamDecl();
     AstParamList* parseParamList();
     AstExprStmt* parseExprStmt();
@@ -96,9 +99,11 @@ struct Parser {
     Facet const* parseMulFacet();
     Facet const* parsePrefixFacet();
     Facet const* parsePostfixFacet();
+    Facet const* parseCallFacet(Facet const* primary);
     Facet const* parsePrimaryFacet();
     Facet const* parseFstringFacet();
     CompoundFacet const* parseCompoundFacet();
+    Facet const* parseClosureOrFnTypeFacet();
 
     Facet const* parseBinaryFacetLTR(
         VolatileList<TokenKind const> acceptedOperators, ParserFn auto next);
@@ -224,26 +229,14 @@ static Token firstToken(Facet const* node) {
 
 AstSourceFile* Parser::parseSourceFile() {
     return allocate<AstSourceFile>(sourceCtx,
-                                   parseSequence(&Parser::parseDecl, End));
+                                   parseSequence(&Parser::parseGlobalDecl,
+                                                 End));
 }
 
-AstStmt* Parser::parseStmt() {
-    if (auto decl = parseDecl()) {
-        return decl;
-    }
-    if (auto stmt = parseExprStmt()) {
-        return stmt;
-    }
-    if (auto tok = match(Semicolon)) {
-        return allocate<AstEmptyStmt>(*tok);
-    }
-    return nullptr;
-}
-
-AstDecl* Parser::parseDecl() {
-    if (auto function = parseFuncDecl()) {
-        return function;
-    }
+AstDecl* Parser::parseGlobalDecl() {
+    if (auto fn = parseFuncDecl()) return fn;
+    if (auto str = parseStructDecl()) return str;
+    if (auto var = parseVarDecl()) return var;
     return nullptr;
 }
 
@@ -255,6 +248,42 @@ AstFuncDecl* Parser::parseFuncDecl() {
     auto* retType = match(Arrow) ? parseTypeSpec() : nullptr;
     auto* body = parseCompoundExpr();
     return allocate<AstFuncDecl>(*declarator, name, params, retType, body);
+}
+
+AstDecl* Parser::parseStructDecl() { return nullptr; }
+
+AstDecl* Parser::parseVarDecl() {
+    auto declarator = match(Var, Let);
+    if (!declarator) return nullptr;
+    auto* name = parseName();
+    if (!name) {
+        assert(false); // Expected name
+    }
+    auto colon = match(Colon);
+    auto* typeSpec = colon ? parseTypeSpec() : nullptr;
+    auto eq = match(Equal);
+    auto* initExpr = eq ? parseExpr() : nullptr;
+    if (!match(Semicolon)) raise<ExpectedToken>(peek(), Semicolon);
+    return allocate<AstVarDecl>(*declarator, name, colon, typeSpec, eq,
+                                initExpr);
+}
+
+AstStmt* Parser::parseStmt() {
+    if (auto decl = parseLocalDecl()) {
+        return decl;
+    }
+    if (auto stmt = parseExprStmt()) {
+        return stmt;
+    }
+    if (auto tok = match(Semicolon)) {
+        return allocate<AstEmptyStmt>(*tok);
+    }
+    return nullptr;
+}
+
+AstDecl* Parser::parseLocalDecl() {
+    if (auto var = parseVarDecl()) return var;
+    return nullptr;
 }
 
 AstParamDecl* Parser::parseParamDecl() {
@@ -288,8 +317,17 @@ AstFacet* Parser::parseFacet() {
     return parseFacetImpl<AstRawFacet, AstFacet>(&Parser::parseCommaFacet);
 }
 
+static AstExpr* unwrapFacet(AstFacetExpr* expr) {
+    if (expr)
+        if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(expr->facet()))
+            if (auto* wrapped = csp::dyncast<AstExpr*>(wrapper->get()))
+                return wrapped;
+    return expr;
+}
+
 AstExpr* Parser::parseExpr() {
-    return parseFacetImpl<AstFacetExpr, AstExpr>(&Parser::parseCommaFacet);
+    auto* expr = parseFacetImpl<AstFacetExpr>(&Parser::parseCommaFacet);
+    return unwrapFacet(expr);
 }
 
 AstCompoundExpr* Parser::parseCompoundExpr() {
@@ -459,29 +497,37 @@ Facet const* Parser::parsePostfixFacet() {
             operand = makePostfixFacet(alloc, operand, *tok);
             continue;
         }
-        constexpr TokenKind AllParenTypes[] = { OpenParen, OpenBracket,
-                                                OpenBrace };
-        auto parenTypes = facetState == FacetState::General ?
-                              AllParenTypes :
-                              std::span(AllParenTypes).subspan(0, 2);
-        if (auto open = match(parenTypes)) {
-            TokenKind closingKind = toClosing(open->kind);
-            auto argList =
-                parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
-            auto close = match(closingKind);
-            PRISM_ASSERT(close);
-            auto* args = makeListFacet(alloc, argList);
-            operand = makeCallFacet(alloc, operand, *open, args, *close);
+        if (auto* call = parseCallFacet(operand)) {
+            operand = call;
             continue;
         }
         return operand;
     }
 }
 
+Facet const* Parser::parseCallFacet(Facet const* primary) {
+    if (csp::isa<CompoundFacet>(primary)) return nullptr;
+    static constexpr TokenKind AllParenTypes[] = { OpenParen, OpenBracket,
+                                                   OpenBrace };
+    auto parenTypes = facetState == FacetState::General ?
+                          AllParenTypes :
+                          std::span(AllParenTypes).subspan(0, 2);
+    auto open = match(parenTypes);
+    if (!open) return nullptr;
+    TokenKind closingKind = toClosing(open->kind);
+    auto argList = parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
+    auto close = match(closingKind);
+    PRISM_ASSERT(close);
+    auto* args = makeListFacet(alloc, argList);
+    return makeCallFacet(alloc, primary, *open, args, *close);
+}
+
 Facet const* Parser::parsePrimaryFacet() {
     if (auto tok = match(Identifier, IntLiteralBin, IntLiteralDec,
-                         IntLiteralHex, True, False, This))
+                         IntLiteralHex, True, False, This, AutoArg, Void, Int,
+                         Double))
         return makeTerminal(alloc, *tok);
+    if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
     if (auto open = match(OpenParen)) {
         auto* facet = parseCommaFacet();
         if (!facet) {
@@ -527,6 +573,27 @@ CompoundFacet const* Parser::parseCompoundFacet() {
     if (!close) raise<ExpectedToken>(peek(), CloseBrace);
     return makeCompoundFacet(alloc, *open, makeListFacet(alloc, elems),
                              returnFacet, close.value_or(ErrorToken));
+}
+
+Facet const* Parser::parseClosureOrFnTypeFacet() {
+    auto fn = match(Function);
+    if (!fn) return nullptr;
+    auto* params = parseParamList();
+    auto arrow = match(Arrow);
+    auto* retType = arrow ? parseTypeSpec() : nullptr;
+    if (facetState != FacetState::Type) {
+        if (auto* body = parseExpr()) {
+            auto* closure =
+                allocate<AstClosureExpr>(*fn, params, retType, body);
+            return allocate<AstWrapperFacet>(closure);
+        }
+    }
+    if (!params || !retType) {
+        assert(false); // Invalid fn type
+    }
+    return makeFnTypeFacet(alloc, *fn, allocate<AstWrapperFacet>(params),
+                           arrow.value_or(ErrorToken),
+                           allocate<AstWrapperFacet>(retType));
 }
 
 Facet const* Parser::parseFstringFacet() { return nullptr; }

@@ -128,6 +128,7 @@ target_link_libraries(PrismTest
   PRIVATE
     Catch2::Catch2WithMain
     Prism
+    termfmt
 )
 
 target_include_directories(PrismTest PRIVATE test)

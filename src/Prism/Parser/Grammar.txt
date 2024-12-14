@@ -1,7 +1,7 @@
 <source-file>        ::= <global-decl>*
-<global-decl>        ::= [<access-spec>] <decl>
-<decl>               ::= <func-decl> | <struct-decl> | <var-decl>
-<access-spec>        ::= 'public' | 'private'
+<global-decl>        ::= [<access-spec>] (<func-decl> | <struct-decl> | <var-decl>)
+<local-decl>         ::= <var-decl>
+<access-spec>        ::= 'public' | 'internal' | 'private'
 <func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] <compound-expr>
 <param-list>         ::= '(' ')'
                        | '(' [<param-decl> (',' <param-decl>)*] ')'
@@ -11,7 +11,7 @@
 <base-decl>          ::= [<access-spec>] <name>
 <struct-body>        ::= '{' <global-decl>* '}'
 <var-decl>           ::= ('var' | 'let') <name> [':' <type-spec>] ['=' <assign-expr>] ';'
-<stmt>               ::= <decl>
+<stmt>               ::= <local-decl>
                        | <ctrl-flow-stmt>
                        | <import-stmt>
                        | <expr-stmt>
@@ -87,12 +87,14 @@
                        | <string-literal>
                        | <fstring-facet>
                        | 'this'
-                       | <closure-expr>
+                       | <closure-expr> | <fn-type-facet>
+                       | <auto-arg>
                        | '(' <comma-facet> ')'
                        | '[' ']'
                        | '[' <assign-facet> (',' <assign-facet>)* [','] ']'
                        | <compound-expr>
 <closure-expr>       ::= 'fn' [<param-list>] ['->' <type-spec>] <assign-expr>
+<fn-type-facet>      ::= 'fn' <param-list> '->' <type-spec>
 <compound-expr>      ::= '{' <stmt>* [<cast-facet>] '}'
 <fstring-facet>      ::= <fstring-begin> <assign-facet> <fstring-mid-facet>* <fstring-end>
 <fstring-mid-facet>  ::= <fstring-mid> <assign-facet>

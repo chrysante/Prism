@@ -20,6 +20,7 @@ private:
     std::optional<Token> nextImpl();
 
     std::optional<Token> lexPunctuation();
+    std::optional<Token> lexAutoArg();
     std::optional<Token> lexOperator();
     std::optional<Token> lexStringLiteralImpl(TokenKind kind,
                                               std::string_view begin,

@@ -107,6 +107,7 @@ TOKEN_KIND(IntLiteralBin)
 TOKEN_KIND(IntLiteralDec)
 TOKEN_KIND(IntLiteralHex)
 TOKEN_KIND(Identifier)
+TOKEN_KIND(AutoArg)
 TOKEN_KIND(End)
 
 #undef TOKEN_KIND

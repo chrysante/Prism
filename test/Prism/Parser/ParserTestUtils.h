@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <Prism/Ast/Ast.h>
-#include <Prism/Ast/AstDump.h>
 #include <Prism/Ast/Facet.h>
 #include <Prism/Common/Allocator.h>
 #include <Prism/Source/Token.h>
@@ -25,15 +24,9 @@ extern MonotonicBufferResource gAlloc;
 class Issue;
 class IssueHandler;
 
-inline std::ostream& operator<<(std::ostream& str, AstNode const& node) {
-    dumpAst(&node, str);
-    return str;
-}
+std::ostream& operator<<(std::ostream& str, AstNode const& node);
 
-inline std::ostream& operator<<(std::ostream& str, Facet const& facet) {
-    print(&facet, str);
-    return str;
-}
+std::ostream& operator<<(std::ostream& str, Facet const& facet);
 
 class ExpectedIssue {
 public:

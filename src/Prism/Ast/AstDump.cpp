@@ -50,23 +50,27 @@ static V const& get(utl::hashmap<K, V> const& m, K const& key, V const& def) {
     return itr != m.end() ? itr->second : def;
 }
 
+// clang-format off
+static utl::hashmap<AstNodeType, utl::hashmap<size_t, std::string>> const ChildNameMap {
+    { AstNodeType::AstParamDecl, { { 0, "Name" }, { 1, "Type" } } },
+    { AstNodeType::AstVarDecl, { { 0, "Name" }, { 1, "Type" }, { 2, "Init" } } },
+    { AstNodeType::AstFuncDecl, { { 0, "Name" }, { 2, "RetType" }, { 3, "Body" } } },
+    { AstNodeType::AstArithmeticExpr, { { 0, "LHS" }, { 1, "RHS" } } },
+    { AstNodeType::AstClosureExpr, { { 0, "Params" }, { 1, "RetType" }, { 2, "Body" } } },
+}; // clang-format on
+
+static std::string_view childName(AstNode const& node, size_t index) {
+    return get(get(ChildNameMap, get_rtti(node), {}), index, {});
+}
+
 namespace {
 
 struct Emitter {
     SourceContext const* ctx = nullptr;
     std::ostream& str;
     TreeFormatter& fmt;
-    utl::hashmap<AstNodeType, utl::hashmap<size_t, std::string>> labelMap;
 
-    Emitter(TreeFormatter& fmt):
-        str(fmt.ostream()),
-        fmt(fmt),
-        // clang-format off
-        labelMap({
-            { AstNodeType::AstParamDecl, { { 0, "Name" }, { 1, "Type" } } },
-            { AstNodeType::AstFuncDecl, { { 0, "Name" }, { 2, "RetType" }, { 3, "Body" } } },
-            { AstNodeType::AstArithmeticExpr, { { 0, "LHS" }, { 1, "RHS" } } },
-        }) {} // clang-format on
+    Emitter(TreeFormatter& fmt): str(fmt.ostream()), fmt(fmt) {}
 
     void run(AstNode const* root) { dfs(root); }
 
@@ -89,9 +93,9 @@ struct Emitter {
     void writeChildren(AstNode const& node) {
         fmt.writeChildren(node.children(),
                           [&](size_t index, AstNode const* child) {
-            auto label = get(get(labelMap, get_rtti(node), {}), index, {});
-            if (!label.empty()) {
-                str << Secondary(label, ": ");
+            auto name = childName(node, index);
+            if (!name.empty()) {
+                str << Secondary(name, ": ");
             }
             dfs(child);
         });

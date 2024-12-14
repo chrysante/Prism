@@ -308,6 +308,28 @@ inline CompoundFacet const* makeCompoundFacet(MemoryResource auto& alloc,
                    makeTerminal(alloc, closeBrace) } });
 }
 
+class FnTypeFacet: public NonTerminalFacet {
+public:
+    FACET_FIELD(0, TerminalFacet, fn)
+    FACET_FIELD(1, AstWrapperFacet, paramList)
+    FACET_FIELD(2, TerminalFacet, arrow)
+    FACET_FIELD(3, AstWrapperFacet, retType)
+
+private:
+    friend class detail::FacetFactory;
+    explicit FnTypeFacet(std::span<Facet const* const> args):
+        NonTerminalFacet(FacetType::FnTypeFacet, args) {}
+};
+
+inline FnTypeFacet const* makeFnTypeFacet(MemoryResource auto& alloc, Token fn,
+                                          AstWrapperFacet const* paramList,
+                                          Token arrow,
+                                          AstWrapperFacet const* retType) {
+    return detail::FacetFactory::makeNonTerminal<FnTypeFacet>(
+        alloc, { { makeTerminal(alloc, fn), paramList,
+                   makeTerminal(alloc, arrow), retType } });
+}
+
 #undef FACET_FIELD
 
 class SourceContext;

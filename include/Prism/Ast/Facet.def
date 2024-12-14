@@ -16,5 +16,6 @@ FACET_DEF(PostfixFacet, NonTerminalFacet, Concrete)
 FACET_DEF(ListFacet, NonTerminalFacet, Concrete)
 FACET_DEF(CallFacet, NonTerminalFacet, Concrete)
 FACET_DEF(CompoundFacet, NonTerminalFacet, Concrete)
+FACET_DEF(FnTypeFacet, NonTerminalFacet, Concrete)
 
 #undef FACET_DEF

@@ -3,11 +3,22 @@
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 
+#include <Prism/Ast/AstDump.h>
 #include <Prism/Common/IssueHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 
 using namespace prism;
+
+std::ostream& prism::operator<<(std::ostream& str, AstNode const& node) {
+    dumpAst(&node, str);
+    return str;
+}
+
+std::ostream& prism::operator<<(std::ostream& str, Facet const& facet) {
+    print(&facet, str);
+    return str;
+}
 
 bool ExpectedIssue::verify(IssueHandler const& iss,
                            SourceContext const& ctx) const {
@@ -30,8 +41,28 @@ static T dyncast_ext(auto* p) {
     }, [](std::derived_from<U> auto& u) -> T { return &u; } });
 }
 
+static bool getEnvVarBool(char const* name) {
+    auto* value = std::getenv(name);
+    if (!value) return false;
+    static constexpr std::string_view Yes[] = {
+        "YES", "Y", "Yes", "yes", "y", "TRUE", "True", "true",
+    };
+    return ranges::contains(Yes, std::string_view(value));
+}
+
+static bool const BreakOnTreeMismatch = getEnvVarBool("BREAK_TREE_MISMATCH");
+
+#define VALIDATE(...)                                                          \
+    [&] {                                                                      \
+        bool value = __VA_ARGS__;                                              \
+        if (BreakOnTreeMismatch && !value) {                                   \
+            __builtin_debugtrap();                                             \
+        }                                                                      \
+        return value;                                                          \
+    }()
+
 bool AstRefNode::compare(AstNode const* node) const {
-    if (!node) return std::holds_alternative<NullNodeT>(type);
+    if (!node) return VALIDATE(std::holds_alternative<NullNodeT>(type));
     if (auto* facetNode = dyncast_ext<RawFacetBase const*>(node)) {
         return compare(facetNode->facet());
     }
@@ -39,22 +70,23 @@ bool AstRefNode::compare(AstNode const* node) const {
 }
 
 bool AstRefNode::compare(Facet const* facet) const {
-    if (!facet) return std::holds_alternative<NullNodeT>(type);
-    if (auto* term = csp::dyncast<TerminalFacet const*>(facet)) {
+    if (!facet) return VALIDATE(std::holds_alternative<NullNodeT>(type));
+    if (auto* term = csp::dyncast<TerminalFacet const*>(facet))
         return checkType(term->token().kind);
-    }
+    if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(facet))
+        return compare(wrapper->get());
     return checkType(get_rtti(*facet)) && compareChildren(facet);
 }
 
 template <typename T>
 bool AstRefNode::checkType(T t) const {
     auto* u = std::get_if<T>(&type);
-    return u && *u == t;
+    return VALIDATE(u && *u == t);
 }
 
 bool AstRefNode::compareChildren(auto const* node) const {
     if (!children.empty() && children.size() != node->children().size())
-        return false;
+        return VALIDATE(false);
     return ranges::all_of(ranges::views::zip(children, node->children()),
                           [](auto&& p) {
         auto [ref, node] = p;
