@@ -164,11 +164,11 @@ protected:
 };
 
 ///
-class AstExprFacet: public AstExpr, public RawFacetBase {
+class AstFacetExpr: public AstExpr, public RawFacetBase {
 public:
-    explicit AstExprFacet(MonotonicBufferResource* res, Facet const* fct,
+    explicit AstFacetExpr(MonotonicBufferResource* res, Facet const* fct,
                           Token firstTok):
-        AstExpr(AstNodeType::AstExprFacet, res, firstTok), RawFacetBase(fct) {}
+        AstExpr(AstNodeType::AstFacetExpr, res, firstTok), RawFacetBase(fct) {}
 };
 
 ///
@@ -210,43 +210,14 @@ public:
     AST_PROPERTY_RANGE(0, AstStmt, statement, Statement)
 };
 
-// MARK: - Type Specifiers
+// MARK: - Type Specifier
 
 /// Base class of all type specifiers
-class AstTypeSpec: public AstFacet {
-protected:
-    using AstFacet::AstFacet;
-};
-
-///
-class AstTypeSpecFacet: public AstTypeSpec, public RawFacetBase {
+class AstTypeSpec: public AstFacet, public RawFacetBase {
 public:
-    explicit AstTypeSpecFacet(Facet const* fct, Token firstTok):
-        AstTypeSpec(AstNodeType::AstTypeSpecFacet, nullptr, firstTok),
-        RawFacetBase(fct) {}
-};
-
-class AstUnaryTypeSpec: public AstTypeSpec {};
-
-class AstTypeRef: public AstUnaryTypeSpec {};
-
-class AstTypePtr: public AstUnaryTypeSpec {};
-
-class AstTypeOpt: public AstUnaryTypeSpec {};
-
-///
-class AstTypeID: public AstTypeSpec {
-protected:
-    using AstTypeSpec::AstTypeSpec;
-};
-
-///
-class AstTypeUnqualID: public AstTypeID {
-public:
-    AstTypeUnqualID(Token tok):
-        AstTypeID(AstNodeType::AstTypeUnqualID, nullptr, tok) {}
-
-    Token nameToken() const { return firstToken(); }
+    explicit AstTypeSpec(MonotonicBufferResource* res, Facet const* fct,
+                         Token firstTok):
+        AstFacet(AstNodeType::AstTypeSpec, res, firstTok), RawFacetBase(fct) {}
 };
 
 // MARK: - Statements

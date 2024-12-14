@@ -74,7 +74,7 @@ struct Parser {
     AstExpr* parseExpr();
     AstCompoundExpr* parseCompoundExpr();
     AstTypeSpec* parseTypeSpec();
-    template <typename Abstract, typename Concrete>
+    template <typename Concrete, typename Abstract = Concrete>
     Abstract* parseFacetImpl(ParserFn auto start);
 
     // MARK: - Facets
@@ -283,11 +283,11 @@ AstExprStmt* Parser::parseExprStmt() {
 }
 
 AstFacet* Parser::parseFacet() {
-    return parseFacetImpl<AstFacet, AstRawFacet>(&Parser::parseCommaFacet);
+    return parseFacetImpl<AstRawFacet, AstFacet>(&Parser::parseCommaFacet);
 }
 
 AstExpr* Parser::parseExpr() {
-    return parseFacetImpl<AstExpr, AstExprFacet>(&Parser::parseCommaFacet);
+    return parseFacetImpl<AstFacetExpr, AstExpr>(&Parser::parseCommaFacet);
 }
 
 AstCompoundExpr* Parser::parseCompoundExpr() {
@@ -296,7 +296,7 @@ AstCompoundExpr* Parser::parseCompoundExpr() {
     auto stmtsList = compound->statements()->statements();
     utl::small_vector<AstStmt*> stmts(stmtsList.begin(), stmtsList.end());
     if (auto* retFct = compound->returnFacet()) {
-        auto* expr = allocate<AstExprFacet>(&alloc, retFct, firstToken(retFct));
+        auto* expr = allocate<AstFacetExpr>(&alloc, retFct, firstToken(retFct));
         auto* stmt = allocate<AstYieldStmt>(&alloc, expr);
         stmts.push_back(stmt);
     }
@@ -306,12 +306,11 @@ AstCompoundExpr* Parser::parseCompoundExpr() {
 
 AstTypeSpec* Parser::parseTypeSpec() {
     return withFacetState(FacetState::Type, [this] {
-        return parseFacetImpl<AstTypeSpec, AstTypeSpecFacet>(
-            &Parser::parsePrefixFacet);
+        return parseFacetImpl<AstTypeSpec>(&Parser::parsePrefixFacet);
     });
 }
 
-template <typename Abstract, typename Concrete>
+template <typename Concrete, typename Abstract>
 Abstract* Parser::parseFacetImpl(ParserFn auto start) {
     auto* facet = invoke(start);
     if (!facet) return nullptr;
@@ -510,7 +509,7 @@ CompoundFacet const* Parser::parseCompoundFacet() {
                 auto semicolon = match(Semicolon);
                 if (!semicolon) raise<ExpectedToken>(peek(), Semicolon);
                 auto* expr =
-                    allocate<AstExprFacet>(&alloc, facet, firstToken(facet));
+                    allocate<AstFacetExpr>(&alloc, facet, firstToken(facet));
                 auto* stmt = allocate<AstExprStmt>(&alloc, expr);
                 stmts.push_back(stmt);
                 continue;

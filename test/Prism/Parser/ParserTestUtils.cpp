@@ -21,12 +21,18 @@ bool ExpectedIssue::verify(IssueHandler const& iss,
     return false;
 }
 
+template <typename T>
+static T dyncast_ext(auto* p) {
+    if (!p) return nullptr;
+    using U = std::remove_cv_t<std::remove_pointer_t<T>>;
+    return csp::visit(*p, csp::overload{ [](auto&) -> T {
+        return nullptr;
+    }, [](std::derived_from<U> auto& u) -> T { return &u; } });
+}
+
 bool AstRefNode::compare(AstNode const* node) const {
     if (!node) return std::holds_alternative<NullNodeT>(type);
-    if (auto* facetNode = csp::dyncast<AstExprFacet const*>(node)) {
-        return compare(facetNode->facet());
-    }
-    if (auto* facetNode = csp::dyncast<AstTypeSpecFacet const*>(node)) {
+    if (auto* facetNode = dyncast_ext<RawFacetBase const*>(node)) {
         return compare(facetNode->facet());
     }
     return checkType(get_rtti(*node)) && compareChildren(node);

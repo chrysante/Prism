@@ -16,14 +16,7 @@ AST_NODE(AstRawFacet, AstFacet, Concrete)
 #define AST_TYPESPEC AST_NODE
 #endif
 
-AST_TYPESPEC(AstTypeSpec, AstFacet, Abstract)
-AST_TYPESPEC(AstTypeSpecFacet, AstTypeSpec, Concrete)
-AST_TYPESPEC(AstUnaryTypeSpec, AstTypeSpec, Abstract)
-AST_TYPESPEC(AstTypeRef, AstUnaryTypeSpec, Concrete)
-AST_TYPESPEC(AstTypePtr, AstUnaryTypeSpec, Concrete)
-AST_TYPESPEC(AstTypeOpt, AstUnaryTypeSpec, Concrete)
-AST_TYPESPEC(AstTypeID, AstTypeSpec, Abstract)
-AST_TYPESPEC(AstTypeUnqualID, AstTypeID, Concrete)
+AST_TYPESPEC(AstTypeSpec, AstFacet, Concrete)
 
 #undef AST_TYPESPEC
 
@@ -32,7 +25,7 @@ AST_TYPESPEC(AstTypeUnqualID, AstTypeID, Concrete)
 #endif
 
 AST_EXPR(AstExpr, AstFacet, Abstract)
-AST_NODE(AstExprFacet, AstExpr, Concrete)
+AST_NODE(AstFacetExpr, AstExpr, Concrete)
 AST_EXPR(AstBinaryExpr, AstExpr, Abstract)
 AST_EXPR(AstCommaExpr, AstBinaryExpr, Concrete)
 AST_EXPR(AstAssignExpr, AstExpr, Concrete)
