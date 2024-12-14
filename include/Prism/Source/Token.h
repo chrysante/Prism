@@ -26,13 +26,13 @@ struct Token {
         kind(kind), sourceLen(sourceLen), index(index) {}
 
     /// Unused bits used as flags by the parse tree
-    uint32_t unusedBits : 1 = 0;
+    uint32_t unusedBits : 2 = 0;
 
     /// The type of this token
     TokenKind kind : 7 = {};
 
     /// The number of characters in the source text
-    uint32_t sourceLen : 24 = 0;
+    uint32_t sourceLen : 23 = 0;
 
     /// The index into the source text where this token appears
     uint32_t index = 0;

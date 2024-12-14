@@ -1,6 +1,4 @@
 
 
 
-fn main(p: ?*mut i32, q: *i32) -> *i32 {
-    p as *u8 as *mut u8;
-}
+fn test() -> T { T{}; { T{} } }

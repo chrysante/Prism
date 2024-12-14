@@ -39,17 +39,15 @@ struct FacetPrinter {
             str << NullNode << "\n";
             return;
         }
+        if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(node)) {
+            dumpAst(wrapper->get(), fmt);
+            return;
+        }
         str << FacetName(*node);
         csp::visit(*node, [this](auto& node) { details(node); });
         str << "\n";
-        if (auto* stmtList = csp::dyncast<StmtListFacet const*>(node)) {
-            fmt.writeChildren(stmtList->statements(),
-                              [&](AstStmt const* stmt) { dumpAst(stmt, fmt); });
-        }
-        else {
-            fmt.writeChildren(node->children(),
-                              [&](Facet const* child) { print(child); });
-        }
+        fmt.writeChildren(node->children(),
+                          [&](Facet const* child) { print(child); });
     }
 
     void details(Facet const&) {}

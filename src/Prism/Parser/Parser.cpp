@@ -20,6 +20,7 @@
 using namespace prism;
 
 using enum TokenKind;
+using ranges::views::transform;
 
 static constexpr Token ErrorToken = Token::ErrorToken;
 
@@ -215,7 +216,8 @@ static Token firstToken(Facet const* node) {
     // clang-format off
     return csp::visit(*node, csp::overload{
         [](TerminalFacet const& node) { return node.token(); },
-        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); }
+        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); },
+        [](AstWrapperFacet const& node) { return node.get()->firstToken(); }
     });
     // clang-format on
 }
@@ -233,7 +235,7 @@ AstStmt* Parser::parseStmt() {
         return stmt;
     }
     if (auto tok = match(Semicolon)) {
-        return allocate<AstEmptyStmt>(&alloc, *tok);
+        return allocate<AstEmptyStmt>(*tok);
     }
     return nullptr;
 }
@@ -293,15 +295,17 @@ AstExpr* Parser::parseExpr() {
 AstCompoundExpr* Parser::parseCompoundExpr() {
     auto* compound = parseCompoundFacet();
     if (!compound) return nullptr;
-    auto stmtsList = compound->statements()->statements();
-    utl::small_vector<AstStmt*> stmts(stmtsList.begin(), stmtsList.end());
+    auto stmts = compound->statements()->children() |
+                 transform(csp::cast<AstWrapperFacet const*>) |
+                 transform(&AstWrapperFacet::get) |
+                 transform(csp::cast<AstStmt*>) |
+                 ranges::to<utl::small_vector<AstStmt*>>;
     if (auto* retFct = compound->returnFacet()) {
-        auto* expr = allocate<AstFacetExpr>(&alloc, retFct, firstToken(retFct));
-        auto* stmt = allocate<AstYieldStmt>(&alloc, expr);
+        auto* expr = allocate<AstFacetExpr>(retFct, firstToken(retFct));
+        auto* stmt = allocate<AstYieldStmt>(expr);
         stmts.push_back(stmt);
     }
-    return allocate<AstCompoundExpr>(&alloc, compound->openBrace()->token(),
-                                     stmts);
+    return allocate<AstCompoundExpr>(compound->openBrace()->token(), stmts);
 }
 
 AstTypeSpec* Parser::parseTypeSpec() {
@@ -466,7 +470,7 @@ Facet const* Parser::parsePostfixFacet() {
                 parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
             auto close = match(closingKind);
             PRISM_ASSERT(close);
-            auto* args = makeExprListFacet(alloc, argList);
+            auto* args = makeListFacet(alloc, argList);
             operand = makeCallFacet(alloc, operand, *open, args, *close);
             continue;
         }
@@ -500,7 +504,7 @@ Facet const* Parser::parsePrimaryFacet() {
 CompoundFacet const* Parser::parseCompoundFacet() {
     auto open = match(OpenBrace);
     if (!open) return nullptr;
-    utl::small_vector<AstStmt*> stmts;
+    utl::small_vector<Facet const*> elems;
     auto* returnFacet = eval_as (Facet const*) {
         while (true) {
             Facet const* facet = parseCommaFacet();
@@ -508,21 +512,20 @@ CompoundFacet const* Parser::parseCompoundFacet() {
                 if (peekMatch(CloseBrace)) return facet;
                 auto semicolon = match(Semicolon);
                 if (!semicolon) raise<ExpectedToken>(peek(), Semicolon);
-                auto* expr =
-                    allocate<AstFacetExpr>(&alloc, facet, firstToken(facet));
-                auto* stmt = allocate<AstExprStmt>(&alloc, expr);
-                stmts.push_back(stmt);
+                auto* expr = allocate<AstFacetExpr>(facet, firstToken(facet));
+                auto* stmt = allocate<AstExprStmt>(expr);
+                elems.push_back(allocate<AstWrapperFacet>(stmt));
                 continue;
             }
             if (auto* stmt = parseStmt())
-                stmts.push_back(stmt);
+                elems.push_back(allocate<AstWrapperFacet>(stmt));
             else
                 return nullptr;
         }
     };
     auto close = match(CloseBrace);
     if (!close) raise<ExpectedToken>(peek(), CloseBrace);
-    return makeCompoundFacet(alloc, *open, makeStmtListFacet(alloc, stmts),
+    return makeCompoundFacet(alloc, *open, makeListFacet(alloc, elems),
                              returnFacet, close.value_or(ErrorToken));
 }
 

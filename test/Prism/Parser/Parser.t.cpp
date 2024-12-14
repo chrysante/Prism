@@ -19,7 +19,7 @@ using prism::Tree;
 // clang-format off
 
 TEST_CASE("FuncDecl", "[parser]") {
-    CHECK(*parseFile("fn test() -> T { T{}; T{} }") == AstSourceFile >> Tree{
+    CHECK(*parseFile("fn test() -> T { T{}; { T{} } }") == AstSourceFile >> Tree{
         AstFuncDecl >> Tree{
             AstUnqualName,
             AstParamList,
@@ -27,12 +27,17 @@ TEST_CASE("FuncDecl", "[parser]") {
             AstCompoundExpr >> Tree{
                 AstExprStmt >> Tree{
                     CallFacet >> Tree{
-                        Identifier, OpenBrace, ExprListFacet, CloseBrace
+                        Identifier, OpenBrace, ListFacet, CloseBrace
                     }
                 },
                 AstYieldStmt >> Tree{
-                    CallFacet >> Tree{
-                        Identifier, OpenBrace, ExprListFacet, CloseBrace
+                    CompoundFacet >> Tree {
+                        OpenBrace,
+                        ListFacet,
+                        CallFacet >> Tree{
+                            Identifier, OpenBrace, ListFacet, CloseBrace
+                        },
+                        CloseBrace
                     }
                 }
             },
@@ -55,7 +60,7 @@ TEST_CASE("Simple expressions", "[parser]") {
     CHECK(*parseFacet("f(x, y, z)") == CallFacet >> Tree{
         Identifier,
         OpenParen,
-        ExprListFacet >> Tree{
+        ListFacet >> Tree{
             Identifier, Identifier, Identifier
         },
         CloseParen
