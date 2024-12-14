@@ -1,0 +1,22 @@
+
+
+fn foo[T: type](n: &T) -> auto {
+    
+}
+
+fn main() {
+    // k is a function `(__0: &auto) -> int` that returns `h(__0, 1)`
+    let k = fn h(0, 1);
+    
+    // equivalent:
+    let k = fn(n: auto) { h(n, 1) };
+    
+    // ---
+    
+    f(fn h($0, 1), 2); // Evaluates to 3
+    
+    // or
+    f(fn(x) h(x, 1), 2); // Evaluates to 3
+    
+    fn { $0; fn { $1 }() } // Ill-formed because of nested closures    
+}

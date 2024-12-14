@@ -87,10 +87,12 @@
                        | <string-literal>
                        | <fstring-facet>
                        | 'this'
+                       | <closure-expr>
                        | '(' <comma-facet> ')'
                        | '[' ']'
                        | '[' <assign-facet> (',' <assign-facet>)* [','] ']'
                        | <compound-expr>
+<closure-expr>       ::= 'fn' [<param-list>] ['->' <type-spec>] <assign-expr>
 <compound-expr>      ::= '{' <stmt>* [<cast-facet>] '}'
 <fstring-facet>      ::= <fstring-begin> <assign-facet> <fstring-mid-facet>* <fstring-end>
 <fstring-mid-facet>  ::= <fstring-mid> <assign-facet>
