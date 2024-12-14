@@ -146,28 +146,16 @@ std::optional<Token> Lexer::lexOperator() {
 std::optional<Token> Lexer::lexStringLiteralImpl(TokenKind kind,
                                                  std::string_view beginDelim,
                                                  std::string_view endDelim) {
-    if (!source.substr(index).starts_with(beginDelim)) {
-        return std::nullopt;
-    }
     uint32_t begin = index;
-    for (size_t i = 0; i < beginDelim.size(); ++i) {
-        increment();
-    }
-    increment();
+    if (!match(beginDelim)) return std::nullopt;
     while (true) {
         if (!valid() || current() == '\n') {
             iss.push<LexicalIssue>(LexicalIssue::UnterminatedStringLiteral,
                                    Token{ TokenKind::Error,
                                           (uint16_t)(index - begin), begin });
         }
-        if (source.substr(index).starts_with(endDelim) &&
-            current(index - 1) != '\\')
-        {
-            for (size_t i = 0; i < endDelim.size(); ++i) {
-                increment();
-            }
+        if (current(index - 1) != '\\' && match(endDelim))
             return Token{ kind, (uint16_t)(index - begin), begin };
-        }
         increment();
     }
 }
@@ -185,10 +173,7 @@ std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
                                               auto isValidChar) {
     uint32_t begin = index;
     if (!prefix.empty()) {
-        if (!source.substr(index).starts_with(prefix)) {
-            return std::nullopt;
-        }
-        index += prefix.size();
+        if (!match(prefix)) return std::nullopt;
         if (!valid() || !std::invoke(isValidChar, current())) {
             iss.push(std::make_unique<LexicalIssue>(
                 LexicalIssue::InvalidNumericLiteral,
@@ -267,25 +252,20 @@ void Lexer::ignoreWhitespace() {
 }
 
 bool Lexer::ignoreComment() {
-    if (source.substr(index).starts_with("//")) {
-        index += 2;
+    if (match("//")) {
         while (valid() && current() != '\n')
             increment();
         return true;
     }
-    if (source.substr(index).starts_with("/*")) {
-        index += 2;
+    if (match("/*")) {
         int level = 1;
         while (valid()) {
-            if (source.substr(index).starts_with("/*")) {
-                index += 2;
+            if (match("/*")) {
                 ++level;
                 continue;
             }
-            if (source.substr(index).starts_with("*/")) {
-                index += 2;
-                --level;
-                if (level == 0) break;
+            if (match("*/")) {
+                if (--level == 0) break;
                 continue;
             }
             increment();
@@ -298,6 +278,12 @@ bool Lexer::ignoreComment() {
 void Lexer::increment() { increment(index); }
 
 void Lexer::increment(uint32_t& loc) const { ++loc; }
+
+bool Lexer::match(std::string_view text) {
+    if (!source.substr(index).starts_with(text)) return false;
+    index += text.size();
+    return true;
+}
 
 bool Lexer::valid() const { return valid(index); }
 
