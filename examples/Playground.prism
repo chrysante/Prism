@@ -1,4 +1,7 @@
 
+fn test() { return 0; }
+
+/*
 
 // Similar to std::invocable<int> auto in C++
 fn takeCallbackByImplValue(cb: fn (n: int) -> int) {
@@ -23,7 +26,7 @@ fn takeCallbackByDynRef(cb: &dyn fn (n: int) -> int) {
 fn main() {
     takeCallbackByImplValue(fn 2 * $0); // evaluates to 42
     takeCallbackByImplValue(fn {
-        // let n = 2 * $0;
+        let n = 2 * $0;
         n
     }); // evaluates to 42
     takeCallbackByImplValue(fn (n: int) { n }); // evaluates to 21
@@ -35,11 +38,13 @@ fn main() {
     // expression
 }
 
-
 fn makeCallback() -> fn (n: int) -> int {
-    fn 2 * $0
+    return fn 2 * $0;
 }
 
-fn makeBindingCallback(value: int) -> fn (n: int) -> int {
+fn makeBindingCallback(value: int) -> fn (n: fn(n: int) -> int) -> int {
     fn &0(value)
 }
+
+
+*/

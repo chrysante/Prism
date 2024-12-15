@@ -71,6 +71,8 @@ struct Parser {
     AstDecl* parseLocalDecl();
     AstParamDecl* parseParamDecl();
     AstParamList* parseParamList();
+    AstReturnStmt* parseReturnStmt();
+    AstEmptyStmt* parseEmptyStmt();
     AstExprStmt* parseExprStmt();
     AstName* parseName();
     AstUnqualName* parseUnqualName();
@@ -269,15 +271,10 @@ AstDecl* Parser::parseVarDecl() {
 }
 
 AstStmt* Parser::parseStmt() {
-    if (auto decl = parseLocalDecl()) {
-        return decl;
-    }
-    if (auto stmt = parseExprStmt()) {
-        return stmt;
-    }
-    if (auto tok = match(Semicolon)) {
-        return allocate<AstEmptyStmt>(*tok);
-    }
+    if (auto* decl = parseLocalDecl()) return decl;
+    if (auto* stmt = parseReturnStmt()) return stmt;
+    if (auto* stmt = parseExprStmt()) return stmt;
+    if (auto* stmt = parseEmptyStmt()) return stmt;
     return nullptr;
 }
 
@@ -303,6 +300,20 @@ AstParamList* Parser::parseParamList() {
     return allocate<AstParamList>(*openParen, closeParen, std::move(seq));
 }
 
+AstReturnStmt* Parser::parseReturnStmt() {
+    auto ret = match(Return);
+    if (!ret) return nullptr;
+    auto* expr = parseExpr();
+    auto semicolon = match(Semicolon);
+    if (!semicolon) assert(false);
+    return allocate<AstReturnStmt>(*ret, expr);
+}
+
+AstEmptyStmt* Parser::parseEmptyStmt() {
+    if (auto tok = match(Semicolon)) return allocate<AstEmptyStmt>(*tok);
+    return nullptr;
+}
+
 AstExprStmt* Parser::parseExprStmt() {
     if (auto* expr = parseCompoundExpr()) return allocate<AstExprStmt>(expr);
     auto* expr = parseExpr();
@@ -317,11 +328,12 @@ AstFacet* Parser::parseFacet() {
     return parseFacetImpl<AstRawFacet, AstFacet>(&Parser::parseCommaFacet);
 }
 
-static AstExpr* unwrapFacet(AstFacetExpr* expr) {
-    if (expr)
-        if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(expr->facet()))
+static AstExpr* unwrapFacet(AstExpr* expr) {
+    if (auto* facetExpr = csp::dyncast<AstFacetExpr*>(expr))
+        if (auto* wrapper =
+                csp::dyncast<AstWrapperFacet const*>(facetExpr->facet()))
             if (auto* wrapped = csp::dyncast<AstExpr*>(wrapper->get()))
-                return wrapped;
+                return unwrapFacet(wrapped);
     return expr;
 }
 

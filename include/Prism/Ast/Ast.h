@@ -540,6 +540,19 @@ class AstYieldStmt: public AstStmt {
 public:
     explicit AstYieldStmt(MonotonicBufferResource* res, AstExpr* expr):
         AstStmt(AstNodeType::AstYieldStmt, res, expr->firstToken(), expr) {}
+
+    AST_PROPERTY(0, AstExpr, expr, Expr)
+};
+
+/// A yield statement is a "statement-wrapper" around the terminating expression
+/// in a compound expression
+class AstReturnStmt: public AstStmt {
+public:
+    explicit AstReturnStmt(MonotonicBufferResource* res, Token ret,
+                           AstExpr* expr):
+        AstStmt(AstNodeType::AstReturnStmt, res, ret, expr) {}
+
+    AST_PROPERTY(0, AstExpr, expr, Expr)
 };
 
 ///

@@ -56,6 +56,7 @@ AST_NODE(AstVarDecl, AstVarDeclBase, Concrete)
 AST_NODE(AstFuncDecl, AstDecl, Concrete)
 AST_NODE(AstExprStmt, AstStmt, Concrete)
 AST_NODE(AstYieldStmt, AstStmt, Concrete)
+AST_NODE(AstReturnStmt, AstStmt, Concrete)
 AST_NODE(AstEmptyStmt, AstStmt, Concrete)
 
 #undef AST_NODE
