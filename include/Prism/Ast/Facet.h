@@ -6,7 +6,6 @@
 #include <iosfwd>
 #include <span>
 
-#include <csp.hpp>
 #include <utl/ipp.hpp>
 
 #include <Prism/Ast/AstFwd.h>
@@ -14,6 +13,7 @@
 #include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/NoParent.h>
+#include <Prism/Common/Rtti.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
@@ -31,7 +31,7 @@ public:
 
     template <std::derived_from<Facet> F>
     F const* childAt(size_t index) const {
-        return csp::cast<F const*>(childAt(index));
+        return cast<F const*>(childAt(index));
     }
 
 protected:

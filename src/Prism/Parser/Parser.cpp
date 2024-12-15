@@ -329,10 +329,9 @@ AstFacet* Parser::parseFacet() {
 }
 
 static AstExpr* unwrapFacet(AstExpr* expr) {
-    if (auto* facetExpr = csp::dyncast<AstFacetExpr*>(expr))
-        if (auto* wrapper =
-                csp::dyncast<AstWrapperFacet const*>(facetExpr->facet()))
-            if (auto* wrapped = csp::dyncast<AstExpr*>(wrapper->get()))
+    if (auto* facetExpr = dyncast<AstFacetExpr*>(expr))
+        if (auto* wrapper = dyncast<AstWrapperFacet const*>(facetExpr->facet()))
+            if (auto* wrapped = dyncast<AstExpr*>(wrapper->get()))
                 return unwrapFacet(wrapped);
     return expr;
 }
@@ -346,9 +345,8 @@ AstCompoundExpr* Parser::parseCompoundExpr() {
     auto* compound = parseCompoundFacet();
     if (!compound) return nullptr;
     auto stmts = compound->statements()->children() |
-                 transform(csp::cast<AstWrapperFacet const*>) |
-                 transform(&AstWrapperFacet::get) |
-                 transform(csp::cast<AstStmt*>) |
+                 transform(cast<AstWrapperFacet const*>) |
+                 transform(&AstWrapperFacet::get) | transform(cast<AstStmt*>) |
                  ranges::to<utl::small_vector<AstStmt*>>;
     if (auto* retFct = compound->returnFacet()) {
         auto* expr = allocate<AstFacetExpr>(retFct, firstToken(retFct));
@@ -518,7 +516,7 @@ Facet const* Parser::parsePostfixFacet() {
 }
 
 Facet const* Parser::parseCallFacet(Facet const* primary) {
-    if (csp::isa<CompoundFacet>(primary)) return nullptr;
+    if (isa<CompoundFacet>(primary)) return nullptr;
     static constexpr TokenKind AllParenTypes[] = { OpenParen, OpenBracket,
                                                    OpenBrace };
     auto parenTypes = facetState == FacetState::General ?

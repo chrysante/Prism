@@ -1,10 +1,9 @@
 #ifndef PRISM_AST_ASTFWD_H
 #define PRISM_AST_ASTFWD_H
 
-#include <csp.hpp>
-
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/NoParent.h>
+#include <Prism/Common/Rtti.h>
 
 namespace prism {
 
@@ -24,8 +23,8 @@ PRISM_DEFINE_ENUM_FUNCTIONS(AstNodeType)
 
 // Register the AST nodes with CSP
 #define AST_NODE(Type, Parent, Corporeality)                                   \
-    CSP_DEFINE(prism::Type, prism::AstNodeType::Type, prism::Parent,           \
-               Corporeality)
+    PRISM_DEFINE_RTTI(prism::Type, prism::AstNodeType::Type, prism::Parent,    \
+                      Corporeality)
 #include <Prism/Ast/Ast.def>
 
 namespace prism {
@@ -46,7 +45,8 @@ PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
 
 // Register the facet nodes with CSP
 #define FACET_DEF(Type, Parent, Corporeality)                                  \
-    CSP_DEFINE(prism::Type, prism::FacetType::Type, prism::Parent, Corporeality)
+    PRISM_DEFINE_RTTI(prism::Type, prism::FacetType::Type, prism::Parent,      \
+                      Corporeality)
 #include <Prism/Ast/Facet.def>
 
 #endif // PRISM_AST_ASTFWD_H

@@ -45,12 +45,12 @@ public:
 
     template <std::derived_from<AstNode> T>
     T* childAt(size_t index) {
-        return csp::cast<T*>(childAt(index));
+        return cast<T*>(childAt(index));
     }
 
     template <std::derived_from<AstNode> T>
     T const* childAt(size_t index) const {
-        return csp::cast<T const*>(childAt(index));
+        return cast<T const*>(childAt(index));
     }
 
     std::span<AstNode* const> children() { return _children; }
@@ -66,7 +66,7 @@ public:
     template <std::derived_from<AstNode> C>
     std::span<C const* const> children(size_t drop = 0) const {
         auto c = children().subspan(drop);
-        PRISM_ASSERT(ranges::all_of(c, csp::isa<C>));
+        PRISM_ASSERT(ranges::all_of(c, isa<C>));
         return { std::bit_cast<C const* const*>(c.data()), c.size() };
     }
 

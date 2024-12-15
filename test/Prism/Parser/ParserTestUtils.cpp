@@ -71,9 +71,9 @@ bool AstRefNode::compare(AstNode const* node) const {
 
 bool AstRefNode::compare(Facet const* facet) const {
     if (!facet) return VALIDATE(std::holds_alternative<NullNodeT>(type));
-    if (auto* term = csp::dyncast<TerminalFacet const*>(facet))
+    if (auto* term = dyncast<TerminalFacet const*>(facet))
         return checkType(term->token().kind);
-    if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(facet))
+    if (auto* wrapper = dyncast<AstWrapperFacet const*>(facet))
         return compare(wrapper->get());
     return checkType(get_rtti(*facet)) && compareChildren(facet);
 }

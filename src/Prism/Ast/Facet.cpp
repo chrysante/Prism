@@ -19,7 +19,7 @@ static constexpr utl::streammanip NullNode = [](std::ostream& str) {
 static constexpr utl::streammanip FacetName = [](std::ostream& str,
                                                  Facet const& facet) {
     tfmt::FormatGuard fmt(BrightBlue | Italic, str);
-    if (auto* term = csp::dyncast<TerminalFacet const*>(&facet)) {
+    if (auto* term = dyncast<TerminalFacet const*>(&facet)) {
         str << term->token().kind;
     }
     else {
@@ -39,7 +39,7 @@ struct FacetPrinter {
             str << NullNode << "\n";
             return;
         }
-        if (auto* wrapper = csp::dyncast<AstWrapperFacet const*>(node)) {
+        if (auto* wrapper = dyncast<AstWrapperFacet const*>(node)) {
             dumpAst(wrapper->get(), fmt);
             return;
         }
