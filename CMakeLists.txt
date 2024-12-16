@@ -16,6 +16,35 @@ function(enable_sanitizers target)
     endif()
 endfunction()
 
+function(create_empty_file filename)
+    get_filename_component(dir ${filename} DIRECTORY)
+    file(MAKE_DIRECTORY ${dir})
+    file(TOUCH ${filename})
+endfunction()
+
+function(add_code_generator target definitions template output filters)
+    set(output ${CMAKE_BINARY_DIR}/${output})
+    create_empty_file(${output})
+
+    target_sources(${target} PRIVATE ${definitions} ${template} ${filters} ${output})
+    source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${definitions} ${template} ${filters})
+    source_group(TREE ${CMAKE_BINARY_DIR} FILES ${output})
+
+    string(CONCAT command_source
+      "${CMAKE_SOURCE_DIR}/generator/source_generator.sh "
+      "--definitions ${CMAKE_SOURCE_DIR}/${definitions} "
+      "--template ${CMAKE_SOURCE_DIR}/${template} "
+      "--output ${output} "
+      "--filters ${CMAKE_SOURCE_DIR}/${filters}")
+
+    add_custom_command(
+        TARGET ${target}
+        PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E env sh -c ${command_source}
+        DEPENDS ${definitions} ${template} ${filters}
+        VERBATIM)
+endfunction()
+
 CPMAddPackage("gh:chrysante/csp#main")
 CPMAddPackage("gh:chrysante/utility#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
@@ -94,6 +123,12 @@ set(PRISM_TEST_FILES
 
 add_library(Prism SHARED)
 enable_sanitizers(Prism)
+
+add_code_generator(Prism
+                   src/Prism/Ast/Facets.yaml 
+                   src/Prism/Ast/FacetClassDef.jinja 
+                   include/Prism/Ast/Facets.h
+                   src/Prism/Ast/FacetFilters.py)
 
 target_sources(Prism 
   PRIVATE 

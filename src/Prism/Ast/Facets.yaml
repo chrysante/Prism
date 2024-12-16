@@ -1,0 +1,118 @@
+classes:
+  - name: Facet
+    base: detail::NoParent
+    corporeality: Abstract
+    decl_only: true
+
+  - name: TerminalFacet
+    base: Facet
+    corporeality: Concrete
+    decl_only: true
+
+  - name: AstWrapperFacet
+    base: Facet
+    corporeality: Concrete
+    decl_only: true
+
+  - name: NonTerminalFacet
+    base: Facet
+    corporeality: Concrete
+    decl_only: true
+
+  - name: CastFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: operand
+        type: Facet
+      - name: operation
+        type: TerminalFacet
+      - name: target
+        type: Facet
+
+  - name: CondFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: condition
+        type: Facet
+      - name: question
+        type: TerminalFacet
+      - name: thenFacet
+        type: Facet
+      - name: colon
+        type: TerminalFacet
+      - name: elseFacet
+        type: Facet
+
+  - name: BinaryFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: LHS
+        type: Facet
+      - name: operation
+        type: TerminalFacet
+      - name: RHS
+        type: Facet
+
+  - name: PrefixFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: operation
+        type: TerminalFacet
+      - name: operand
+        type: Facet
+
+  - name: PostfixFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: operand
+        type: Facet
+      - name: operation
+        type: TerminalFacet
+  
+  - name: ListFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+
+  - name: CallFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: callee
+        type: Facet
+      - name: openBracket
+        type: TerminalFacet
+      - name: arguments
+        type: ListFacet
+      - name: closeBracket
+        type: TerminalFacet
+
+  - name: CompoundFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members: 
+      - name: openBrace
+        type: TerminalFacet
+      - name: statements
+        type: ListFacet
+      - name: yieldFacet
+        type: Facet
+      - name: closeBrace
+        type: TerminalFacet
+
+  - name: FnTypeFacet
+    base: NonTerminalFacet
+    corporeality: Concrete
+    members:
+      - name: fn
+        type: TerminalFacet
+      - name: paramList
+        type: AstWrapperFacet
+      - name: arrow
+        type: TerminalFacet
+      - name: retType
+        type: AstWrapperFacet

@@ -1,0 +1,31 @@
+
+namespace prism {
+{% for class in classes -%}
+{%- if not class.decl_only %}
+class {{class.name}}: public {{class.base}} {
+public:
+    {%- if class.members -%}
+        {%- set ctor_params = [] -%}
+        {%- set ctor_args = [] -%}
+        {%- for member in class.members -%}
+            {%- set _ = ctor_params.append(member.type|interface_type + ' ' + member.name) -%}
+            {%- set _ = ctor_args.append(member.type|to_stored_type + '(alloc, ' + member.name + ')') -%}
+        {% endfor %}
+    explicit {{class.name}}(MonotonicBufferResource& alloc, {{ctor_params | join(', ')}}):
+        {{class.base}}(FacetNodeType::{{class.base}}, { { {{ctor_args | join(', ')}} } }) {}
+    {%- else %}
+    explicit {{class.name}}(MonotonicBufferResource&, std::span<Facet const* const> children):
+        {{class.base}}(FacetNodeType::{{class.base}}, children) {}
+    {%- endif %}
+    {%- for member in class.members %}
+
+    {{member.type|interface_type}} {{member.name}}() const() {
+        return childAt<{{member.type}} const*>({{loop.index0}}){{member.type|to_interface_type}};
+    }
+    {%- endfor %}
+};
+{% endif -%}
+{%- endfor %}
+
+}
+
