@@ -1,21 +1,50 @@
 #ifndef FACET_DEF
-#define FACET_DEF(Kind)
+#define FACET_DEF(...)
 #endif
 
 FACET_DEF(Facet, detail::NoParent, Abstract)
 
 FACET_DEF(TerminalFacet, Facet, Concrete)
 FACET_DEF(AstWrapperFacet, Facet, Concrete)
-
 FACET_DEF(NonTerminalFacet, Facet, Abstract)
-FACET_DEF(CastFacet, NonTerminalFacet, Concrete)
-FACET_DEF(CondFacet, NonTerminalFacet, Concrete)
-FACET_DEF(BinaryFacet, NonTerminalFacet, Concrete)
-FACET_DEF(PrefixFacet, NonTerminalFacet, Concrete)
-FACET_DEF(PostfixFacet, NonTerminalFacet, Concrete)
-FACET_DEF(ListFacet, NonTerminalFacet, Concrete)
-FACET_DEF(CallFacet, NonTerminalFacet, Concrete)
-FACET_DEF(CompoundFacet, NonTerminalFacet, Concrete)
-FACET_DEF(FnTypeFacet, NonTerminalFacet, Concrete)
+
+#ifndef NT_FACET_DEF
+#define NT_FACET_DEF(Name, Parent, Corporeality, Fields)                       \
+    FACET_DEF(Name, Parent, Corporeality)
+#endif
+
+NT_FACET_DEF(CastFacet, NonTerminalFacet, Concrete,
+             ((0, Facet, operand), (1, TerminalFacet, operation),
+              (2, Facet, target)))
+
+NT_FACET_DEF(CondFacet, NonTerminalFacet, Concrete,
+             ((0, Facet, condition), (1, TerminalFacet, question),
+              (2, Facet, ifFacet), (3, TerminalFacet, colon),
+              (4, Facet, thenFacet)))
+
+NT_FACET_DEF(BinaryFacet, NonTerminalFacet, Concrete,
+             ((0, Facet, LHS), (1, TerminalFacet, operation), (2, Facet, RHS)))
+
+NT_FACET_DEF(PrefixFacet, NonTerminalFacet, Concrete,
+             ((0, TerminalFacet, operation), (1, Facet, operand)))
+
+NT_FACET_DEF(PostfixFacet, NonTerminalFacet, Concrete,
+             ((0, Facet, operand), (1, TerminalFacet, operation)))
+
+NT_FACET_DEF(ListFacet, NonTerminalFacet, Concrete, ())
+
+NT_FACET_DEF(CallFacet, NonTerminalFacet, Concrete,
+             ((0, Facet, callee), (1, TerminalFacet, openBracket),
+              (2, ListFacet, arguments), (3, TerminalFacet, closeBracket)))
+
+NT_FACET_DEF(CompoundFacet, NonTerminalFacet, Concrete,
+             ((0, TerminalFacet, openBrace), (1, ListFacet, statements),
+              (2, Facet, returnFacet), (3, TerminalFacet, closeBrace)))
+
+NT_FACET_DEF(FnTypeFacet, NonTerminalFacet, Concrete,
+             ((0, TerminalFacet, fn), (1, AstWrapperFacet, paramList),
+              (2, TerminalFacet, arrow), (3, AstWrapperFacet, retType)))
+
+#undef NT_FACET_DEF
 
 #undef FACET_DEF

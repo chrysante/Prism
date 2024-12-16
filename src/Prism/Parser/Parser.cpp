@@ -353,7 +353,7 @@ AstCompoundExpr* Parser::parseCompoundExpr() {
         auto* stmt = allocate<AstYieldStmt>(expr);
         stmts.push_back(stmt);
     }
-    return allocate<AstCompoundExpr>(compound->openBrace()->token(), stmts);
+    return allocate<AstCompoundExpr>(compound->openBrace(), stmts);
 }
 
 AstTypeSpec* Parser::parseTypeSpec() {
@@ -391,7 +391,7 @@ Facet const* Parser::parseCastFacet() {
         if (!type) {
             assert(false); // Expected type spec
         }
-        facet = makeBinaryFacet(alloc, facet, *as, type);
+        facet = allocate<BinaryFacet>(facet, *as, type);
     }
 }
 
@@ -426,8 +426,8 @@ Facet const* Parser::parseTernCondFacet() {
         raise<ExpectedExpression>(peek());
         return nullptr;
     };
-    return makeCondFacet(alloc, cond, *question, lhs,
-                         colon.value_or(ErrorToken), rhs);
+    return allocate<CondFacet>(cond, *question, lhs, colon.value_or(ErrorToken),
+                               rhs);
 }
 
 Facet const* Parser::parseBinCondFacet() {
@@ -483,7 +483,7 @@ Facet const* Parser::parsePrefixFacet() {
                      Dyn, Star, Ampersand, Question, New, Move);
     if (!tok) return parsePostfixFacet();
     auto* operand = parsePrefixFacet();
-    return makePrefixFacet(alloc, *tok, operand);
+    return allocate<PrefixFacet>(*tok, operand);
 }
 
 static TokenKind toClosing(TokenKind open) {
@@ -504,7 +504,7 @@ Facet const* Parser::parsePostfixFacet() {
     if (!operand) return nullptr;
     while (true) {
         if (auto tok = match(DoublePlus, DoubleMinus)) {
-            operand = makePostfixFacet(alloc, operand, *tok);
+            operand = allocate<PostfixFacet>(operand, *tok);
             continue;
         }
         if (auto* call = parseCallFacet(operand)) {
@@ -528,15 +528,15 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
     auto argList = parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
     auto close = match(closingKind);
     PRISM_ASSERT(close);
-    auto* args = makeListFacet(alloc, argList);
-    return makeCallFacet(alloc, primary, *open, args, *close);
+    auto* args = allocate<ListFacet>(argList);
+    return allocate<CallFacet>(primary, *open, args, *close);
 }
 
 Facet const* Parser::parsePrimaryFacet() {
     if (auto tok = match(Identifier, IntLiteralBin, IntLiteralDec,
                          IntLiteralHex, True, False, This, AutoArg, Void, Int,
                          Double))
-        return makeTerminal(alloc, *tok);
+        return allocate<TerminalFacet>(*tok);
     if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
     if (auto open = match(OpenParen)) {
         auto* facet = parseCommaFacet();
@@ -581,8 +581,8 @@ CompoundFacet const* Parser::parseCompoundFacet() {
     };
     auto close = match(CloseBrace);
     if (!close) raise<ExpectedToken>(peek(), CloseBrace);
-    return makeCompoundFacet(alloc, *open, makeListFacet(alloc, elems),
-                             returnFacet, close.value_or(ErrorToken));
+    return allocate<CompoundFacet>(*open, allocate<ListFacet>(elems),
+                                   returnFacet, close.value_or(ErrorToken));
 }
 
 Facet const* Parser::parseClosureOrFnTypeFacet() {
@@ -601,9 +601,8 @@ Facet const* Parser::parseClosureOrFnTypeFacet() {
     if (!params || !retType) {
         assert(false); // Invalid fn type
     }
-    return makeFnTypeFacet(alloc, *fn, allocate<AstWrapperFacet>(params),
-                           arrow.value_or(ErrorToken),
-                           allocate<AstWrapperFacet>(retType));
+    return allocate<FnTypeFacet>(*fn, params, arrow.value_or(ErrorToken),
+                                 retType);
 }
 
 Facet const* Parser::parseFstringFacet() { return nullptr; }
@@ -619,7 +618,7 @@ Facet const* Parser::parseBinaryFacetLTR(
         if (!rhs) {
             assert(false); // Expected facet
         }
-        lhs = makeBinaryFacet(alloc, lhs, *tok, rhs);
+        lhs = allocate<BinaryFacet>(lhs, *tok, rhs);
     }
 }
 
@@ -632,7 +631,7 @@ Facet const* Parser::parseBinaryFacetRTL(
         if (!rhs) {
             assert(false); // Expected facet
         }
-        return makeBinaryFacet(alloc, lhs, *tok, rhs);
+        return allocate<BinaryFacet>(lhs, *tok, rhs);
     }
     return lhs;
 }

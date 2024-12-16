@@ -1,5 +1,76 @@
 
-fn test() { return 0; }
+
+// Exposition:
+module std {
+
+    trait convertible_to(To: type) {
+        fn convert(&this) -> To;
+    }
+
+    trait callable(R: type, ...Args: type) {
+        fn call(args...: Args) -> R;
+    }
+
+    impl [R: type, ...Args: type, R_orig: convertible_to(R),
+          ...Args_orig: convertible_to(args)...]
+          convertible_to(std.callable(R, Args...))
+          for std.callable(R_orig, Args_orig...) {
+        fn convert(&this) -> std.callable(R, Args...) {
+            fn (...args: Args) -> R {
+                from(args...)
+            }
+        }
+    }
+
+    impl convertible_to(i64) for i32 {
+        fn convert(&this) -> i64 { builtin.i64_to_i32(this) }
+    }
+    
+}
+
+struct Foo {
+    impl fn std.callable(fn (int) -> int).call(n: int) -> int { 2 * n }
+}
+
+struct Bar {}
+
+impl std.callable(fn (n: int) -> int) for Bar {
+    fn call(n: int) -> int { 2 * n }
+}
+
+struct Baz {}
+
+fn takeCallback(f: fn (n: int) -> int) -> int {
+    f(42)
+}
+
+fn test() {
+    takeCallback(Foo{}); // Fine
+    takeCallback(Bar{}); // Fine
+    takeCallback(Baz{}); // Ill-formed
+    
+    takeCallback(fn 2 * $0); // Fine. `fn 2 * $0` is a closure of anonymous
+                             // type, that conforms to
+                             // std.callable(fn (auto) -> auto)
+}
+
+//
+// `fn 2 * $0` is an object of the following type:
+//
+// struct __closure {
+//     typedef [T: type] R = decltype(arg: T) { 2 * arg };
+//     impl fn [T: type] std.callable(fn (T) -> R(T)).call(arg: T) -> R(T) { 2 * arg }
+// }
+//
+// alternatively:
+//
+// struct __closure {
+//     typedef [T: type] R = decltype(arg: T) { 2 * arg };
+// }
+// impl [T: type] std.callable(fn (T) -> __closure.R(T)) for __closure {
+//     fn call(arg: T) -> R(T) { 2 * arg }
+// }
+//
 
 /*
 

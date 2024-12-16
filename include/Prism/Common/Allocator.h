@@ -147,11 +147,15 @@ inline bool operator==(MonotonicBufferResource const& a,
     return &a == &b;
 }
 
+template <typename T, typename... Args>
+concept UniformConstructibleFrom =
+    requires(Args&&... args) { T{ std::forward<Args>(args)... }; };
+
 /// Allocates memory for object of type `T` using the allocator \p alloc and
 /// constructs the object with arguments \p args... \Returns a pointer the the
 /// constructed object
 template <typename T, typename... Args>
-    requires requires(Args&&... args) { T{ std::forward<Args>(args)... }; }
+    requires UniformConstructibleFrom<T, Args...>
 T* allocate(MonotonicBufferResource& alloc, Args&&... args) {
     T* result = static_cast<T*>(alloc.allocate(sizeof(T), alignof(T)));
     std::construct_at(result, std::forward<Args>(args)...);

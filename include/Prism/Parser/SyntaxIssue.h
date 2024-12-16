@@ -37,7 +37,7 @@ namespace prism {
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
     class Name: public Base {                                                  \
     public:                                                                    \
-        explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE,                      \
+        explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
                                      PRISM_REMOVE_PARENS CtorArgs));           \
     };
 #include <Prism/Parser/SyntaxIssue.def>

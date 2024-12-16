@@ -16,6 +16,8 @@
 #include <Prism/Common/Rtti.h>
 #include <Prism/Source/Token.h>
 
+#include <Prism/Common/MacroUtils.h>
+
 namespace prism {
 
 class Facet {
@@ -87,49 +89,37 @@ protected:
 static_assert(sizeof(Facet) == sizeof(void*));
 static_assert(alignof(Facet) == alignof(void*));
 
-namespace detail {
+template <std::derived_from<Facet> T, typename... Args>
+    requires UniformConstructibleFrom<T, Args...>
+T* allocate(MonotonicBufferResource& alloc, Args&&... args) {
+    void* buf = alloc.allocate(sizeof(Facet) + sizeof...(Args) * sizeof(void*),
+                               alignof(Facet));
+    return new (buf) T(std::forward<Args>(args)...);
+}
 
-struct FacetFactory {
-    static void* allocate(MemoryResource auto& alloc, size_t numChildren) {
-        return alloc.allocate(sizeof(Facet) + numChildren * sizeof(void*),
-                              alignof(Facet));
-    }
-
-    template <typename T = TerminalFacet>
-    static T const* makeTerminal(MemoryResource auto& alloc, Token tok) {
-        void* buf = detail::FacetFactory::allocate(alloc, 0);
-        return new (buf) T(tok);
-    }
-
-    template <typename T>
-    static T const* makeNonTerminal(MemoryResource auto& alloc,
-                                    std::span<Facet const* const> children) {
-        void* buf = allocate(alloc, children.size());
-        return new (buf) T(children);
-    }
-};
-
-} // namespace detail
+template <std::derived_from<Facet> T,
+          std::convertible_to<std::span<Facet const* const>> Arg>
+    requires UniformConstructibleFrom<T, Arg>
+T* allocate(MonotonicBufferResource& alloc, Arg&& args) {
+    void* buf = alloc.allocate(sizeof(Facet) +
+                                   std::span<Facet const* const>(args).size() *
+                                       sizeof(void*),
+                               alignof(Facet));
+    return new (buf) T(std::forward<Arg>(args));
+}
 
 class TerminalFacet: public Facet {
 public:
+    TerminalFacet(Token tok): Facet(tok) {}
+
     std::span<Facet const* const> children() const { return {}; }
 
     Token token() const { return term.tok; }
 
-private:
     friend FacetType get_rtti(TerminalFacet const& node) {
         return FacetType::TerminalFacet;
     }
-
-    friend class detail::FacetFactory;
-    TerminalFacet(Token tok): Facet(tok) {}
 };
-
-inline TerminalFacet const* makeTerminal(MemoryResource auto& alloc,
-                                         Token tok) {
-    return detail::FacetFactory::makeTerminal(alloc, tok);
-}
 
 class AstWrapperFacet: public Facet {
 public:
@@ -145,192 +135,96 @@ protected:
     NonTerminalFacet(FacetType type, std::span<Facet const* const> children):
         Facet(type, children) {}
 
-private:
     friend FacetType get_rtti(NonTerminalFacet const& node) {
         return node.nonTerm.type;
     }
 };
 
-#define FACET_FIELD(Index, Type, Name)                                         \
-    Type const* Name() const { return childAt<Type>(Index); }
+namespace detail {
 
-class CastFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, Facet, operand)
-    FACET_FIELD(1, TerminalFacet, operation)
-    FACET_FIELD(2, Facet, target)
+template <typename T>
+struct FacetFieldTransform {
+    using InterfaceType = T const*;
 
-private:
-    friend class detail::FacetFactory;
-    explicit CastFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::CastFacet, args) {}
+    static T const* toStoredType(MonotonicBufferResource*, T const* t) {
+        return t;
+    }
+
+    static T const* toInterfaceType(T const* t) { return t; }
 };
 
-inline CastFacet const* makeCastFacet(MemoryResource auto& alloc,
-                                      Facet const* operand, Token operation,
-                                      Facet const* target) {
-    return detail::FacetFactory::makeNonTerminal<CastFacet>(
-        alloc, { { operand, makeTerminal(alloc, operation), target } });
-}
+template <>
+struct FacetFieldTransform<TerminalFacet> {
+    using InterfaceType = Token;
 
-class CondFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, Facet, condition)
-    FACET_FIELD(1, TerminalFacet, question)
-    FACET_FIELD(2, Facet, ifFacet)
-    FACET_FIELD(3, TerminalFacet, colon)
-    FACET_FIELD(4, Facet, thenFacet)
+    static TerminalFacet const* toStoredType(MonotonicBufferResource* resource,
+                                             Token token) {
+        return allocate<TerminalFacet>(*resource, token);
+    }
 
-private:
-    friend class detail::FacetFactory;
-    explicit CondFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::CondFacet, args) {}
+    static Token toInterfaceType(TerminalFacet const* facet) {
+        return facet->token();
+    }
 };
 
-inline CondFacet const* makeCondFacet(MemoryResource auto& alloc,
-                                      Facet const* condition, Token question,
-                                      Facet const* ifFacet, Token colon,
-                                      Facet const* thenFacet) {
-    return detail::FacetFactory::makeNonTerminal<CondFacet>(
-        alloc, { { condition, makeTerminal(alloc, question), ifFacet,
-                   makeTerminal(alloc, colon), thenFacet } });
-}
+template <>
+struct FacetFieldTransform<AstWrapperFacet> {
+    using InterfaceType = AstNode*;
 
-class BinaryFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, Facet, LHS)
-    FACET_FIELD(1, TerminalFacet, operation)
-    FACET_FIELD(2, Facet, RHS)
+    static AstWrapperFacet const* toStoredType(
+        MonotonicBufferResource* resource, AstNode* ast) {
+        return allocate<AstWrapperFacet>(*resource, ast);
+    }
 
-private:
-    friend class detail::FacetFactory;
-    explicit BinaryFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::BinaryFacet, args) {}
+    static AstNode* toInterfaceType(AstWrapperFacet const* facet) {
+        return facet->get();
+    }
 };
 
-inline BinaryFacet const* makeBinaryFacet(MemoryResource auto& alloc,
-                                          Facet const* lhs, Token operation,
-                                          Facet const* rhs) {
-    return detail::FacetFactory::makeNonTerminal<BinaryFacet>(
-        alloc, { { lhs, makeTerminal(alloc, operation), rhs } });
-}
+template <typename T>
+using FacetInterfaceType = typename FacetFieldTransform<T>::InterfaceType;
 
-class PrefixFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, TerminalFacet, operation)
-    FACET_FIELD(1, Facet, operand)
+} // namespace detail
 
-private:
-    friend class detail::FacetFactory;
-    explicit PrefixFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::PrefixFacet, args) {}
-};
+#define FACET_FIELD_CTOR_ARG_IMPL(Index, Type, Name)                           \
+    , detail::FacetInterfaceType<Type> Name
+#define FACET_FIELD_CTOR_ARG(...) FACET_FIELD_CTOR_ARG_IMPL __VA_ARGS__
 
-inline PrefixFacet const* makePrefixFacet(MemoryResource auto& alloc,
-                                          Token operation,
-                                          Facet const* operand) {
-    return detail::FacetFactory::makeNonTerminal<PrefixFacet>(
-        alloc, { { makeTerminal(alloc, operation), operand } });
-}
+#define FACET_FIELD_CTOR_ARG_USE_IMPL(Index, Type, Name)                       \
+    detail::FacetFieldTransform<Type>::toStoredType(resource, Name)
+#define FACET_FIELD_CTOR_ARG_USE(...) FACET_FIELD_CTOR_ARG_USE_IMPL __VA_ARGS__
 
-class PostfixFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, Facet, operand)
-    FACET_FIELD(1, TerminalFacet, operation)
+#define FACET_FIELD_ACC_IMPL(Index, Type, Name)                                \
+    detail::FacetInterfaceType<Type> Name() const {                            \
+        return detail::FacetFieldTransform<Type>::toInterfaceType(             \
+            childAt<Type>(Index));                                             \
+    }
+#define FACET_FIELD_ACC(...) FACET_FIELD_ACC_IMPL __VA_ARGS__
 
-private:
-    friend class detail::FacetFactory;
-    explicit PostfixFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::PostfixFacet, args) {}
-};
+#define NT_FACET_DEF(Name, Parent, Corporeality, Fields)                       \
+    class Name: public Parent {                                                \
+    public:                                                                    \
+        explicit Name(MonotonicBufferResource* resource PRISM_FOR_EACH(        \
+            FACET_FIELD_CTOR_ARG, PRISM_NONE, PRISM_REMOVE_PARENS Fields)):    \
+            Parent(FacetType::Name,                                            \
+                   std::initializer_list<Facet const*>{                        \
+                       PRISM_FOR_EACH(FACET_FIELD_CTOR_ARG_USE, PRISM_COMMA,   \
+                                      PRISM_REMOVE_PARENS Fields) }) {}        \
+                                                                               \
+        explicit Name(std::span<Facet const* const> fields):                   \
+            Parent(FacetType::Name, fields) {}                                 \
+                                                                               \
+        PRISM_FOR_EACH(FACET_FIELD_ACC, PRISM_NONE,                            \
+                       PRISM_REMOVE_PARENS Fields)                             \
+    };
+#include "Prism/Ast/Facet.def"
 
-inline PostfixFacet const* makePostfixFacet(MemoryResource auto& alloc,
-                                            Facet const* operand,
-                                            Token operation) {
-    return detail::FacetFactory::makeNonTerminal<PostfixFacet>(
-        alloc, { { operand, makeTerminal(alloc, operation) } });
-}
-
-class ListFacet: public NonTerminalFacet {
-private:
-    friend class detail::FacetFactory;
-    explicit ListFacet(std::span<Facet const* const> children):
-        NonTerminalFacet(FacetType::ListFacet, children) {}
-};
-
-inline ListFacet const* makeListFacet(MemoryResource auto& alloc,
-                                      std::span<Facet const* const> children) {
-    return detail::FacetFactory::makeNonTerminal<ListFacet>(alloc, children);
-}
-
-class CallFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, Facet, callee)
-    FACET_FIELD(1, TerminalFacet, openBracket)
-    FACET_FIELD(2, ListFacet, arguments)
-    FACET_FIELD(3, TerminalFacet, closeBracket)
-
-private:
-    friend class detail::FacetFactory;
-    explicit CallFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::CallFacet, args) {}
-};
-
-inline CallFacet const* makeCallFacet(MemoryResource auto& alloc,
-                                      Facet const* callee, Token openBracket,
-                                      ListFacet const* arguments,
-                                      Token closeBracket) {
-    return detail::FacetFactory::makeNonTerminal<CallFacet>(
-        alloc, { { callee, makeTerminal(alloc, openBracket), arguments,
-                   makeTerminal(alloc, closeBracket) } });
-}
-
-class CompoundFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, TerminalFacet, openBrace)
-    FACET_FIELD(1, ListFacet, statements)
-    FACET_FIELD(2, Facet, returnFacet)
-    FACET_FIELD(3, TerminalFacet, closeBrace)
-
-private:
-    friend class detail::FacetFactory;
-    explicit CompoundFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::CompoundFacet, args) {}
-};
-
-inline CompoundFacet const* makeCompoundFacet(MemoryResource auto& alloc,
-                                              Token openBrace,
-                                              ListFacet const* stmts,
-                                              Facet const* returnFacet,
-                                              Token closeBrace) {
-    return detail::FacetFactory::makeNonTerminal<CompoundFacet>(
-        alloc, { { makeTerminal(alloc, openBrace), stmts, returnFacet,
-                   makeTerminal(alloc, closeBrace) } });
-}
-
-class FnTypeFacet: public NonTerminalFacet {
-public:
-    FACET_FIELD(0, TerminalFacet, fn)
-    FACET_FIELD(1, AstWrapperFacet, paramList)
-    FACET_FIELD(2, TerminalFacet, arrow)
-    FACET_FIELD(3, AstWrapperFacet, retType)
-
-private:
-    friend class detail::FacetFactory;
-    explicit FnTypeFacet(std::span<Facet const* const> args):
-        NonTerminalFacet(FacetType::FnTypeFacet, args) {}
-};
-
-inline FnTypeFacet const* makeFnTypeFacet(MemoryResource auto& alloc, Token fn,
-                                          AstWrapperFacet const* paramList,
-                                          Token arrow,
-                                          AstWrapperFacet const* retType) {
-    return detail::FacetFactory::makeNonTerminal<FnTypeFacet>(
-        alloc, { { makeTerminal(alloc, fn), paramList,
-                   makeTerminal(alloc, arrow), retType } });
-}
-
-#undef FACET_FIELD
+#undef FACET_FIELD_CTOR_ARG_IMPL
+#undef FACET_FIELD_CTOR_ARG
+#undef FACET_FIELD_CTOR_ARG_USE_IMPL
+#undef FACET_FIELD_CTOR_ARG_USE
+#undef FACET_FIELD_ACC_IMPL
+#undef FACET_FIELD_ACC
 
 class SourceContext;
 class TreeFormatter;
@@ -344,5 +238,7 @@ void print(Facet const* facet, TreeFormatter& fmt,
            SourceContext const* srcCtx = nullptr);
 
 } // namespace prism
+
+#include <Prism/Common/MacroUtilsUndef.h>
 
 #endif // PRISM_AST_FACET_H

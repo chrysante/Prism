@@ -44,7 +44,7 @@ PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
 } // namespace prism
 
 // Register the facet nodes with CSP
-#define FACET_DEF(Type, Parent, Corporeality)                                  \
+#define FACET_DEF(Type, Parent, Corporeality, ...)                             \
     PRISM_DEFINE_RTTI(prism::Type, prism::FacetType::Type, prism::Parent,      \
                       Corporeality)
 #include <Prism/Ast/Facet.def>
