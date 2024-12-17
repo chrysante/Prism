@@ -63,7 +63,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/IssueHandler.h
     include/Prism/Common/MacroUtils.h
     include/Prism/Common/MacroUtilsUndef.h
-    include/Prism/Common/NoParent.h
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
 
