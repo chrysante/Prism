@@ -130,6 +130,13 @@ add_code_generator(Prism
                    include/Prism/Ast/Facets.h
                    src/Prism/Ast/FacetFilters.py)
 
+add_code_generator(Prism
+                   src/Prism/Ast/Facets.yaml 
+                   src/Prism/Ast/FacetFwd.jinja 
+                   include/Prism/Ast/FacetFwd.h
+                   src/Prism/Ast/FacetFilters.py)
+
+
 target_sources(Prism 
   PRIVATE 
     ${PRISM_HEADER_FILES}

@@ -24,6 +24,7 @@ strip_to_src_or_include() {
     echo "$path"
 }
 
+set -e
 
 GEN_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJ_DIR=$GEN_DIR/..

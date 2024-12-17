@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import sys
 import os
+import re
 
 def load_module_from_file(file_path, module_name):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -24,14 +25,13 @@ def main():
     parser.add_argument("-o", "--output", required=True, type=str, help="Name of the generated file")
     parser.add_argument("-f", "--filters", nargs='+', type=str, help="Python files defining filters")
     args = parser.parse_args()
-
     template_file = os.path.abspath(args.template)
     template_dir = os.path.dirname(template_file)
     template_filename = os.path.basename(template_file)
-
     loader = jinja2.FileSystemLoader(template_dir)
-    env = jinja2.Environment(autoescape=False, loader=loader)
-
+    env = jinja2.Environment(autoescape=False, loader=loader, 
+                             trim_blocks=True,      
+                             lstrip_blocks=True)
     if args.filters:
         for idx, filter_file in enumerate(args.filters):
             module_name = f"module_{idx}"
@@ -39,12 +39,9 @@ def main():
             env.filters.update(module.filters)
 
     temp = env.get_template(template_filename)
-
     with open(args.definitions, 'r') as f:
         classes = yaml.safe_load(f)
-
     rendered_text = warning_comment(args.definitions, args.template) + temp.render(classes)
-
     with open(args.output, 'w') as f:
         f.write(rendered_text)
 

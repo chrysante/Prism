@@ -1,31 +1,72 @@
 
-namespace prism {
-{% for class in classes -%}
-{%- if not class.decl_only %}
-class {{class.name}}: public {{class.base}} {
-public:
-    {%- if class.members -%}
-        {%- set ctor_params = [] -%}
-        {%- set ctor_args = [] -%}
-        {%- for member in class.members -%}
-            {%- set _ = ctor_params.append(member.type|interface_type + ' ' + member.name) -%}
-            {%- set _ = ctor_args.append(member.type|to_stored_type + '(alloc, ' + member.name + ')') -%}
-        {% endfor %}
-    explicit {{class.name}}(MonotonicBufferResource& alloc, {{ctor_params | join(', ')}}):
-        {{class.base}}(FacetNodeType::{{class.base}}, { { {{ctor_args | join(', ')}} } }) {}
-    {%- else %}
-    explicit {{class.name}}(MonotonicBufferResource&, std::span<Facet const* const> children):
-        {{class.base}}(FacetNodeType::{{class.base}}, children) {}
-    {%- endif %}
-    {%- for member in class.members %}
+{% macro constructor(facet, all_members) %}
+    {% if facet.abstract %}
+        {% set node_type_param = ', FacetType facetType' %}
+        {% set node_type_arg = 'facetType' %}
+        {% set trailing_params = ', auto const&... args' %}
+        {% set trailing_args = ', args...' %}
+    {% else %}
+        {% set node_type_arg = 'FacetType::' ~ facet.name %}
+    {% endif %}
+    {% if all_members %}
+        {% set comma_if_members = ',' %}
+    {% else %}
+        {% set comma_if_members = '' %}
+    {% endif %}
+explicit {{ facet.name }}(MonotonicBufferResource& alloc
+                          {{ node_type_param }} {{ comma_if_members }}
+                          {{ all_members | map('ctor_param') | join(', ') -}}
+                          {{ trailing_params }}):
+         {{ facet.base }}({{ node_type_arg }} {{ comma_if_members }}
+                          {{ all_members | map('ctor_arg_as_stored') | join(', ') -}}
+                          {{ trailing_args }})
+{}
+{% endmacro %}
 
-    {{member.type|interface_type}} {{member.name}}() const() {
-        return childAt<{{member.type}} const*>({{loop.index0}}){{member.type|to_interface_type}};
-    }
-    {%- endfor %}
+{% macro field_accessor(member, index) %}
+    {% if member.comment %}
+/// {{member.comment}}
+    {% endif %}
+{{ member.type|interface_type }} {{ member.name }}() const() {
+    return childAt<{{ member.type }} const*>(
+        {{ index }}){{ member.type|to_interface_type }};
+}
+{% endmacro %}
+
+{% macro all_field_accessors(cls, offset) %}
+    {% for member in cls.members %}
+        {{ field_accessor(member, loop.index0 + offset) }}
+    {% endfor %}
+{% endmacro %}
+
+{% macro define_facet_class(facet, facets) %}
+    {% set all_members, offset = facet | collect_all_members(facets) %}
+    {% if facet.comment %}
+/// {{facet.comment}}
+    {% endif %}
+class {{ facet.name }}: public {{ facet.base }} {
+    {% if facet.abstract %}
+        {% if facet.members %}
+public:
+        {% endif %}
+    {{- all_field_accessors(facet, offset) -}}
+protected:
+    {{ constructor(facet, all_members) }}
+    {% else %}
+public:
+    {{ constructor(facet, all_members) }}
+    {{ all_field_accessors(facet, offset) }}
+    {% endif %}
 };
-{% endif -%}
-{%- endfor %}
+{% endmacro %}
+
+namespace prism {
+
+{% for facet in facets %}
+    {% if not facet.decl_only %}
+        {{ define_facet_class(facet, facets) }}
+    {% endif %}
+{% endfor %}
 
 }
 

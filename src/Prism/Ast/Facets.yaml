@@ -1,39 +1,99 @@
-classes:
+facets:
   - name: Facet
-    base: detail::NoParent
-    corporeality: Abstract
+    abstract: true
     decl_only: true
 
   - name: TerminalFacet
     base: Facet
-    corporeality: Concrete
-    decl_only: true
-
-  - name: AstWrapperFacet
-    base: Facet
-    corporeality: Concrete
     decl_only: true
 
   - name: NonTerminalFacet
     base: Facet
-    corporeality: Concrete
     decl_only: true
+
+  - name: StmtFacet
+    base: NonTerminalFacet
+    abstract: true
+
+  - name: DeclFacet
+    base: StmtFacet
+    abstract: true
+    members:
+      - name: declarator
+        type: TerminalFacet
+
+  - name: VarDeclBaseFacet
+    base: DeclFacet
+    abstract: true
+    members:
+      - name: colon
+        type: TerminalFacet
+      - name: typespec
+        type: Facet
+
+  - name: ParamDeclFacet
+    base: VarDeclBaseFacet
+
+  - name: ParamListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: FuncDeclFacet
+    base: DeclFacet
+    members:
+      - name: params
+        type: ParamListFacet
+      - name: arrow
+        type: TerminalFacet
+      - name: retType
+        type: Facet
+      - name: body
+        type: Facet
+
+  - name: SourceFileFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: ExprStmtFacet
+    base: StmtFacet
+    members:
+      - name: expr
+        type: Facet
+      - name: semicolon
+        type: TerminalFacet
+
+  - name: ReturnStmtFacet
+    base: StmtFacet
+    members:
+      - name: keyword
+        type: TerminalFacet
+      - name: expr
+        type: Facet
+      - name: semicolon
+        type: TerminalFacet
+
+  - name: EmptyStmtFacet
+    base: StmtFacet
+    members:
+      - name: semicolon
+        type: TerminalFacet
 
   - name: CastFacet
     base: NonTerminalFacet
-    corporeality: Concrete
-    members: 
+    comment: 'Code sample: `value as NewType`'
+    members:
       - name: operand
         type: Facet
       - name: operation
         type: TerminalFacet
       - name: target
         type: Facet
+        comment: 'The target type of the conversion, i.e., the type of this expression'
 
   - name: CondFacet
     base: NonTerminalFacet
-    corporeality: Concrete
-    members: 
+    comment: 'Code sample: `condition ? thenValue : elseValue`'
+    members:
       - name: condition
         type: Facet
       - name: question
@@ -47,7 +107,6 @@ classes:
 
   - name: BinaryFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members: 
       - name: LHS
         type: Facet
@@ -58,7 +117,6 @@ classes:
 
   - name: PrefixFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members: 
       - name: operation
         type: TerminalFacet
@@ -67,7 +125,6 @@ classes:
 
   - name: PostfixFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members: 
       - name: operand
         type: Facet
@@ -76,11 +133,10 @@ classes:
   
   - name: ListFacet
     base: NonTerminalFacet
-    corporeality: Concrete
+    decl_only: true
 
   - name: CallFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members: 
       - name: callee
         type: Facet
@@ -93,7 +149,6 @@ classes:
 
   - name: CompoundFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members: 
       - name: openBrace
         type: TerminalFacet
@@ -106,7 +161,6 @@ classes:
 
   - name: FnTypeFacet
     base: NonTerminalFacet
-    corporeality: Concrete
     members:
       - name: fn
         type: TerminalFacet
@@ -116,3 +170,17 @@ classes:
         type: TerminalFacet
       - name: retType
         type: AstWrapperFacet
+
+  - name: ClosureFacet
+    base: NonTerminalFacet
+    members:
+      - name: declarator
+        type: TerminalFacet
+      - name: params
+        type: ParamListFacet
+      - name: arrow
+        type: TerminalFacet
+      - name: retType
+        type: Facet
+      - name: body
+        type: Facet

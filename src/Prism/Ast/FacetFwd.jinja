@@ -1,0 +1,39 @@
+
+// Hierarchical overview over the facet nodes
+//
+{{ facets | build_inheritance_tree -}}
+//
+
+#include <Prism/Common/Rtti.h>
+#include <Prism/Common/EnumUtil.h>
+
+namespace prism {
+    
+{% for facet in facets %}
+class {{ facet.name }};
+{% endfor %}
+
+enum class FacetType {
+{% for facet in facets %}
+{{ facet.name }},
+{% endfor %}
+};
+
+PRISM_DEFINE_ENUM_FUNCTIONS(FacetType)
+
+}
+
+{% for facet in facets %}
+{% if facet.base %}
+{% set base_class = 'prism::' ~ facet.base %}
+{% else %}
+{% set base_class = 'void' %}
+{% endif %}
+{% if facet.abstract %}
+{% set corpo = 'Abstract' %}
+{% else %}
+{% set corpo = 'Concrete' %}
+{% endif %}
+PRISM_DEFINE_RTTI(prism::{{ facet.name }}, prism::FacetType::{{ facet.name }}, {{ base_class }}, {{ corpo }})
+{% endfor %}
+
