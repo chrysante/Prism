@@ -1,4 +1,4 @@
-#include "Prism/Ast/Facet.h"
+#include "Prism/Facet/Facet.h"
 
 #include <string_view>
 #include <vector>
@@ -36,7 +36,7 @@ static constexpr utl::streammanip FacetName = [](std::ostream& str,
 
 static utl::hashmap<FacetType, std::vector<std::string_view>> const
     ChildNameMap = {
-#include "Prism/Ast/FacetMemberNames.inl"
+#include "Prism/Facet/FacetMemberNames.inl"
     };
 
 static std::string_view childName(Facet const& node, size_t index) {

@@ -9,8 +9,8 @@
 #include <variant>
 #include <vector>
 
-#include <Prism/Ast/Facet.h>
 #include <Prism/Common/Allocator.h>
+#include <Prism/Facet/Facet.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
@@ -87,7 +87,7 @@ private:
     template <typename T>
     bool checkType(T t) const;
 
-    bool compareChildren(auto const* node) const;
+    bool compareChildren(Facet const* node) const;
 
     bool verifyIssues() const;
 

@@ -54,8 +54,6 @@ CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 CPMAddPackage("gh:catchorg/Catch2@3.7.1")
 
 set(PRISM_HEADER_FILES
-    include/Prism/Ast/Facet.h
-
     include/Prism/Common/Allocator.h
     include/Prism/Common/Assert.h
     include/Prism/Common/EnumUtil.h
@@ -68,6 +66,8 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/NoParent.h
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
+
+    include/Prism/Facet/Facet.h
 
     include/Prism/Lexer/Lexer.h
     include/Prism/Lexer/LexicalIssue.h
@@ -83,14 +83,14 @@ set(PRISM_HEADER_FILES
 )
 
 set(PRISM_SOURCE_FILES
-    src/Prism/Ast/Facet.cpp
-
     src/Prism/Common/Allocator.cpp
     src/Prism/Common/IndentingStreambuf.cpp
     src/Prism/Common/Issue.cpp
     src/Prism/Common/IssueHandler.cpp
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
+
+    src/Prism/Facet/Facet.cpp
 
     src/Prism/Lexer/Lexer.cpp
     src/Prism/Lexer/LexicalIssue.cpp
@@ -116,22 +116,22 @@ add_library(Prism SHARED)
 enable_sanitizers(Prism)
 
 add_code_generator(Prism
-                   src/Prism/Ast/Facets.yaml 
-                   src/Prism/Ast/FacetClassDef.jinja 
-                   include/Prism/Ast/Facets.inl
-                   src/Prism/Ast/FacetFilters.py)
+                   src/Prism/Facet/Facets.yaml 
+                   src/Prism/Facet/FacetClassDef.jinja 
+                   include/Prism/Facet/Facets.inl
+                   src/Prism/Facet/FacetFilters.py)
 
 add_code_generator(Prism
-                   src/Prism/Ast/Facets.yaml 
-                   src/Prism/Ast/FacetFwd.jinja 
-                   include/Prism/Ast/FacetFwd.h
-                   src/Prism/Ast/FacetFilters.py)
+                   src/Prism/Facet/Facets.yaml 
+                   src/Prism/Facet/FacetFwd.jinja 
+                   include/Prism/Facet/FacetFwd.h
+                   src/Prism/Facet/FacetFilters.py)
 
 add_code_generator(Prism
-                   src/Prism/Ast/Facets.yaml 
-                   src/Prism/Ast/FacetMemberNames.jinja 
-                   src/Prism/Ast/FacetMemberNames.inl
-                   src/Prism/Ast/FacetFilters.py)
+                   src/Prism/Facet/Facets.yaml 
+                   src/Prism/Facet/FacetMemberNames.jinja 
+                   src/Prism/Facet/FacetMemberNames.inl
+                   src/Prism/Facet/FacetFilters.py)
 
 target_sources(Prism 
   PRIVATE 

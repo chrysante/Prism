@@ -10,9 +10,9 @@
 #include <utl/scope_guard.hpp>
 #include <utl/vector.hpp>
 
-#include "Prism/Ast/Facet.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
 #include "Prism/Parser/SyntaxIssue.h"
 #include "Prism/Source/SourceContext.h"

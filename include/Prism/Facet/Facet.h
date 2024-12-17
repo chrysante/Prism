@@ -1,5 +1,5 @@
-#ifndef PRISM_AST_FACET_H
-#define PRISM_AST_FACET_H
+#ifndef PRISM_FACET_FACET_H
+#define PRISM_FACET_FACET_H
 
 #include <algorithm>
 #include <bit>
@@ -9,10 +9,10 @@
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/size.hpp>
 
-#include <Prism/Ast/FacetFwd.h>
 #include <Prism/Common/Allocator.h>
 #include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
+#include <Prism/Facet/FacetFwd.h>
 #include <Prism/Source/Token.h>
 
 #include <Prism/Common/MacroUtils.h>
@@ -214,6 +214,6 @@ void print(Facet const* facet, TreeFormatter& fmt,
 
 #include <Prism/Common/MacroUtilsUndef.h>
 
-#include <Prism/Ast/Facets.inl>
+#include <Prism/Facet/Facets.inl>
 
-#endif // PRISM_AST_FACET_H
+#endif // PRISM_FACET_FACET_H

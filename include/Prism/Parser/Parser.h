@@ -3,8 +3,8 @@
 
 #include <string_view>
 
-#include <Prism/Ast/FacetFwd.h>
 #include <Prism/Common/Allocator.h>
+#include <Prism/Facet/FacetFwd.h>
 
 namespace prism {
 

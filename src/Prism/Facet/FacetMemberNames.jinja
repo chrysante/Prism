@@ -1,0 +1,14 @@
+// NO-INCLUDE-GUARD
+
+// clang-format off
+
+{% for facet in facets %}
+{ FacetType::{{ facet.name }}, {
+    {%- set all_members, offset = facet | collect_all_members(facets) -%}
+    {%- for member in all_members -%}
+        "{{ member.name }}",
+    {%- endfor -%}
+} },
+{% endfor %}
+
+// clang-format off
