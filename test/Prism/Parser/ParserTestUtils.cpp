@@ -3,17 +3,11 @@
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 
-#include <Prism/Ast/AstDump.h>
 #include <Prism/Common/IssueHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 
 using namespace prism;
-
-std::ostream& prism::operator<<(std::ostream& str, AstNode const& node) {
-    dumpAst(&node, str);
-    return str;
-}
 
 std::ostream& prism::operator<<(std::ostream& str, Facet const& facet) {
     print(&facet, str);
@@ -30,15 +24,6 @@ bool ExpectedIssue::verify(IssueHandler const& iss,
         return true;
     }
     return false;
-}
-
-template <typename T>
-static T dyncast_ext(auto* p) {
-    if (!p) return nullptr;
-    using U = std::remove_cv_t<std::remove_pointer_t<T>>;
-    return csp::visit(*p, csp::overload{ [](auto&) -> T {
-        return nullptr;
-    }, [](std::derived_from<U> auto& u) -> T { return &u; } });
 }
 
 static bool getEnvVarBool(char const* name) {
@@ -61,20 +46,10 @@ static bool const BreakOnTreeMismatch = getEnvVarBool("BREAK_TREE_MISMATCH");
         return value;                                                          \
     }()
 
-bool AstRefNode::compare(AstNode const* node) const {
-    if (!node) return VALIDATE(std::holds_alternative<NullNodeT>(type));
-    if (auto* facetNode = dyncast_ext<RawFacetBase const*>(node)) {
-        return compare(facetNode->facet());
-    }
-    return checkType(get_rtti(*node)) && compareChildren(node);
-}
-
 bool AstRefNode::compare(Facet const* facet) const {
     if (!facet) return VALIDATE(std::holds_alternative<NullNodeT>(type));
     if (auto* term = dyncast<TerminalFacet const*>(facet))
         return checkType(term->token().kind);
-    if (auto* wrapper = dyncast<AstWrapperFacet const*>(facet))
-        return compare(wrapper->get());
     return checkType(get_rtti(*facet)) && compareChildren(facet);
 }
 
@@ -133,7 +108,7 @@ AstRefNode* prism::operator>>(VarType type, Tree children) {
     return allocateNode(type, children.value);
 }
 
-AstSourceFile* prism::parseFile(std::string_view text) {
+SourceFileFacet const* prism::parseFile(std::string_view text) {
     gCtx = SourceContext({}, text);
     gIssueHandler.clear();
     return parseSourceFile(gAlloc, gCtx, gIssueHandler);

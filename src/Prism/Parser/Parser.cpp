@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 
+#include <range/v3/algorithm.hpp>
+#include <range/v3/view.hpp>
 #include <utl/function_view.hpp>
 #include <utl/scope_guard.hpp>
+#include <utl/vector.hpp>
 
-#include "Prism/Ast/Ast.h"
 #include "Prism/Ast/Facet.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
@@ -20,7 +22,6 @@
 using namespace prism;
 
 using enum TokenKind;
-using ranges::views::transform;
 
 static constexpr Token ErrorToken = Token::ErrorToken;
 
@@ -62,28 +63,25 @@ struct Parser {
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
 
-    AstSourceFile* parseSourceFile();
-    AstDecl* parseGlobalDecl();
-    AstFuncDecl* parseFuncDecl();
-    AstDecl* parseStructDecl();
-    AstDecl* parseVarDecl();
-    AstStmt* parseStmt();
-    AstDecl* parseLocalDecl();
-    AstParamDecl* parseParamDecl();
-    AstParamList* parseParamList();
-    AstReturnStmt* parseReturnStmt();
-    AstEmptyStmt* parseEmptyStmt();
-    AstExprStmt* parseExprStmt();
-    AstName* parseName();
-    AstUnqualName* parseUnqualName();
-    AstFacet* parseFacet();
-    AstExpr* parseExpr();
-    AstCompoundExpr* parseCompoundExpr();
-    AstTypeSpec* parseTypeSpec();
-    template <typename Concrete, typename Abstract = Concrete>
-    Abstract* parseFacetImpl(ParserFn auto start);
+    SourceFileFacet const* parseSourceFile();
+    DeclFacet const* parseGlobalDecl();
+    FuncDeclFacet const* parseFuncDecl();
+    DeclFacet const* parseStructDecl();
+    VarDeclFacet const* parseVarDecl();
+    StmtFacet const* parseStmt();
+    DeclFacet const* parseLocalDecl();
+    ParamDeclFacet const* parseParamDecl();
+    ParamListFacet const* parseParamList();
+    ReturnStmtFacet const* parseReturnStmt();
+    EmptyStmtFacet const* parseEmptyStmt();
+    ExprStmtFacet const* parseExprStmt();
 
-    // MARK: - Facets
+    Facet const* parseName();
+    Facet const* parseUnqualName();
+    Facet const* parseFacet();
+    Facet const* parseExpr();
+    Facet const* parseTypeSpec();
+
     Facet const* parseCommaFacet();
     Facet const* parseAssignFacet();
     Facet const* parseCastFacet();
@@ -177,9 +175,9 @@ struct Parser {
     }
 
     template <typename T, typename... Args>
-        requires std::constructible_from<T, MonotonicBufferResource*, Args&&...>
+        requires std::constructible_from<T, MonotonicBufferResource&, Args&&...>
     T* allocate(Args&&... args) {
-        return prism::allocate<T>(alloc, &alloc, std::forward<Args>(args)...);
+        return prism::allocate<T>(alloc, alloc, std::forward<Args>(args)...);
     }
 
     decltype(auto) withFacetState(FacetState s, ParserFn auto f) {
@@ -204,9 +202,9 @@ struct Parser {
 
 } // namespace
 
-AstSourceFile* prism::parseSourceFile(MonotonicBufferResource& alloc,
-                                      SourceContext const& sourceCtx,
-                                      IssueHandler& iss) {
+SourceFileFacet const* prism::parseSourceFile(MonotonicBufferResource& alloc,
+                                              SourceContext const& sourceCtx,
+                                              IssueHandler& iss) {
     Parser parser(alloc, sourceCtx, iss);
     return parser.parseSourceFile();
 }
@@ -218,43 +216,33 @@ Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
     return parser.parseCommaFacet();
 }
 
-static Token firstToken(Facet const* node) {
-    PRISM_ASSERT(node);
-    // clang-format off
-    return csp::visit(*node, csp::overload{
-        [](TerminalFacet const& node) { return node.token(); },
-        [](NonTerminalFacet const& node) { return firstToken(node.childAt(0)); },
-        [](AstWrapperFacet const& node) { return node.get()->firstToken(); }
-    });
-    // clang-format on
+SourceFileFacet const* Parser::parseSourceFile() {
+    return allocate<SourceFileFacet>(
+        parseSequence(&Parser::parseGlobalDecl, End));
 }
 
-AstSourceFile* Parser::parseSourceFile() {
-    return allocate<AstSourceFile>(sourceCtx,
-                                   parseSequence(&Parser::parseGlobalDecl,
-                                                 End));
-}
-
-AstDecl* Parser::parseGlobalDecl() {
+DeclFacet const* Parser::parseGlobalDecl() {
     if (auto fn = parseFuncDecl()) return fn;
     if (auto str = parseStructDecl()) return str;
     if (auto var = parseVarDecl()) return var;
     return nullptr;
 }
 
-AstFuncDecl* Parser::parseFuncDecl() {
+FuncDeclFacet const* Parser::parseFuncDecl() {
     auto declarator = match(Function);
     if (!declarator) return nullptr;
     auto* name = parseName();
     auto* params = parseParamList();
-    auto* retType = match(Arrow) ? parseTypeSpec() : nullptr;
-    auto* body = parseCompoundExpr();
-    return allocate<AstFuncDecl>(*declarator, name, params, retType, body);
+    auto arrow = match(Arrow);
+    auto* retType = arrow ? parseTypeSpec() : nullptr;
+    auto* body = parseCompoundFacet();
+    return allocate<FuncDeclFacet>(*declarator, name, params,
+                                   arrow.value_or(ErrorToken), retType, body);
 }
 
-AstDecl* Parser::parseStructDecl() { return nullptr; }
+DeclFacet const* Parser::parseStructDecl() { return nullptr; }
 
-AstDecl* Parser::parseVarDecl() {
+VarDeclFacet const* Parser::parseVarDecl() {
     auto declarator = match(Var, Let);
     if (!declarator) return nullptr;
     auto* name = parseName();
@@ -263,14 +251,16 @@ AstDecl* Parser::parseVarDecl() {
     }
     auto colon = match(Colon);
     auto* typeSpec = colon ? parseTypeSpec() : nullptr;
-    auto eq = match(Equal);
-    auto* initExpr = eq ? parseExpr() : nullptr;
-    if (!match(Semicolon)) raise<ExpectedToken>(peek(), Semicolon);
-    return allocate<AstVarDecl>(*declarator, name, colon, typeSpec, eq,
-                                initExpr);
+    auto assign = match(Equal);
+    auto* initExpr = assign ? parseExpr() : nullptr;
+    auto semicolon = match(Semicolon);
+    if (!semicolon) raise<ExpectedToken>(peek(), Semicolon);
+    return allocate<VarDeclFacet>(*declarator, name, colon.value_or(ErrorToken),
+                                  typeSpec, assign.value_or(ErrorToken),
+                                  initExpr, semicolon.value_or(ErrorToken));
 }
 
-AstStmt* Parser::parseStmt() {
+StmtFacet const* Parser::parseStmt() {
     if (auto* decl = parseLocalDecl()) return decl;
     if (auto* stmt = parseReturnStmt()) return stmt;
     if (auto* stmt = parseExprStmt()) return stmt;
@@ -278,98 +268,62 @@ AstStmt* Parser::parseStmt() {
     return nullptr;
 }
 
-AstDecl* Parser::parseLocalDecl() {
+DeclFacet const* Parser::parseLocalDecl() {
     if (auto var = parseVarDecl()) return var;
     return nullptr;
 }
 
-AstParamDecl* Parser::parseParamDecl() {
-    auto name = parseUnqualName();
+ParamDeclFacet const* Parser::parseParamDecl() {
+    auto* name = parseUnqualName();
     auto colon = match(Colon);
-    auto typeSpec = colon ? parseTypeSpec() :
-                            recover(&Parser::parseTypeSpec, { .stop = Comma });
-    return allocate<AstParamDecl>(std::move(name), colon.value_or(ErrorToken),
-                                  std::move(typeSpec));
+    auto* type = colon ? parseTypeSpec() :
+                         recover(&Parser::parseTypeSpec, { .stop = Comma });
+    return allocate<ParamDeclFacet>(ErrorToken, name,
+                                    colon.value_or(ErrorToken), type);
 }
 
-AstParamList* Parser::parseParamList() {
-    auto openParen = match(OpenParen);
-    if (!openParen) return nullptr;
+ParamListFacet const* Parser::parseParamList() {
+    if (!match(OpenParen)) return nullptr;
     auto seq = parseSequence(&Parser::parseParamDecl, CloseParen, Comma);
-    auto closeParen = match(CloseParen).value_or(ErrorToken);
-    return allocate<AstParamList>(*openParen, closeParen, std::move(seq));
+    match(CloseParen);
+    return allocate<ParamListFacet>(seq);
 }
 
-AstReturnStmt* Parser::parseReturnStmt() {
+ReturnStmtFacet const* Parser::parseReturnStmt() {
     auto ret = match(Return);
     if (!ret) return nullptr;
     auto* expr = parseExpr();
     auto semicolon = match(Semicolon);
     if (!semicolon) assert(false);
-    return allocate<AstReturnStmt>(*ret, expr);
+    return allocate<ReturnStmtFacet>(*ret, expr,
+                                     semicolon.value_or(ErrorToken));
 }
 
-AstEmptyStmt* Parser::parseEmptyStmt() {
-    if (auto tok = match(Semicolon)) return allocate<AstEmptyStmt>(*tok);
+EmptyStmtFacet const* Parser::parseEmptyStmt() {
+    if (auto tok = match(Semicolon)) return allocate<EmptyStmtFacet>(*tok);
     return nullptr;
 }
 
-AstExprStmt* Parser::parseExprStmt() {
-    if (auto* expr = parseCompoundExpr()) return allocate<AstExprStmt>(expr);
+ExprStmtFacet const* Parser::parseExprStmt() {
+    if (auto* expr = parseCompoundFacet())
+        return allocate<ExprStmtFacet>(expr, ErrorToken);
     auto* expr = parseExpr();
     if (!expr) return nullptr;
-    if (!match(Semicolon)) {
+    auto semicolon = match(Semicolon);
+    if (!semicolon) {
         assert(false); // Push error
     }
-    return allocate<AstExprStmt>(expr);
+    return allocate<ExprStmtFacet>(expr, semicolon.value_or(ErrorToken));
 }
 
-AstFacet* Parser::parseFacet() {
-    return parseFacetImpl<AstRawFacet, AstFacet>(&Parser::parseCommaFacet);
+Facet const* Parser::parseFacet() { return parseCommaFacet(); }
+
+Facet const* Parser::parseExpr() { return parseFacet(); }
+
+Facet const* Parser::parseTypeSpec() {
+    return withFacetState(FacetState::Type, [&] { return parsePrefixFacet(); });
 }
 
-static AstExpr* unwrapFacet(AstExpr* expr) {
-    if (auto* facetExpr = dyncast<AstFacetExpr*>(expr))
-        if (auto* wrapper = dyncast<AstWrapperFacet const*>(facetExpr->facet()))
-            if (auto* wrapped = dyncast<AstExpr*>(wrapper->get()))
-                return unwrapFacet(wrapped);
-    return expr;
-}
-
-AstExpr* Parser::parseExpr() {
-    auto* expr = parseFacetImpl<AstFacetExpr>(&Parser::parseCommaFacet);
-    return unwrapFacet(expr);
-}
-
-AstCompoundExpr* Parser::parseCompoundExpr() {
-    auto* compound = parseCompoundFacet();
-    if (!compound) return nullptr;
-    auto stmts = compound->statements()->children() |
-                 transform(cast<AstWrapperFacet const*>) |
-                 transform(&AstWrapperFacet::get) | transform(cast<AstStmt*>) |
-                 ranges::to<utl::small_vector<AstStmt*>>;
-    if (auto* retFct = compound->returnFacet()) {
-        auto* expr = allocate<AstFacetExpr>(retFct, firstToken(retFct));
-        auto* stmt = allocate<AstYieldStmt>(expr);
-        stmts.push_back(stmt);
-    }
-    return allocate<AstCompoundExpr>(compound->openBrace(), stmts);
-}
-
-AstTypeSpec* Parser::parseTypeSpec() {
-    return withFacetState(FacetState::Type, [this] {
-        return parseFacetImpl<AstTypeSpec>(&Parser::parsePrefixFacet);
-    });
-}
-
-template <typename Concrete, typename Abstract>
-Abstract* Parser::parseFacetImpl(ParserFn auto start) {
-    auto* facet = invoke(start);
-    if (!facet) return nullptr;
-    return allocate<Concrete>(facet, firstToken(facet));
-}
-
-// MARK: - Facets
 Facet const* Parser::parseCommaFacet() {
     return parseBinaryFacetLTR(Comma, &Parser::parseAssignFacet);
 }
@@ -560,7 +514,7 @@ Facet const* Parser::parsePrimaryFacet() {
 CompoundFacet const* Parser::parseCompoundFacet() {
     auto open = match(OpenBrace);
     if (!open) return nullptr;
-    utl::small_vector<Facet const*> elems;
+    utl::small_vector<StmtFacet const*> elems;
     auto* returnFacet = eval_as (Facet const*) {
         while (true) {
             Facet const* facet = parseCommaFacet();
@@ -568,20 +522,20 @@ CompoundFacet const* Parser::parseCompoundFacet() {
                 if (peekMatch(CloseBrace)) return facet;
                 auto semicolon = match(Semicolon);
                 if (!semicolon) raise<ExpectedToken>(peek(), Semicolon);
-                auto* expr = allocate<AstFacetExpr>(facet, firstToken(facet));
-                auto* stmt = allocate<AstExprStmt>(expr);
-                elems.push_back(allocate<AstWrapperFacet>(stmt));
+                auto* stmt = allocate<ExprStmtFacet>(facet, semicolon.value_or(
+                                                                ErrorToken));
+                elems.push_back(stmt);
                 continue;
             }
             if (auto* stmt = parseStmt())
-                elems.push_back(allocate<AstWrapperFacet>(stmt));
+                elems.push_back(stmt);
             else
                 return nullptr;
         }
     };
     auto close = match(CloseBrace);
     if (!close) raise<ExpectedToken>(peek(), CloseBrace);
-    return allocate<CompoundFacet>(*open, allocate<ListFacet>(elems),
+    return allocate<CompoundFacet>(*open, allocate<StmtListFacet>(elems),
                                    returnFacet, close.value_or(ErrorToken));
 }
 
@@ -591,13 +545,11 @@ Facet const* Parser::parseClosureOrFnTypeFacet() {
     auto* params = parseParamList();
     auto arrow = match(Arrow);
     auto* retType = arrow ? parseTypeSpec() : nullptr;
-    if (facetState != FacetState::Type) {
-        if (auto* body = parseExpr()) {
-            auto* closure =
-                allocate<AstClosureExpr>(*fn, params, retType, body);
-            return allocate<AstWrapperFacet>(closure);
-        }
-    }
+    if (facetState != FacetState::Type)
+        if (auto* body = parseExpr())
+            return allocate<ClosureFacet>(*fn, params,
+                                          arrow.value_or(ErrorToken), retType,
+                                          body);
     if (!params || !retType) {
         assert(false); // Invalid fn type
     }
@@ -636,11 +588,11 @@ Facet const* Parser::parseBinaryFacetRTL(
     return lhs;
 }
 
-AstName* Parser::parseName() { return parseUnqualName(); }
+Facet const* Parser::parseName() { return parseUnqualName(); }
 
-AstUnqualName* Parser::parseUnqualName() {
+Facet const* Parser::parseUnqualName() {
     if (auto tok = match(Identifier)) {
-        return allocate<AstUnqualName>(*tok);
+        return allocate<TerminalFacet>(*tok);
     }
     return nullptr;
 }

@@ -1,7 +1,7 @@
 
 {% macro constructor(facet, all_members) %}
     {% if facet.abstract %}
-        {% set node_type_param = ', FacetType facetType' %}
+        {% set node_type_param = 'FacetType facetType, ' %}
         {% set node_type_arg = 'facetType' %}
         {% set trailing_params = ', auto const&... args' %}
         {% set trailing_args = ', args...' %}
@@ -13,22 +13,21 @@
     {% else %}
         {% set comma_if_members = '' %}
     {% endif %}
-explicit {{ facet.name }}(MonotonicBufferResource& alloc
-                          {{ node_type_param }} {{ comma_if_members }}
+explicit {{ facet.name }}({{ node_type_param }}
+                          MonotonicBufferResource& resource
+                          {{- comma_if_members }}
                           {{ all_members | map('ctor_param') | join(', ') -}}
                           {{ trailing_params }}):
-         {{ facet.base }}({{ node_type_arg }} {{ comma_if_members }}
+         {{ facet.base }}({{ node_type_arg }}, resource {{ comma_if_members }}
                           {{ all_members | map('ctor_arg_as_stored') | join(', ') -}}
                           {{ trailing_args }})
 {}
 {% endmacro %}
 
 {% macro field_accessor(member, index) %}
-    {% if member.comment %}
 /// {{member.comment}}
-    {% endif %}
-{{ member.type|interface_type }} {{ member.name }}() const() {
-    return childAt<{{ member.type }} const*>(
+{{ member.type|interface_type }} {{ member.name }}() const {
+    return childAt<{{ member.type }}>(
         {{ index }}){{ member.type|to_interface_type }};
 }
 {% endmacro %}
@@ -41,9 +40,7 @@ explicit {{ facet.name }}(MonotonicBufferResource& alloc
 
 {% macro define_facet_class(facet, facets) %}
     {% set all_members, offset = facet | collect_all_members(facets) %}
-    {% if facet.comment %}
 /// {{facet.comment}}
-    {% endif %}
 class {{ facet.name }}: public {{ facet.base }} {
     {% if facet.abstract %}
         {% if facet.members %}
@@ -59,6 +56,11 @@ public:
     {% endif %}
 };
 {% endmacro %}
+
+// Hierarchical overview over the facet nodes
+//
+{{ facets | build_inheritance_tree -}}
+//
 
 namespace prism {
 

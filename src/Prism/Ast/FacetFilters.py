@@ -10,20 +10,11 @@ def to_interface_type(type):
         "AstWrapperFacet": "->get()"
     }.get(type, "")
 
-def to_stored_type(type):
-    return {
-        "TerminalFacet": "allocate<TerminalFacet>",
-        "AstWrapperFacet": "allocate<AstWrapperFacet>"
-    }.get(type, "")
-
 def ctor_param(member):
     return f"{interface_type(member['type'])} {member['name']}"
 
 def ctor_arg_as_stored(member):
-    return {
-        "TerminalFacet": f"allocate<TerminalFacet>({member['name']})",
-        "AstWrapperFacet": f"allocate<AstWrapperFacet>({member['name']})"
-    }.get(member['type'], f"{member['name']}")
+    return member['name'];
 
 def get_base(cls, classes):
     base_name = cls.get('base', None)
@@ -81,7 +72,6 @@ def build_inheritance_tree(facets):
 filters = {
     "interface_type": interface_type,
     "to_interface_type": to_interface_type,
-    "to_stored_type": to_stored_type,
     "ctor_param": ctor_param,
     "ctor_arg_as_stored": ctor_arg_as_stored,
     "collect_all_members": collect_all_members,

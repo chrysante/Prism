@@ -15,12 +15,30 @@ facets:
     base: NonTerminalFacet
     abstract: true
 
+  - name: StmtListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: CompoundFacet
+    base: NonTerminalFacet
+    members: 
+      - name: openBrace
+        type: TerminalFacet
+      - name: statements
+        type: StmtListFacet
+      - name: yieldFacet
+        type: Facet
+      - name: closeBrace
+        type: TerminalFacet
+
   - name: DeclFacet
     base: StmtFacet
     abstract: true
     members:
       - name: declarator
         type: TerminalFacet
+      - name: name
+        type: Facet
 
   - name: VarDeclBaseFacet
     base: DeclFacet
@@ -33,6 +51,16 @@ facets:
 
   - name: ParamDeclFacet
     base: VarDeclBaseFacet
+
+  - name: VarDeclFacet
+    base: VarDeclBaseFacet
+    members:
+      - name: assign
+        type: TerminalFacet
+      - name: initExpr
+        type: Facet
+      - name: semicolon
+        type: TerminalFacet
 
   - name: ParamListFacet
     base: NonTerminalFacet
@@ -48,7 +76,7 @@ facets:
       - name: retType
         type: Facet
       - name: body
-        type: Facet
+        type: CompoundFacet
 
   - name: SourceFileFacet
     base: NonTerminalFacet
@@ -107,7 +135,7 @@ facets:
 
   - name: BinaryFacet
     base: NonTerminalFacet
-    members: 
+    members:
       - name: LHS
         type: Facet
       - name: operation
@@ -147,29 +175,17 @@ facets:
       - name: closeBracket
         type: TerminalFacet
 
-  - name: CompoundFacet
-    base: NonTerminalFacet
-    members: 
-      - name: openBrace
-        type: TerminalFacet
-      - name: statements
-        type: ListFacet
-      - name: yieldFacet
-        type: Facet
-      - name: closeBrace
-        type: TerminalFacet
-
   - name: FnTypeFacet
     base: NonTerminalFacet
     members:
       - name: fn
         type: TerminalFacet
       - name: paramList
-        type: AstWrapperFacet
+        type: ParamListFacet
       - name: arrow
         type: TerminalFacet
       - name: retType
-        type: AstWrapperFacet
+        type: Facet
 
   - name: ClosureFacet
     base: NonTerminalFacet

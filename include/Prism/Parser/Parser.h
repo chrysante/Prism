@@ -3,19 +3,18 @@
 
 #include <string_view>
 
+#include <Prism/Ast/FacetFwd.h>
 #include <Prism/Common/Allocator.h>
 
 namespace prism {
 
 class IssueHandler;
 class SourceContext;
-class AstSourceFile;
-class Facet;
 
-/// Parses a single source file and returns the constructed AST
-AstSourceFile* parseSourceFile(MonotonicBufferResource& alloc,
-                               SourceContext const& sourceCtx,
-                               IssueHandler& iss);
+/// Parses a single source file and returns the constructed source file facet
+SourceFileFacet const* parseSourceFile(MonotonicBufferResource& alloc,
+                                       SourceContext const& sourceCtx,
+                                       IssueHandler& iss);
 
 /// Parses a single facet, i.e. expression or type specifier.
 ///

@@ -38,11 +38,12 @@ function(add_code_generator target definitions template output filters)
       "--filters ${CMAKE_SOURCE_DIR}/${filters}")
 
     add_custom_command(
-        TARGET ${target}
-        PRE_BUILD
+        OUTPUT ${output}
         COMMAND ${CMAKE_COMMAND} -E env sh -c ${command_source}
         DEPENDS ${definitions} ${template} ${filters}
         VERBATIM)
+
+    target_include_directories(${target} PUBLIC ${CMAKE_BINARY_DIR}/include PRIVATE ${CMAKE_BINARY_DIR}/src)
 endfunction()
 
 CPMAddPackage("gh:chrysante/csp#main")
@@ -52,12 +53,8 @@ CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 CPMAddPackage("gh:catchorg/Catch2@3.7.1")
 
-set(PRISM_HEADER_FILES 
-    include/Prism/Ast/Ast.h
-    include/Prism/Ast/AstFwd.h
-    include/Prism/Ast/AstDump.h
-    include/Prism/Ast/Ast.def
-    include/Prism/Ast/Operators.h
+set(PRISM_HEADER_FILES
+    include/Prism/Ast/Facet.h
 
     include/Prism/Common/Allocator.h
     include/Prism/Common/Assert.h
@@ -79,9 +76,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxIssue.h
     include/Prism/Parser/SyntaxIssue.def
 
-    include/Prism/Ast/Facet.def
-    include/Prism/Ast/Facet.h
-
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -89,8 +83,7 @@ set(PRISM_HEADER_FILES
 )
 
 set(PRISM_SOURCE_FILES
-    src/Prism/Ast/Ast.cpp
-    src/Prism/Ast/AstDump.cpp
+    src/Prism/Ast/Facet.cpp
 
     src/Prism/Common/Allocator.cpp
     src/Prism/Common/IndentingStreambuf.cpp
@@ -105,8 +98,6 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/Grammar.txt
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/SyntaxIssue.cpp
-
-    src/Prism/Ast/Facet.cpp
 
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp
@@ -127,7 +118,7 @@ enable_sanitizers(Prism)
 add_code_generator(Prism
                    src/Prism/Ast/Facets.yaml 
                    src/Prism/Ast/FacetClassDef.jinja 
-                   include/Prism/Ast/Facets.h
+                   include/Prism/Ast/Facets.inl
                    src/Prism/Ast/FacetFilters.py)
 
 add_code_generator(Prism
@@ -136,6 +127,11 @@ add_code_generator(Prism
                    include/Prism/Ast/FacetFwd.h
                    src/Prism/Ast/FacetFilters.py)
 
+add_code_generator(Prism
+                   src/Prism/Ast/Facets.yaml 
+                   src/Prism/Ast/FacetMemberNames.jinja 
+                   src/Prism/Ast/FacetMemberNames.inl
+                   src/Prism/Ast/FacetFilters.py)
 
 target_sources(Prism 
   PRIVATE 

@@ -1,5 +1,22 @@
 
 
+fn takeCallback(f: fn (n: int) -> int) -> int {
+    f(42)
+}
+
+fn test() {
+    takeCallback(Foo{}); // Fine
+    takeCallback(Bar{}); // Fine
+    takeCallback(Baz{}); // Ill-formed
+    
+    takeCallback(fn 2 * $0); // Fine. `fn 2 * $0` is a closure of anonymous
+    // type, that conforms to
+    // std.callable(fn (auto) -> auto)
+}
+
+
+/*
+
 // Exposition:
 module std {
 
@@ -117,5 +134,7 @@ fn makeBindingCallback(value: int) -> fn (n: fn(n: int) -> int) -> int {
     fn &0(value)
 }
 
+
+*/
 
 */

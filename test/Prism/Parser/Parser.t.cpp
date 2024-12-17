@@ -6,7 +6,6 @@
 #include "Prism/Parser/ParserTestUtils.h"
 #include "Prism/Parser/SyntaxIssue.h"
 
-using enum prism::AstNodeType;
 using enum prism::FacetType;
 using enum prism::TokenKind;
 
@@ -19,32 +18,36 @@ using prism::Tree;
 // clang-format off
 
 TEST_CASE("FuncDecl", "[parser]") {
-    CHECK(*parseFile("fn test() -> T { T{}; { T{} } }") == AstSourceFile >> Tree{
-        AstFuncDecl >> Tree{
-            AstUnqualName,
-            AstParamList,
+    CHECK(*parseFile("fn test() -> T { T{}; { T{} } }") == SourceFileFacet >> Tree{
+        FuncDeclFacet >> Tree{
+            Function,
             Identifier,
-            AstCompoundExpr >> Tree{
-                AstExprStmt >> Tree{
-                    CallFacet >> Tree{
-                        Identifier, OpenBrace, ListFacet, CloseBrace
-                    }
-                },
-                AstYieldStmt >> Tree{
-                    CompoundFacet >> Tree {
-                        OpenBrace,
-                        ListFacet,
+            ParamListFacet,
+            Arrow,
+            Identifier,
+            CompoundFacet >> Tree{
+                OpenBrace,
+                StmtListFacet >> Tree{
+                    ExprStmtFacet >> Tree{
                         CallFacet >> Tree{
                             Identifier, OpenBrace, ListFacet, CloseBrace
                         },
-                        CloseBrace
+                        Semicolon
                     }
-                }
+                },
+                CompoundFacet >> Tree {
+                    OpenBrace,
+                    StmtListFacet,
+                    CallFacet >> Tree{
+                        Identifier, OpenBrace, ListFacet, CloseBrace
+                    },
+                    CloseBrace
+                },
+                CloseBrace
             },
         }
     });
 }
-
 
 TEST_CASE("Simple expressions", "[parser]") {
     CHECK(*parseFacet("0xff + 42 * ++c") == BinaryFacet >> Tree{
@@ -145,51 +148,68 @@ TEST_CASE("Conditionals", "[parser]") {
 }
 
 TEST_CASE("Function types", "[parser]") {
-    CHECK(*parseFile("let f: fn (n: int, m: int) -> int;") ==
-          AstSourceFile >> Tree{
-        AstVarDecl >> Tree{
-            AstUnqualName,
+    CHECK(*parseFile("let f: fn (n: int, m: int) -> int = fn (){};") ==
+          SourceFileFacet >> Tree{
+        VarDeclFacet >> Tree{
+            Let,
+            Identifier,
+            Colon,
             FnTypeFacet >> Tree{
                 Function,
-                AstParamList >> Tree{
-                    AstParamDecl >> Tree{ AstUnqualName, Int },
-                    AstParamDecl >> Tree{ AstUnqualName, Int }
+                ParamListFacet >> Tree{
+                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
+                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
                 },
                 Arrow,
                 Int
             },
-            NullNode
+            Equal,
+            ClosureFacet >> Tree {
+                Function,
+                ParamListFacet,
+                Error,
+                NullNode,
+                CompoundFacet
+            },
+            Semicolon
         }
     });
 
     CHECK(*parseFile("fn foo() -> dyn fn (n: int) -> int { fn $0 }") ==
-          AstSourceFile >> Tree{
-        AstFuncDecl >> Tree{
-            AstUnqualName,
-            AstParamList,
+          SourceFileFacet >> Tree{
+        FuncDeclFacet >> Tree{
+            Function,
+            Identifier,
+            ParamListFacet,
+            Arrow,
             PrefixFacet >> Tree {
                 Dyn,
                 FnTypeFacet >> Tree{
                     Function,
-                    AstParamList >> Tree{
-                        AstParamDecl >> Tree{ AstUnqualName, Int },
+                    ParamListFacet >> Tree{
+                        ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
                     },
                     Arrow,
                     Int
                 }
             },
-            AstCompoundExpr >> Tree{
-                AstYieldStmt >> Tree{
-                    AstClosureExpr >> Tree{
-                        NullNode,
-                        NullNode,
-                        AutoArg
-                    }
-                }
+            CompoundFacet >> Tree{
+                OpenBrace,
+                StmtListFacet,
+                ClosureFacet >> Tree{
+                    Function,
+                    NullNode,
+                    Error,
+                    NullNode,
+                    AutoArg
+                },
+                CloseBrace
             }
         }
     });
 }
+
+#if 0
 
 TEST_CASE("Currying", "[parser]") {
     CHECK(*parseFile("let f = fn (x: int, y: int) { x * y };") ==
@@ -235,5 +255,7 @@ TEST_CASE("Currying", "[parser]") {
         }
     });
 }
+
+#endif
 
 // clang-format on

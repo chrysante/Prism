@@ -3,12 +3,12 @@
 
 #include <concepts>
 #include <initializer_list>
+#include <optional>
 #include <ostream>
 #include <span>
 #include <variant>
 #include <vector>
 
-#include <Prism/Ast/Ast.h>
 #include <Prism/Ast/Facet.h>
 #include <Prism/Common/Allocator.h>
 #include <Prism/Source/Token.h>
@@ -23,8 +23,6 @@ extern MonotonicBufferResource gAlloc;
 
 class Issue;
 class IssueHandler;
-
-std::ostream& operator<<(std::ostream& str, AstNode const& node);
 
 std::ostream& operator<<(std::ostream& str, Facet const& facet);
 
@@ -68,7 +66,7 @@ enum class NullNodeT : int;
 
 inline constexpr NullNodeT NullNode{};
 
-using VarType = std::variant<AstNodeType, FacetType, TokenKind, NullNodeT>;
+using VarType = std::variant<FacetType, TokenKind, NullNodeT>;
 
 /// Reference tree node for simple and consice testing of parsed ASTs and facet
 /// trees
@@ -78,17 +76,11 @@ public:
         type(type), children(children), expectedIssues(&internal::gAlloc) {}
 
 private:
-    friend bool operator==(AstNode const& node, AstRefNode const* ref) {
-        return ref->compare(&node) && ref->verifyIssues();
-    }
-
     friend bool operator==(Facet const& facet, AstRefNode const* ref) {
         return ref->compare(&facet) && ref->verifyIssues();
     }
 
     friend AstRefNode* operator>>(AstRefNode* node, ExpectedIssue const& e);
-
-    bool compare(AstNode const* node) const;
 
     bool compare(Facet const* node) const;
 
@@ -124,7 +116,7 @@ AstRefNode* operator>>(std::convertible_to<VarType> auto type,
     return type >> Tree{ child };
 }
 
-AstSourceFile* parseFile(std::string_view text);
+SourceFileFacet const* parseFile(std::string_view text);
 
 Facet const* parseFacet(std::string_view text);
 
