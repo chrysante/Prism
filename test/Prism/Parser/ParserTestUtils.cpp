@@ -37,14 +37,10 @@ static bool getEnvVarBool(char const* name) {
 
 static bool const BreakOnTreeMismatch = getEnvVarBool("BREAK_TREE_MISMATCH");
 
-#define VALIDATE(...)                                                          \
-    [&] {                                                                      \
-        bool value = __VA_ARGS__;                                              \
-        if (BreakOnTreeMismatch && !value) {                                   \
-            __builtin_debugtrap();                                             \
-        }                                                                      \
-        return value;                                                          \
-    }()
+#define VALIDATE(expr, ...)                                                    \
+    ((expr) ?                                                                  \
+         true :                                                                \
+         ((BreakOnTreeMismatch ? __builtin_debugtrap() : (void)0), false))
 
 bool AstRefNode::compare(Facet const* facet) const {
     if (!facet) return VALIDATE(std::holds_alternative<NullNodeT>(type));
@@ -59,13 +55,14 @@ bool AstRefNode::checkType(T t) const {
     return VALIDATE(u && *u == t);
 }
 
-bool AstRefNode::compareChildren(auto const* node) const {
-    if (!children.empty() && children.size() != node->children().size())
-        return VALIDATE(false);
-    return ranges::all_of(ranges::views::zip(children, node->children()),
+bool AstRefNode::compareChildren(Facet const* facet) const {
+    if (!children.empty())
+        if (!VALIDATE(children.size() == facet->children().size()))
+            return false;
+    return ranges::all_of(ranges::views::zip(children, facet->children()),
                           [](auto&& p) {
-        auto [ref, node] = p;
-        return ref->compare(node);
+        auto [childRef, childFacet] = p;
+        return childRef->compare(childFacet);
     });
 }
 
