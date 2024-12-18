@@ -1,0 +1,84 @@
+
+fn fib(n: int) -> int {
+    return n <= 1 ? n : fib(n - 1) + fib(n - 2);
+}
+
+// INTO
+
+fn fib(n: int) -> int {
+    tmp0 = n <= 1;
+    var ret: int;
+    if tmp0 {
+        store ret, n;
+    }
+    else {
+        tmp1 = n - 1;
+        tmp2 = fib(tmp1);
+        tmp3 = n - 2;
+        tmp4 = fib(tmp3);
+        tmp5 = tmp2 + tmp4;
+        store ret, tmp5;
+    }
+    tmp6 = load ret;
+    return tmp6;
+}
+
+// ---
+
+fn useClosure(n: int) -> int {
+    return fn { n * $0 }(42);
+}
+
+// INTO
+
+struct useClosure.__closure0 {
+    var n: int;
+};
+
+fn useClosure.__closure0.call(closure: *useClosure.__closure0, arg: int) -> int {
+    tmp0 = get_member_ptr closure, useClosure.__closure0.n;
+    tmp1 = load int tmp0;
+    tmp2 = tmp1 * arg;
+    return tmp2;
+}
+
+fn useClosure(n: int) -> int {
+    var closure: useClosure.__closure0;
+    tmp0 = get_member_ptr closure, useClosure.__closure0.n;
+    store tmp0, n;
+    tmp1 = useClosure.__closure0.call(closure, 42);
+    return tmp1;
+}
+
+// ---
+
+struct S {
+    var n: int = 42;
+}
+
+fn makeS() -> S {
+    return S{}
+}
+
+fn get_n(s: &S) -> &int {
+    s.n
+}
+
+// INTO
+
+struct S {
+    var n: int;
+}
+
+fn makeS() -> S {
+    var ret: S;
+    tmp0 = get_member_ptr ret, S.n;
+    store tmp0, 42;
+    tmp1 = load ret;
+    return tmp1;
+}
+
+fn get_n(s: *S) -> *int {
+    tmp0 = get_member_ptr s, S.n;
+    return tmp0;
+}
