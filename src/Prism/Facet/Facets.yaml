@@ -78,6 +78,36 @@ facets:
       - name: body
         type: CompoundFacet
 
+  - name: BaseDeclFacet
+    base: DeclFacet
+    members:
+      - name: accessSpec
+        type: TerminalFacet
+      - name: type
+        type: Facet
+
+  - name: BaseListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: MemberListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: CompTypeDeclFacet
+    base: DeclFacet
+    members:
+      - name: colon
+        type: TerminalFacet
+      - name: bases
+        type: BaseListFacet
+      - name: openBrace
+        type: TerminalFacet
+      - name: body
+        type: MemberListFacet
+      - name: closeBrace
+        type: TerminalFacet
+
   - name: SourceFileFacet
     base: NonTerminalFacet
     decl_only: true

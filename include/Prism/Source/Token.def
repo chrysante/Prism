@@ -75,6 +75,8 @@ OPERATOR_TOKEN_KIND(Arrow, "->")
 KEYWORD_TOKEN_KIND(Var, "var")
 KEYWORD_TOKEN_KIND(Let, "let")
 KEYWORD_TOKEN_KIND(Function, "fn")
+KEYWORD_TOKEN_KIND(Struct, "struct")
+KEYWORD_TOKEN_KIND(Trait, "trait")
 
 KEYWORD_TOKEN_KIND(Return, "return")
 KEYWORD_TOKEN_KIND(If, "if")

@@ -4,9 +4,14 @@
 #endif
 
 SEMA_SYMBOL(Symbol, detail::NoParent, Abstract)
+SEMA_SYMBOL(Module, Symbol, Abstract)
+SEMA_SYMBOL(Target, Module, Concrete)
+SEMA_SYMBOL(Library, Module, Concrete)
+SEMA_SYMBOL(SourceFile, Symbol, Concrete)
 SEMA_SYMBOL(Type, Symbol, Abstract)
 SEMA_SYMBOL(ValueType, Type, Abstract)
 SEMA_SYMBOL(CompositeType, ValueType, Abstract)
+SEMA_SYMBOL(StructType, CompositeType, Concrete)
 SEMA_SYMBOL(FunctionType, ValueType, Concrete)
 SEMA_SYMBOL(PointerType, ValueType, Abstract)
 SEMA_SYMBOL(RawPointerType, ValueType, Abstract)

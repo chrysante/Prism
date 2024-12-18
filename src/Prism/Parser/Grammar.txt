@@ -1,15 +1,15 @@
 <source-file>        ::= <global-decl>*
-<global-decl>        ::= [<access-spec>] (<func-decl> | <struct-decl> | <var-decl>)
+<global-decl>        ::= [<access-spec>] (<func-decl> | <comp-type-decl> | <var-decl>)
 <local-decl>         ::= <var-decl>
 <access-spec>        ::= 'public' | 'internal' | 'private'
 <func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] <compound-expr>
 <param-list>         ::= '(' ')'
                        | '(' [<param-decl> (',' <param-decl>)*] ')'
 <param-decl>         ::= <name> ':' <type-spec>
-<struct-decl>        ::= ('struct' | 'trait') <name> [':' <base-list>] <struct-body>
+<comp-type-decl>     ::= ('struct' | 'trait') <name> [':' <base-list>] '{' <member-decl-list> '}'
 <base-list>          ::= <base-decl> (',' <base-decl>)*
 <base-decl>          ::= [<access-spec>] <name>
-<struct-body>        ::= '{' <global-decl>* '}'
+<member-decl-list>   ::= <global-decl>*
 <var-decl>           ::= ('var' | 'let') <name> [':' <type-spec>] ['=' <assign-expr>] ';'
 <stmt>               ::= <local-decl>
                        | <ctrl-flow-stmt>

@@ -1,11 +1,17 @@
 #ifndef PRISM_SEMA_SCOPE_H
 #define PRISM_SEMA_SCOPE_H
 
+#include <span>
+
 #include <utl/vector.hpp>
 
 namespace prism {
 
 class Symbol;
+
+namespace detail {
+class AssocScope;
+}
 
 class Scope {
 public:
@@ -17,8 +23,12 @@ public:
 
     std::span<Symbol const* const> symbols() const { return _symbols; }
 
+    void addSymbol(Symbol* symbol) { _symbols.push_back(symbol); }
+
 private:
-    Symbol* _assocSymbol;
+    friend class detail::AssocScope;
+
+    Symbol* _assocSymbol = nullptr;
     utl::small_vector<Symbol*> _symbols;
 };
 

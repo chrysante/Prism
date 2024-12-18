@@ -1,4 +1,5 @@
 
+let n: i32 = 0;
 
 fn takeCallback(f: fn (n: int) -> int) -> int {
     f(42)
@@ -11,6 +12,9 @@ fn test() {
     
     takeCallback(fn 2 * $0); // Fine. `fn 2 * $0` is a closure of anonymous
     // type, that conforms to
-    // std.callable(fn (auto) -> auto)
+    // std.callable(auto, auto)
 }
 
+struct X: SomeBase, AnotherBase {
+    fn test() -> int { return  42; }
+}

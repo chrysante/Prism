@@ -160,44 +160,36 @@ public:
         NonTerminalFacet(FacetType::ListFacet, params) {}
 };
 
-/// Statement list facet
-class StmtListFacet: public NonTerminalFacet {
-public:
-    explicit StmtListFacet(std::span<StmtFacet const* const> params):
-        NonTerminalFacet(FacetType::StmtListFacet,
-                         detail::unsafeSpanCast<Facet const* const>(params)) {}
+#define PRISM_DEFINE_LIST_FACET(Name, ElemType, ElemsName)                     \
+    class Name: public NonTerminalFacet {                                      \
+    public:                                                                    \
+        explicit Name(std::span<ElemType const* const> ElemsName):             \
+            NonTerminalFacet(FacetType::Name,                                  \
+                             detail::unsafeSpanCast<Facet const* const>(       \
+                                 ElemsName)) {}                                \
+                                                                               \
+        std::span<ElemType const* const> ElemsName() const {                   \
+            return detail::unsafeSpanCast<ElemType const* const>(              \
+                NonTerminalFacet::children());                                 \
+        }                                                                      \
+    };
 
-    std::span<StmtFacet const* const> elems() const {
-        return detail::unsafeSpanCast<StmtFacet const* const>(
-            NonTerminalFacet::children());
-    }
-};
+/// Statement list facet
+PRISM_DEFINE_LIST_FACET(StmtListFacet, StmtFacet, elems)
 
 /// Parameter list facet
-class ParamListFacet: public NonTerminalFacet {
-public:
-    explicit ParamListFacet(std::span<ParamDeclFacet const* const> params):
-        NonTerminalFacet(FacetType::ParamListFacet,
-                         detail::unsafeSpanCast<Facet const* const>(params)) {}
+PRISM_DEFINE_LIST_FACET(ParamListFacet, ParamDeclFacet, elems)
 
-    std::span<ParamDeclFacet const* const> elems() const {
-        return detail::unsafeSpanCast<ParamDeclFacet const* const>(
-            NonTerminalFacet::children());
-    }
-};
+/// Base list facet
+PRISM_DEFINE_LIST_FACET(BaseListFacet, BaseDeclFacet, elems)
+
+/// Member list facet
+PRISM_DEFINE_LIST_FACET(MemberListFacet, DeclFacet, elems)
 
 /// Top level facet, a list of declarations
-class SourceFileFacet: public NonTerminalFacet {
-public:
-    explicit SourceFileFacet(std::span<DeclFacet const* const> params):
-        NonTerminalFacet(FacetType::SourceFileFacet,
-                         detail::unsafeSpanCast<Facet const* const>(params)) {}
+PRISM_DEFINE_LIST_FACET(SourceFileFacet, DeclFacet, decls)
 
-    std::span<DeclFacet const* const> decls() const {
-        return detail::unsafeSpanCast<DeclFacet const* const>(
-            NonTerminalFacet::children());
-    }
-};
+#undef PRISM_DEFINE_LIST_FACET
 
 class SourceContext;
 class TreeFormatter;

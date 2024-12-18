@@ -66,7 +66,10 @@ struct Parser {
     SourceFileFacet const* parseSourceFile();
     DeclFacet const* parseGlobalDecl();
     FuncDeclFacet const* parseFuncDecl();
-    DeclFacet const* parseStructDecl();
+    CompTypeDeclFacet const* parseCompTypeDecl();
+    BaseDeclFacet const* parseBaseDecl();
+    BaseListFacet const* parseBaseList();
+    MemberListFacet const* parseMemberList();
     VarDeclFacet const* parseVarDecl();
     StmtFacet const* parseStmt();
     DeclFacet const* parseLocalDecl();
@@ -223,7 +226,7 @@ SourceFileFacet const* Parser::parseSourceFile() {
 
 DeclFacet const* Parser::parseGlobalDecl() {
     if (auto fn = parseFuncDecl()) return fn;
-    if (auto str = parseStructDecl()) return str;
+    if (auto str = parseCompTypeDecl()) return str;
     if (auto var = parseVarDecl()) return var;
     return nullptr;
 }
@@ -240,7 +243,38 @@ FuncDeclFacet const* Parser::parseFuncDecl() {
                                    arrow.value_or(ErrorToken), retType, body);
 }
 
-DeclFacet const* Parser::parseStructDecl() { return nullptr; }
+CompTypeDeclFacet const* Parser::parseCompTypeDecl() {
+    auto declarator = match(Struct, Trait);
+    if (!declarator) return nullptr;
+    auto* name = parseName();
+    assert(name);
+    auto colon = match(Colon);
+    auto* baseList = colon ? parseBaseList() : nullptr;
+    auto openBrace = match(OpenBrace);
+    assert(openBrace);
+    auto* body = parseMemberList();
+    auto closeBrace = match(CloseBrace);
+    assert(closeBrace);
+    return allocate<CompTypeDeclFacet>(*declarator, name,
+                                       colon.value_or(ErrorToken), baseList,
+                                       openBrace.value_or(ErrorToken), body,
+                                       closeBrace.value_or(ErrorToken));
+}
+
+BaseDeclFacet const* Parser::parseBaseDecl() {
+    auto* type = parseTypeSpec();
+    return allocate<BaseDeclFacet>(ErrorToken, nullptr, ErrorToken, type);
+}
+
+BaseListFacet const* Parser::parseBaseList() {
+    auto elems = parseSequence(&Parser::parseBaseDecl, OpenBrace, Comma);
+    return allocate<BaseListFacet>(elems);
+}
+
+MemberListFacet const* Parser::parseMemberList() {
+    auto elems = parseSequence(&Parser::parseGlobalDecl, CloseBrace);
+    return allocate<MemberListFacet>(elems);
+}
 
 VarDeclFacet const* Parser::parseVarDecl() {
     auto declarator = match(Var, Let);
