@@ -36,7 +36,10 @@ public:
 
     explicit TreeFormatter(std::ostream& ostr,
                            TreeStyle style = TreeStyle::Default):
-        style(style), ostr(ostr), buf(ostr, Indenter{ this }) {}
+        style(style),
+        ostr(ostr),
+        buf(ostr.rdbuf(), Indenter{ this }),
+        guard(ostr, &buf) {}
 
     /// Wraps a call to function that writes details of the current node to the
     /// associated ostream
@@ -97,6 +100,7 @@ private:
     TreeStyle style;
     std::ostream& ostr;
     IndentingStreambuf<Indenter> buf;
+    OstreamBufferGuard guard;
     utl::small_vector<Level> levels;
 };
 

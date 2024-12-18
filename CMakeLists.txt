@@ -195,4 +195,5 @@ target_sources(Playground
 target_link_libraries(Playground
   PRIVATE
     Prism
+    termfmt
 )
