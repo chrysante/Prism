@@ -1,3 +1,6 @@
+#ifndef PRISM_SEMA_NAMELOOKUP_H
+#define PRISM_SEMA_NAMELOOKUP_H
+
 #include <span>
 #include <string_view>
 #include <variant>
@@ -56,3 +59,5 @@ private:
 NameLookupResult unqualifiedLookup(Scope* scope, std::string_view name);
 
 } // namespace prism
+
+#endif // PRISM_SEMA_NAMELOOKUP_H
