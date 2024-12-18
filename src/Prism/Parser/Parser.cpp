@@ -1,28 +1,10 @@
 #include "Prism/Parser/Parser.h"
 
-#include <concepts>
-#include <cstdint>
-#include <optional>
-#include <vector>
-
-#include <range/v3/algorithm.hpp>
-#include <range/v3/view.hpp>
-#include <utl/function_view.hpp>
-#include <utl/scope_guard.hpp>
-#include <utl/stack.hpp>
-#include <utl/vector.hpp>
-
-#include "Prism/Common/Assert.h"
-#include "Prism/Common/IssueHandler.h"
-#include "Prism/Facet/Facet.h"
-#include "Prism/Lexer/Lexer.h"
-#include "Prism/Parser/SyntaxIssue.h"
-#include "Prism/Source/SourceContext.h"
+#include "Prism/Parser/ParserBase.h"
 
 #include "Prism/Common/SyntaxMacros.h"
 
 using namespace prism;
-using ranges::views::enumerate;
 
 using enum TokenKind;
 
@@ -30,139 +12,16 @@ static constexpr Token ErrorToken = Token::ErrorToken;
 
 namespace {
 
-struct Parser;
-
 template <typename Fn>
-concept ParserFn = std::invocable<Fn> || std::invocable<Fn, Parser>;
+concept ParserFn = std::invocable<Fn>;
 
 template <ParserFn Fn>
-using InvokeResult =
-    typename std::conditional_t<std::invocable<Fn>, std::invoke_result<Fn>,
-                                std::invoke_result<Fn, Parser>>::type;
+using InvokeResult = std::invoke_result_t<Fn>;
 
 enum class FacetState { General, Type };
 
-template <typename T>
-struct VolatileList: std::span<T> {
-    template <typename... Args>
-        requires std::constructible_from<std::span<T>, Args&&...>
-    VolatileList(Args&&... args): std::span<T>(std::forward<Args>(args)...) {}
-    VolatileList(std::span<T> s): std::span<T>(s) {}
-    VolatileList(std::initializer_list<std::remove_const_t<T>> ilist):
-        std::span<T>(ilist) {}
-    VolatileList(T& kind): std::span<T>(&kind, 1) {}
-};
-
-struct RecoveryOptions {
-    VolatileList<TokenKind const> stop;
-    int numAttempts = 3;
-};
-
-struct Rule {
-    utl::function_view<Facet const*()> parser;
-    bool backtrackIfFailed = false;
-};
-
-struct Parser {
-    explicit Parser(MonotonicBufferResource& alloc,
-                    SourceContext const& sourceCtx, IssueHandler& iss):
-        alloc(alloc),
-        sourceCtx(sourceCtx),
-        lexer(sourceCtx.source(), iss),
-        iss(iss) {}
-
-    template <size_t N>
-    std::array<Facet const*, N> parseLinearGrammar(
-        Rule (&&rules)[N], utl::function_view<bool(Token)> isStop) {
-        std::array<Facet const*, N> facets{};
-        parseLinearGrammarImpl(rules, facets, isStop);
-        return facets;
-    }
-
-    void parseLinearGrammarImpl(std::span<Rule const> rules,
-                                std::span<Facet const*> facets,
-                                utl::function_view<bool(Token)> isStop) {
-        PRISM_ASSERT(rules.size() == facets.size());
-        auto inc = [&](size_t offset) {
-            rules = rules.subspan(offset);
-            facets = facets.subspan(offset);
-        };
-        uint32_t startTokenIndex = tokenIndex;
-        bool first = true;
-        while (!rules.empty()) {
-            auto& rule = rules.front();
-            auto& facet = facets.front();
-            facet = rule.parser();
-            if (facet) {
-                inc(1);
-                first = false;
-                continue;
-            }
-            // If the first rule fails we return directly
-            if (first) {
-                PRISM_ASSERT(
-                    startTokenIndex == tokenIndex,
-                    "We should fail gracefully here without eating tokens");
-                return;
-            }
-            // We are committed, so we try to recover
-            if (auto offset = recoverLinearGrammar(rules, facets, isStop))
-                inc(*offset);
-            else
-                return;
-        }
-    }
-
-    std::optional<size_t> recoverLinearGrammar(
-        std::span<Rule const> rules, std::span<Facet const*> facets,
-        utl::function_view<bool(Token)> isStop, size_t numAttempts = 3) {
-        PRISM_ASSERT(!rules.empty());
-        PRISM_ASSERT(rules.size() == facets.size());
-        if (!rules.front().backtrackIfFailed) {
-            return recoverLinearGrammarImpl(rules, facets, isStop, numAttempts);
-        }
-        pushBacktrackingAnchor();
-        auto result =
-            recoverLinearGrammarImpl(rules, facets, isStop, numAttempts);
-        if (result) {
-            popBacktrackingAnchor();
-            return result;
-        }
-        else {
-            performBacktrack();
-            return std::nullopt;
-        }
-    }
-
-    std::optional<size_t> recoverLinearGrammarImpl(
-        std::span<Rule const> rules, std::span<Facet const*> facets,
-        utl::function_view<bool(Token)> isStop, size_t numAttempts) {
-        for (size_t i = 0; i < numAttempts; ++i) {
-            if (i > 0) {
-                if (isStop(peek())) return std::nullopt;
-                eat();
-            }
-            auto [facet, recoveredIndex] =
-                findFacetForRecovery(rules,
-                                     /* first: */ i == 0);
-            if (facet) {
-                facets[recoveredIndex] = facet;
-                return recoveredIndex + 1;
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::pair<Facet const*, size_t> findFacetForRecovery(
-        std::span<Rule const> rules, bool first) {
-        for (auto [index, rule]: rules | enumerate) {
-            // We continue here because we already tried to parse the first rule
-            // and it failed
-            if (first && index == 0) continue;
-            if (auto* facet = rule.parser()) return { facet, index };
-        }
-        return {};
-    }
+struct Parser: ParserBase {
+    using ParserBase::ParserBase;
 
     SourceFileFacet const* parseSourceFile();
     DeclFacet const* parseGlobalDecl();
@@ -219,82 +78,6 @@ struct Parser {
         Fn parser, TokenKind end,
         std::optional<TokenKind> delim = std::nullopt);
 
-    /// _Eats_ and returns the eaten token, if its kind is any of the given
-    /// arguments. Otherwise returns nullopt
-    std::optional<Token> match(TokenKind tok,
-                               std::same_as<TokenKind> auto... rest);
-
-    /// \overload
-    std::optional<Token> match(std::span<TokenKind const> tokenKinds);
-
-    /// \Returns a function calling `match(kinds)`
-    auto matcher(VolatileList<TokenKind const> kinds) {
-        return [kinds, this]() -> TerminalFacet const* {
-            if (auto tok = match(kinds)) return allocate<TerminalFacet>(*tok);
-            return nullptr;
-        };
-    }
-
-    /// _Peeks_ and returns the peeked token, if its kind is any of the given
-    /// arguments. Otherwise returns nullopt
-    std::optional<Token> peekMatch(TokenKind tok,
-                                   std::same_as<TokenKind> auto... rest);
-
-    /// \Returns the next token in the stream without consuming it
-    Token peek();
-
-    /// \Returns the next token in the stream and consumes it
-    Token eat();
-
-    /// Implementation of `eat()` and `peek()`
-    Token eatPeekImpl(uint32_t offset);
-
-    ///
-    template <ParserFn Fn>
-    InvokeResult<Fn> recover(Fn next, RecoveryOptions options);
-
-    ///
-    template <ParserFn Fn>
-    bool validOrRecover(InvokeResult<Fn>& obj, Fn next,
-                        RecoveryOptions options);
-
-    ///
-    template <ParserFn Fn>
-    InvokeResult<Fn> parseOrRecover(Fn next, RecoveryOptions options);
-
-    template <ParserFn Fn>
-    InvokeResult<Fn> parseOrRecover(Fn next, RecoveryOptions options,
-                                    ParserFn auto raiseIssue);
-
-    template <std::derived_from<Issue> I, typename... Args>
-        requires std::constructible_from<I, Token, Args&&...>
-    auto raiseCb(Args&&... args) {
-        return [this, ... args = std::forward<Args>(args)] {
-            raise<I>(peek(), args...);
-        };
-    }
-
-    template <std::derived_from<Issue> I, typename... Args>
-        requires std::constructible_from<I, Args&&...>
-    void raise(Args&&... args) {
-        iss.push<I>(std::forward<Args>(args)...);
-    }
-
-    template <ParserFn Fn>
-    InvokeResult<Fn> invoke(Fn fn);
-
-    template <typename T, typename... Args>
-        requires std::constructible_from<T, Args&&...>
-    T* allocate(Args&&... args) {
-        return prism::allocate<T>(alloc, std::forward<Args>(args)...);
-    }
-
-    template <typename T, typename... Args>
-        requires std::constructible_from<T, MonotonicBufferResource&, Args&&...>
-    T* allocate(Args&&... args) {
-        return prism::allocate<T>(alloc, alloc, std::forward<Args>(args)...);
-    }
-
     decltype(auto) withFacetState(FacetState s, ParserFn auto f) {
         FacetState stash = facetState;
         facetState = s;
@@ -306,30 +89,17 @@ struct Parser {
             return result;
     }
 
-    void pushBacktrackingAnchor() { backtrackingAnchorStack.push(tokenIndex); }
-
-    void popBacktrackingAnchor() {
-        PRISM_ASSERT(!backtrackingAnchorStack.empty());
-        backtrackingAnchorStack.pop();
+    template <ParserFn Fn>
+    InvokeResult<Fn> invoke(Fn&& fn) {
+        return fn();
     }
 
-    void performBacktrack() {
-        PRISM_ASSERT(!backtrackingAnchorStack.empty());
-        tokenIndex = backtrackingAnchorStack.pop();
-    }
-
-    MonotonicBufferResource& alloc;
-    SourceContext const& sourceCtx;
-    IssueHandler& iss;
-    Lexer lexer;
-    std::vector<Token> tokens;
-    uint32_t tokenIndex = 0;
-    utl::stack<uint32_t> backtrackingAnchorStack;
     FacetState facetState = FacetState::General;
-    bool inRecovery = false;
 };
 
 } // namespace
+
+#define fn(Name) [this] { return Name(); }
 
 SourceFileFacet const* prism::parseSourceFile(MonotonicBufferResource& alloc,
                                               SourceContext const& sourceCtx,
@@ -346,8 +116,7 @@ Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
 }
 
 SourceFileFacet const* Parser::parseSourceFile() {
-    return allocate<SourceFileFacet>(
-        parseSequence(&Parser::parseGlobalDecl, End));
+    return allocate<SourceFileFacet>(parseSequence(fn(parseGlobalDecl), End));
 }
 
 DeclFacet const* Parser::parseGlobalDecl() {
@@ -370,7 +139,7 @@ FuncDeclFacet const* Parser::parseFuncDecl() {
 }
 
 CompTypeDeclFacet const* Parser::parseCompTypeDecl() {
-    auto declarator = match(Struct, Trait);
+    auto declarator = match({ Struct, Trait });
     if (!declarator) return nullptr;
     auto* name = parseName();
     assert(name);
@@ -393,12 +162,12 @@ BaseDeclFacet const* Parser::parseBaseDecl() {
 }
 
 BaseListFacet const* Parser::parseBaseList() {
-    auto elems = parseSequence(&Parser::parseBaseDecl, OpenBrace, Comma);
+    auto elems = parseSequence(fn(parseBaseDecl), OpenBrace, Comma);
     return allocate<BaseListFacet>(elems);
 }
 
 MemberListFacet const* Parser::parseMemberList() {
-    auto elems = parseSequence(&Parser::parseGlobalDecl, CloseBrace);
+    auto elems = parseSequence(fn(parseGlobalDecl), CloseBrace);
     return allocate<MemberListFacet>(elems);
 }
 
@@ -422,8 +191,6 @@ VarDeclFacet const* Parser::parseVarDecl() {
 }
 #endif
 
-#define fn(Name) [this] { return Name(); }
-
 VarDeclFacet const* Parser::parseVarDecl() {
     auto isStop = [](Token tok) {
         return ranges::contains(std::array{ Var, Let, Function, Struct, Trait,
@@ -445,7 +212,7 @@ VarDeclFacet const* Parser::parseVarDecl() {
                 //        },
                 { .parser = matcher(Semicolon), .backtrackIfFailed = true },
             },
-            isStop);
+            { isStop });
     if (!declarator) return nullptr;
     return allocate<VarDeclFacet>(declarator, name, colon, typespec, assign,
                                   initExpr, semicolon);
@@ -467,15 +234,14 @@ DeclFacet const* Parser::parseLocalDecl() {
 ParamDeclFacet const* Parser::parseParamDecl() {
     auto* name = parseUnqualName();
     auto colon = match(Colon);
-    auto* type = colon ? parseTypeSpec() :
-                         recover(&Parser::parseTypeSpec, { .stop = Comma });
+    auto* type = colon ? parseTypeSpec() : nullptr;
     return allocate<ParamDeclFacet>(ErrorToken, name,
                                     colon.value_or(ErrorToken), type);
 }
 
 ParamListFacet const* Parser::parseParamList() {
     if (!match(OpenParen)) return nullptr;
-    auto seq = parseSequence(&Parser::parseParamDecl, CloseParen, Comma);
+    auto seq = parseSequence(fn(parseParamDecl), CloseParen, Comma);
     match(CloseParen);
     return allocate<ParamListFacet>(seq);
 }
@@ -516,14 +282,14 @@ Facet const* Parser::parseTypeSpec() {
 }
 
 Facet const* Parser::parseCommaFacet() {
-    return parseBinaryFacetLTR(Comma, &Parser::parseAssignFacet);
+    return parseBinaryFacetLTR(Comma, fn(parseAssignFacet));
 }
 
 Facet const* Parser::parseAssignFacet() {
     static constexpr TokenKind Ops[] = { Equal,       PlusEq,    MinusEq,
                                          StarEq,      SlashEq,   PercentEq,
                                          AmpersandEq, VertBarEq, CircumflexEq };
-    return parseBinaryFacetRTL(Ops, &Parser::parseCastFacet);
+    return parseBinaryFacetRTL(Ops, fn(parseCastFacet));
 }
 
 Facet const* Parser::parseCastFacet() {
@@ -545,87 +311,66 @@ Facet const* Parser::parseTernCondFacet() {
     if (!cond) return nullptr;
     auto question = match(Question);
     if (!question) return cond;
-    auto* lhs = parseOrRecover(&Parser::parseCommaFacet,
-                               { .stop = { Colon, Semicolon } },
-                               raiseCb<ExpectedExpression>());
+    auto* lhs = parseCommaFacet();
     auto colon = match(Colon);
-    auto* rhs = eval_as (Facet const*) {
-        if (colon) {
-            return parseOrRecover(&Parser::parseTernCondFacet,
-                                  { .stop = Semicolon },
-                                  raiseCb<ExpectedExpression>());
-        }
-        Token expColon = peek();
-        if (auto* rhs = parseOrRecover(&Parser::parseTernCondFacet,
-                                       { .stop = { Colon, Semicolon } }))
-        {
-            raise<ExpectedToken>(expColon, Colon);
-            return rhs;
-        }
-        if ((colon = match(Colon))) {
-            return parseOrRecover(&Parser::parseTernCondFacet,
-                                  { .stop = Semicolon },
-                                  raiseCb<ExpectedExpression>());
-        }
-        raise<ExpectedToken>(peek(), Colon);
-        raise<ExpectedExpression>(peek());
-        return nullptr;
-    };
+    auto* rhs = parseTernCondFacet();
     return allocate<CondFacet>(cond, *question, lhs, colon.value_or(ErrorToken),
                                rhs);
 }
 
 Facet const* Parser::parseBinCondFacet() {
-    return parseBinaryFacetRTL(QuestionColon, &Parser::parseLogicalOrFacet);
+    return parseBinaryFacetRTL(QuestionColon, fn(parseLogicalOrFacet));
 }
 
 Facet const* Parser::parseLogicalOrFacet() {
-    return parseBinaryFacetLTR(DoubleVertBar, &Parser::parseLogicalAndFacet);
+    return parseBinaryFacetLTR(DoubleVertBar, fn(parseLogicalAndFacet));
 }
 
 Facet const* Parser::parseLogicalAndFacet() {
-    return parseBinaryFacetLTR(DoubleAmpersand, &Parser::parseOrFacet);
+    return parseBinaryFacetLTR(DoubleAmpersand, fn(parseOrFacet));
 }
 
 Facet const* Parser::parseOrFacet() {
-    return parseBinaryFacetLTR(VertBar, &Parser::parseXorFacet);
+    return parseBinaryFacetLTR(VertBar, fn(parseXorFacet));
 }
 
 Facet const* Parser::parseXorFacet() {
-    return parseBinaryFacetLTR(Circumflex, &Parser::parseAndFacet);
+    return parseBinaryFacetLTR(Circumflex, fn(parseAndFacet));
 }
 
 Facet const* Parser::parseAndFacet() {
-    return parseBinaryFacetLTR(Ampersand, &Parser::parseEqFacet);
+    return parseBinaryFacetLTR(Ampersand, fn(parseEqFacet));
 }
 
 Facet const* Parser::parseEqFacet() {
-    return parseBinaryFacetLTR({ DoubleEqual, NotEq }, &Parser::parseRelFacet);
+    return parseBinaryFacetLTR({ DoubleEqual, NotEq }, fn(parseRelFacet));
 }
 
 Facet const* Parser::parseRelFacet() {
     return parseBinaryFacetLTR({ LeftAngle, LeftAngleEq, RightAngle,
                                  RightAngleEq },
-                               &Parser::parseShiftFacet);
+                               fn(parseShiftFacet));
 }
 
 Facet const* Parser::parseShiftFacet() {
     return parseBinaryFacetLTR({ DoubleLeftAngle, DoubleRightAngle },
-                               &Parser::parseAddFacet);
+                               fn(parseAddFacet));
 }
 
 Facet const* Parser::parseAddFacet() {
-    return parseBinaryFacetLTR({ Plus, Minus }, &Parser::parseMulFacet);
+    return parseBinaryFacetLTR({ Plus, Minus }, fn(parseMulFacet));
 }
 
 Facet const* Parser::parseMulFacet() {
-    return parseBinaryFacetLTR({ Star, Slash, Percent },
-                               &Parser::parsePrefixFacet);
+    return parseBinaryFacetLTR({ Star, Slash, Percent }, fn(parsePrefixFacet));
 }
 
 Facet const* Parser::parsePrefixFacet() {
-    auto tok = match(Plus, Minus, Tilde, Exclam, DoublePlus, DoubleMinus, Mut,
-                     Dyn, Star, Ampersand, Question, New, Move);
+    static constexpr std::array Ops = {
+        Plus, Minus, Tilde,     Exclam,   DoublePlus, DoubleMinus, Mut,
+        Dyn,  Star,  Ampersand, Question, New,        Move
+    };
+    auto tok = match(Ops);
     if (!tok) return parsePostfixFacet();
     auto* operand = parsePrefixFacet();
     return allocate<PrefixFacet>(*tok, operand);
@@ -648,7 +393,7 @@ Facet const* Parser::parsePostfixFacet() {
     Facet const* operand = parsePrimaryFacet();
     if (!operand) return nullptr;
     while (true) {
-        if (auto tok = match(DoublePlus, DoubleMinus)) {
+        if (auto tok = match({ DoublePlus, DoubleMinus })) {
             operand = allocate<PostfixFacet>(operand, *tok);
             continue;
         }
@@ -670,7 +415,7 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
     auto open = match(parenTypes);
     if (!open) return nullptr;
     TokenKind closingKind = toClosing(open->kind);
-    auto argList = parseSequence(&Parser::parseAssignFacet, closingKind, Comma);
+    auto argList = parseSequence(fn(parseAssignFacet), closingKind, Comma);
     auto close = match(closingKind);
     PRISM_ASSERT(close);
     auto* args = allocate<ListFacet>(argList);
@@ -678,10 +423,11 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
 }
 
 Facet const* Parser::parsePrimaryFacet() {
-    if (auto tok = match(Identifier, IntLiteralBin, IntLiteralDec,
-                         IntLiteralHex, True, False, This, AutoArg, Void, Int,
-                         Double))
-        return allocate<TerminalFacet>(*tok);
+    static constexpr std::array TermKinds = {
+        Identifier, IntLiteralBin, IntLiteralDec, IntLiteralHex, True,  False,
+        This,       AutoArg,       Void,          Int,           Double
+    };
+    if (auto tok = match(TermKinds)) return allocate<TerminalFacet>(*tok);
     if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
     if (auto open = match(OpenParen)) {
         auto* facet = parseCommaFacet();
@@ -807,96 +553,4 @@ utl::small_vector<InvokeResult<Fn>> Parser::parseSequence(
         }
         seq.push_back(std::move(elem));
     }
-}
-
-std::optional<Token> Parser::match(TokenKind kind,
-                                   std::same_as<TokenKind> auto... rest) {
-    auto tok = peek();
-    if (tok.kind == kind || (... || (tok.kind == rest))) {
-        return eat();
-    }
-    return std::nullopt;
-}
-
-std::optional<Token> Parser::match(std::span<TokenKind const> tokenKinds) {
-    auto tok = peek();
-    if (ranges::contains(tokenKinds, tok.kind)) {
-        return eat();
-    }
-    return std::nullopt;
-}
-
-std::optional<Token> Parser::peekMatch(TokenKind kind,
-                                       std::same_as<TokenKind> auto... rest) {
-
-    auto tok = peek();
-    if (tok.kind == kind || (... || (tok.kind == rest))) {
-        return tok;
-    }
-    return std::nullopt;
-}
-
-Token Parser::peek() { return eatPeekImpl(0); }
-
-Token Parser::eat() { return eatPeekImpl(1); }
-
-Token Parser::eatPeekImpl(uint32_t offset) {
-    if (tokenIndex < tokens.size()) {
-        auto tok = tokens[tokenIndex];
-        tokenIndex += offset;
-        return tok;
-    }
-    auto tok = lexer.next();
-    tokens.push_back(tok);
-    tokenIndex += offset;
-    return tok;
-}
-
-template <ParserFn Fn>
-InvokeResult<Fn> Parser::recover(Fn next, RecoveryOptions options) {
-    if (inRecovery) {
-        return {};
-    }
-    inRecovery = true;
-    utl::scope_guard reset = [this] { inRecovery = false; };
-    for (size_t i = 0; i < options.numAttempts; ++i) {
-        if (ranges::contains(options.stop, peek().kind)) {
-            return nullptr;
-        }
-        if (auto result = invoke(next)) {
-            return result;
-        }
-        auto token = eat();
-        raise<UnexpectedToken>(token);
-    }
-    return {};
-}
-
-template <ParserFn Fn>
-bool Parser::validOrRecover(InvokeResult<Fn>& obj, Fn next,
-                            RecoveryOptions options) {
-    return obj || (obj = recover(next, options));
-}
-
-template <ParserFn Fn>
-InvokeResult<Fn> Parser::parseOrRecover(Fn next, RecoveryOptions options) {
-    auto obj = invoke(next);
-    validOrRecover(obj, next, options);
-    return obj;
-}
-
-template <ParserFn Fn>
-InvokeResult<Fn> Parser::parseOrRecover(Fn next, RecoveryOptions options,
-                                        ParserFn auto raiseIssue) {
-    auto obj = parseOrRecover(next, options);
-    if (!obj) invoke(raiseIssue);
-    return obj;
-}
-
-template <ParserFn Fn>
-InvokeResult<Fn> Parser::invoke(Fn fn) {
-    if constexpr (std::invocable<Fn>)
-        return std::invoke(fn);
-    else
-        return std::invoke(fn, *this);
 }
