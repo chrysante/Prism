@@ -9,6 +9,12 @@ SYNTAX_ISSUE_DEF(ExpectedExpression, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
+SYNTAX_ISSUE_DEF(ExpectedTypeSpec, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected type specifier";
+                     });
+                 }))
+
 SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue,
                  ((Token, have), (TokenKind, expected)), ({
                      message(Primary, [=, this](std::ostream& str) {

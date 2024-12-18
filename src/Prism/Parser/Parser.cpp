@@ -191,29 +191,38 @@ VarDeclFacet const* Parser::parseVarDecl() {
 }
 #endif
 
+static bool declStopCond(Token tok) {
+    static constexpr std::array kinds = { Var,   Let,        Function, Struct,
+                                          Trait, CloseBrace, Semicolon };
+    return ranges::contains(kinds, tok.kind);
+}
+
+static bool declStopCondSemi(Token tok) {
+    return declStopCond(tok) || tok.kind == Semicolon;
+}
+
 VarDeclFacet const* Parser::parseVarDecl() {
-    auto isStop = [](Token tok) {
-        return ranges::contains(std::array{ Var, Let, Function, Struct, Trait,
-                                            CloseBrace },
-                                tok.kind);
-    };
-    auto [declarator, name, colon, typespec, assign, initExpr, semicolon] =
-        parseLinearGrammar(
-            {
-                { matcher({ Var, Let }) },
-                { fn(parseName) },
-                //        Optionally {
-                { matcher(Colon) },
-                { fn(parseTypeSpec) },
-                //        },
-                //        Optionally {
-                { matcher(Equal) },
-                { fn(parseExpr) },
-                //        },
-                { .parser = matcher(Semicolon), .backtrackIfFailed = true },
-            },
-            { isStop });
+    // clang-format off
+    auto [declarator, name, type, init, semicolon] = parseLinearGrammar({
+        matcher(Var, Let),
+        fn(parseName),
+        option({
+            matcher(Colon),
+            { fn(parseTypeSpec), raiser<ExpectedTypeSpec>(), { true } },
+        }),
+        option({
+            matcher(Equal),
+            { fn(parseExpr), raiser<ExpectedExpression>(), { true } },
+        }),
+        ParserRule{
+            matcher(Semicolon),
+            raiser<ExpectedToken>(Semicolon),
+            { .backtrackIfFailed = true }
+        }
+    }, { declStopCondSemi }); // clang-format on
     if (!declarator) return nullptr;
+    auto [colon, typespec] = unpack<2>(type);
+    auto [assign, initExpr] = unpack<2>(init);
     return allocate<VarDeclFacet>(declarator, name, colon, typespec, assign,
                                   initExpr, semicolon);
 }
@@ -548,9 +557,11 @@ utl::small_vector<InvokeResult<Fn>> Parser::parseSequence(
         }
         first = false;
         auto elem = invoke(parser);
-        if (!elem) {
-            assert(false); // Expected element
+        if (elem) {
+            seq.push_back(std::move(elem));
+            continue;
         }
-        seq.push_back(std::move(elem));
+        eat();
+        //      assert(false); // Expected element
     }
 }

@@ -6,6 +6,8 @@ using ranges::views::enumerate;
 void ParserBase::parseLinearGrammarImpl(std::span<ParserRule const> rules,
                                         std::span<Facet const*> facets,
                                         RecoveryOptions recoveryOptions) {
+    recovOptStack.push(recoveryOptions);
+    utl::scope_guard pop = [this] { recovOptStack.pop(); };
     PRISM_ASSERT(rules.size() == facets.size());
     auto inc = [&](size_t offset) {
         rules = rules.subspan(offset);
@@ -29,6 +31,8 @@ void ParserBase::parseLinearGrammarImpl(std::span<ParserRule const> rules,
                 "We should fail gracefully here without eating tokens");
             return;
         }
+        // Emit the rule error if we are not recovering
+        if (!inRecovery && rule.error) rule.error(peek());
         // We are committed, so we try to recover
         if (auto offset = recoverLinearGrammar(rules, facets, recoveryOptions))
             inc(*offset);
@@ -57,17 +61,30 @@ std::optional<size_t> ParserBase::recoverLinearGrammar(
     }
 }
 
+template <typename T, std::convertible_to<T> U>
+static auto exchangeForScope(T& state, U&& tmp) {
+    auto guard = [&state, stashed = state] { state = stashed; };
+    state = std::forward<U>(tmp);
+    return utl::scope_guard(guard);
+}
+
 std::optional<size_t> ParserBase::recoverLinearGrammarImpl(
     std::span<ParserRule const> rules, std::span<Facet const*> facets,
     RecoveryOptions recoveryOptions) {
+    auto guard = exchangeForScope(inRecovery, true);
+    // We attempt to recover from the error by parsing subsequent rules in the
+    // grammer. If we succeed, we leave the missing rule as null and continue
+    // where we succeeded. Otherwise we eat a token and try again a couple of
+    // times.
     for (int i = 0; i < recoveryOptions.numAttempts; ++i) {
         if (i > 0) {
             if (recoveryOptions.isStop(peek())) return std::nullopt;
+            raise<UnexpectedToken>(peek());
             eat();
         }
         auto [facet, recoveredIndex] =
             findFacetForRecovery(rules,
-                                 /* first: */ i == 0);
+                                 /* isFirst: */ i == 0);
         if (facet) {
             facets[recoveredIndex] = facet;
             return recoveredIndex + 1;
@@ -77,11 +94,11 @@ std::optional<size_t> ParserBase::recoverLinearGrammarImpl(
 }
 
 std::pair<Facet const*, size_t> ParserBase::findFacetForRecovery(
-    std::span<ParserRule const> rules, bool first) {
+    std::span<ParserRule const> rules, bool isFirst) {
     for (auto [index, rule]: rules | enumerate) {
         // We continue here because we already tried to parse the first rule
         // and it failed
-        if (first && index == 0) continue;
+        if (isFirst && index == 0) continue;
         if (auto* facet = rule.parser()) return { facet, index };
     }
     return {};

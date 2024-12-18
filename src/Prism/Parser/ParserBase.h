@@ -1,6 +1,10 @@
+#ifndef PRISM_PARSER_PARSERBASE_H
+#define PRISM_PARSER_PARSERBASE_H
+
 #include <array>
 #include <concepts>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <span>
 #include <vector>
@@ -32,15 +36,40 @@ struct VolatileList: std::span<T> {
     VolatileList(T& kind): std::span<T>(&kind, 1) {}
 };
 
-struct ParserRule {
-    utl::function_view<Facet const*()> parser;
+struct ParserRuleOptions {
     bool backtrackIfFailed = false;
 };
 
+template <typename F>
+concept ParserRuleFn =
+    std::convertible_to<std::invoke_result_t<F>, Facet const*>;
+
+struct ParserRule: ParserRuleOptions {
+    ParserRule(ParserRuleFn auto&& parser,
+               std::function<void(Token)> error = {},
+               ParserRuleOptions opt = {}):
+        ParserRuleOptions(opt),
+        parser(std::move(parser)),
+        error(std::move(error)) {}
+
+    std::function<Facet const*()> parser;
+    std::function<void(Token)> error;
+};
+
 struct RecoveryOptions {
-    utl::function_view<bool(Token)> isStop;
+    std::function<bool(Token)> isStop;
     int numAttempts = 3;
 };
+
+template <size_t N>
+std::array<Facet const*, N> unpack(Facet const* facet) {
+    if (!facet) return {};
+    std::array<Facet const*, N> res;
+    auto* list = cast<ListFacet const*>(facet);
+    PRISM_ASSERT(list->children().size() == N);
+    ranges::copy(list->children(), res.begin());
+    return res;
+}
 
 /// Generic parsing functionality that is independent of the language grammar
 class ParserBase {
@@ -54,11 +83,22 @@ public:
 
 protected:
     template <size_t N>
+        requires(N > 0)
     std::array<Facet const*, N> parseLinearGrammar(
-        ParserRule (&&rules)[N], RecoveryOptions recoveryOptions) {
+        ParserRule const (&rules)[N], RecoveryOptions recoveryOptions) {
         std::array<Facet const*, N> facets{};
         parseLinearGrammarImpl(rules, facets, recoveryOptions);
         return facets;
+    }
+
+    template <size_t N>
+        requires(N > 0)
+    ParserRule option(ParserRule const (&rules)[N]) {
+        return { [&]() -> ListFacet const* {
+            auto elems = parseLinearGrammarNoRecov(rules);
+            if (elems.front()) return allocate<ListFacet>(elems);
+            return nullptr;
+        }, {}, { .backtrackIfFailed = true } };
     }
 
     // MARK: Facet allocation
@@ -83,9 +123,10 @@ protected:
     std::optional<Token> match(VolatileList<TokenKind const> tokenKinds);
 
     /// \Returns a function calling `match(kinds)`
-    auto matcher(VolatileList<TokenKind const> kinds) {
-        return [kinds, this]() -> TerminalFacet const* {
-            if (auto tok = match(kinds)) return allocate<TerminalFacet>(*tok);
+    auto matcher(std::same_as<TokenKind> auto... kinds) {
+        return [... kinds = kinds, this]() -> TerminalFacet const* {
+            if (auto tok = match({ kinds... }))
+                return allocate<TerminalFacet>(*tok);
             return nullptr;
         };
     }
@@ -111,6 +152,14 @@ protected:
         iss.push<I>(std::forward<Args>(args)...);
     }
 
+    template <std::derived_from<Issue> I, typename... Args>
+        requires std::constructible_from<I, Token, Args&&...>
+    auto raiser(Args&&... args) {
+        return [... args = std::forward<Args>(args), this](Token token) {
+            raise<I>(token, args...);
+        };
+    }
+
     // MARK: Backtracking
     void pushBacktrackingAnchor() { backtrackingAnchorStack.push(tokenIndex); }
 
@@ -126,6 +175,12 @@ protected:
 
 private:
     // MARK: Automatic error recovery
+    template <size_t N>
+    std::array<Facet const*, N> parseLinearGrammarNoRecov(
+        ParserRule const (&rules)[N]) {
+        return parseLinearGrammar(rules, recovOptStack.top());
+    }
+
     void parseLinearGrammarImpl(std::span<ParserRule const> rules,
                                 std::span<Facet const*> facets,
                                 RecoveryOptions recoveryOptions);
@@ -156,6 +211,10 @@ private:
     std::vector<Token> tokens;
     uint32_t tokenIndex = 0;
     utl::stack<uint32_t> backtrackingAnchorStack;
+    utl::stack<RecoveryOptions> recovOptStack;
+    bool inRecovery = false;
 };
 
 } // namespace prism
+
+#endif // PRISM_PARSER_PARSERBASE_H
