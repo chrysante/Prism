@@ -7,6 +7,7 @@
 #include <utl/scope_guard.hpp>
 #include <utl/stack.hpp>
 
+#include "Prism/Common/Allocator.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/Scope.h"
@@ -15,6 +16,8 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+
+static void declareBuiltins(SemaContext& ctx, Target* target) {}
 
 namespace {
 
@@ -89,10 +92,25 @@ static void declareGlobals(SemaContext& ctx, Target* target,
     GloablDeclDeclare{ ctx, target }.run(input);
 }
 
+namespace {
+
+struct DependencyNode {
+    Symbol* symbol;
+};
+
+} // namespace
+
+static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
+                                            Target* target) {
+    return nullptr;
+}
+
 Target* prism::constructTarget(SemaContext& ctx,
                                std::span<SourceFilePair const> input) {
     auto* globalScope = ctx.make<Scope>();
     auto* target = ctx.make<Target>("TARGET", globalScope);
+    declareBuiltins(ctx, target);
     declareGlobals(ctx, target, input);
+
     return target;
 }

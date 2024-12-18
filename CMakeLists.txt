@@ -76,6 +76,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxIssue.def
 
     include/Prism/Sema/Construction.h
+    include/Prism/Sema/NameLookup.h
     include/Prism/Sema/Scope.h
     include/Prism/Sema/SemaContext.h
     include/Prism/Sema/Symbol.h
@@ -106,6 +107,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/SyntaxIssue.cpp
 
     src/Prism/Sema/Construction.cpp
+    src/Prism/Sema/NameLookup.cpp
     src/Prism/Sema/SemaContext.cpp
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
