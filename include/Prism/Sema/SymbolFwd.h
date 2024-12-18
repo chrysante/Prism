@@ -1,23 +1,19 @@
 #ifndef PRISM_SEMA_SYMBOLFWD_H
 #define PRISM_SEMA_SYMBOLFWD_H
 
-#include <Prism/Common/Rtti.h>
 #include <Prism/Common/EnumUtil.h>
+#include <Prism/Common/Rtti.h>
 
 namespace prism {
 
-enum class ValueCat {
-    LValue, RValue
-};
+enum class ValueCat { LValue, RValue };
 
 static constexpr ValueCat LValue = ValueCat::LValue;
 static constexpr ValueCat RValue = ValueCat::RValue;
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ValueCat)
 
-enum class ArithmeticOperation {
-    Add, Sub, Div, Mul, Rem
-};
+enum class ArithmeticOperation { Add, Sub, Div, Mul, Rem };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)
 
@@ -37,10 +33,11 @@ using NoParent = void;
 
 }
 
-}
+} // namespace prism
 
-#define SEMA_SYMBOL(Name, Parent, Corpo, ...) \
-PRISM_DEFINE_RTTI(prism::Name, prism::SymbolType::Name, prism::Parent, Corpo)
+#define SEMA_SYMBOL(Name, Parent, Corpo, ...)                                  \
+    PRISM_DEFINE_RTTI(prism::Name, prism::SymbolType::Name, prism::Parent,     \
+                      Corpo)
 #include <Prism/Sema/Symbol.def>
 
 #endif // PRISM_SEMA_SYMBOLFWD_H
