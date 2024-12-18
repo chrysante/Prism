@@ -1,0 +1,22 @@
+
+#ifndef SEMA_SYMBOL
+#define SEMA_SYMBOL(Name, Parent, Corpo)
+#endif
+
+SEMA_SYMBOL(Symbol, detail::NoParent, Abstract)
+SEMA_SYMBOL(Type, Symbol, Abstract)
+SEMA_SYMBOL(ValueType, Type, Abstract)
+SEMA_SYMBOL(CompositeType, ValueType, Abstract)
+SEMA_SYMBOL(FunctionType, ValueType, Concrete)
+SEMA_SYMBOL(PointerType, ValueType, Abstract)
+SEMA_SYMBOL(RawPointerType, ValueType, Abstract)
+SEMA_SYMBOL(ReferenceType, Type, Concrete)
+SEMA_SYMBOL(Value, Symbol, Abstract)
+SEMA_SYMBOL(Function, Value, Concrete)
+SEMA_SYMBOL(Argument, Value, Concrete)
+SEMA_SYMBOL(Variable, Value, Concrete)
+SEMA_SYMBOL(ValueAlias, Value, Concrete)
+SEMA_SYMBOL(Computation, Value, Abstract)
+SEMA_SYMBOL(ArithmeticComputation, Value, Concrete)
+
+#undef SEMA_SYMBOL

@@ -75,6 +75,11 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxIssue.h
     include/Prism/Parser/SyntaxIssue.def
 
+    include/Prism/Sema/Scope.h
+    include/Prism/Sema/Symbol.h
+    include/Prism/Sema/Symbol.def
+    include/Prism/Sema/SymbolFwd.h
+
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -97,6 +102,9 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/Grammar.txt
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/SyntaxIssue.cpp
+
+    src/Prism/Sema/Scope.cpp
+    src/Prism/Sema/Symbol.cpp
 
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp
