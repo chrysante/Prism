@@ -16,6 +16,12 @@ def ctor_param(member):
 def ctor_arg_as_stored(member):
     return member['name'];
 
+def uniform_ctor_param(member):
+    return f"Facet const* {member['name']}"
+
+def verify_uniform_ctor_arg(member):
+    return f"cast<{member['type']} const*>({member['name']})"
+
 def get_base(cls, classes):
     base_name = cls.get('base', None)
     if not base_name:
@@ -74,6 +80,8 @@ filters = {
     "to_interface_type": to_interface_type,
     "ctor_param": ctor_param,
     "ctor_arg_as_stored": ctor_arg_as_stored,
+    "uniform_ctor_param": uniform_ctor_param,
+    "verify_uniform_ctor_arg": verify_uniform_ctor_arg,
     "collect_all_members": collect_all_members,
     "build_inheritance_tree": build_inheritance_tree,
 }

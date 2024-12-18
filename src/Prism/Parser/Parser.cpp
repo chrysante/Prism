@@ -3,11 +3,13 @@
 #include <concepts>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <utl/function_view.hpp>
 #include <utl/scope_guard.hpp>
+#include <utl/stack.hpp>
 #include <utl/vector.hpp>
 
 #include "Prism/Common/Assert.h"
@@ -20,6 +22,7 @@
 #include "Prism/Common/SyntaxMacros.h"
 
 using namespace prism;
+using ranges::views::enumerate;
 
 using enum TokenKind;
 
@@ -55,6 +58,11 @@ struct RecoveryOptions {
     int numAttempts = 3;
 };
 
+struct Rule {
+    utl::function_view<Facet const*()> parser;
+    bool backtrackIfFailed = false;
+};
+
 struct Parser {
     explicit Parser(MonotonicBufferResource& alloc,
                     SourceContext const& sourceCtx, IssueHandler& iss):
@@ -62,6 +70,99 @@ struct Parser {
         sourceCtx(sourceCtx),
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
+
+    template <size_t N>
+    std::array<Facet const*, N> parseLinearGrammar(
+        Rule (&&rules)[N], utl::function_view<bool(Token)> isStop) {
+        std::array<Facet const*, N> facets{};
+        parseLinearGrammarImpl(rules, facets, isStop);
+        return facets;
+    }
+
+    void parseLinearGrammarImpl(std::span<Rule const> rules,
+                                std::span<Facet const*> facets,
+                                utl::function_view<bool(Token)> isStop) {
+        PRISM_ASSERT(rules.size() == facets.size());
+        auto inc = [&](size_t offset) {
+            rules = rules.subspan(offset);
+            facets = facets.subspan(offset);
+        };
+        uint32_t startTokenIndex = tokenIndex;
+        bool first = true;
+        while (!rules.empty()) {
+            auto& rule = rules.front();
+            auto& facet = facets.front();
+            facet = rule.parser();
+            if (facet) {
+                inc(1);
+                first = false;
+                continue;
+            }
+            // If the first rule fails we return directly
+            if (first) {
+                PRISM_ASSERT(
+                    startTokenIndex == tokenIndex,
+                    "We should fail gracefully here without eating tokens");
+                return;
+            }
+            // We are committed, so we try to recover
+            if (auto offset = recoverLinearGrammar(rules, facets, isStop))
+                inc(*offset);
+            else
+                return;
+        }
+    }
+
+    std::optional<size_t> recoverLinearGrammar(
+        std::span<Rule const> rules, std::span<Facet const*> facets,
+        utl::function_view<bool(Token)> isStop, size_t numAttempts = 3) {
+        PRISM_ASSERT(!rules.empty());
+        PRISM_ASSERT(rules.size() == facets.size());
+        if (!rules.front().backtrackIfFailed) {
+            return recoverLinearGrammarImpl(rules, facets, isStop, numAttempts);
+        }
+        pushBacktrackingAnchor();
+        auto result =
+            recoverLinearGrammarImpl(rules, facets, isStop, numAttempts);
+        if (result) {
+            popBacktrackingAnchor();
+            return result;
+        }
+        else {
+            performBacktrack();
+            return std::nullopt;
+        }
+    }
+
+    std::optional<size_t> recoverLinearGrammarImpl(
+        std::span<Rule const> rules, std::span<Facet const*> facets,
+        utl::function_view<bool(Token)> isStop, size_t numAttempts) {
+        for (size_t i = 0; i < numAttempts; ++i) {
+            if (i > 0) {
+                if (isStop(peek())) return std::nullopt;
+                eat();
+            }
+            auto [facet, recoveredIndex] =
+                findFacetForRecovery(rules,
+                                     /* first: */ i == 0);
+            if (facet) {
+                facets[recoveredIndex] = facet;
+                return recoveredIndex + 1;
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::pair<Facet const*, size_t> findFacetForRecovery(
+        std::span<Rule const> rules, bool first) {
+        for (auto [index, rule]: rules | enumerate) {
+            // We continue here because we already tried to parse the first rule
+            // and it failed
+            if (first && index == 0) continue;
+            if (auto* facet = rule.parser()) return { facet, index };
+        }
+        return {};
+    }
 
     SourceFileFacet const* parseSourceFile();
     DeclFacet const* parseGlobalDecl();
@@ -126,6 +227,14 @@ struct Parser {
     /// \overload
     std::optional<Token> match(std::span<TokenKind const> tokenKinds);
 
+    /// \Returns a function calling `match(kinds)`
+    auto matcher(VolatileList<TokenKind const> kinds) {
+        return [kinds, this]() -> TerminalFacet const* {
+            if (auto tok = match(kinds)) return allocate<TerminalFacet>(*tok);
+            return nullptr;
+        };
+    }
+
     /// _Peeks_ and returns the peeked token, if its kind is any of the given
     /// arguments. Otherwise returns nullopt
     std::optional<Token> peekMatch(TokenKind tok,
@@ -136,6 +245,9 @@ struct Parser {
 
     /// \Returns the next token in the stream and consumes it
     Token eat();
+
+    /// Implementation of `eat()` and `peek()`
+    Token eatPeekImpl(uint32_t offset);
 
     ///
     template <ParserFn Fn>
@@ -194,11 +306,25 @@ struct Parser {
             return result;
     }
 
+    void pushBacktrackingAnchor() { backtrackingAnchorStack.push(tokenIndex); }
+
+    void popBacktrackingAnchor() {
+        PRISM_ASSERT(!backtrackingAnchorStack.empty());
+        backtrackingAnchorStack.pop();
+    }
+
+    void performBacktrack() {
+        PRISM_ASSERT(!backtrackingAnchorStack.empty());
+        tokenIndex = backtrackingAnchorStack.pop();
+    }
+
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
     IssueHandler& iss;
     Lexer lexer;
-    std::optional<Token> peekToken;
+    std::vector<Token> tokens;
+    uint32_t tokenIndex = 0;
+    utl::stack<uint32_t> backtrackingAnchorStack;
     FacetState facetState = FacetState::General;
     bool inRecovery = false;
 };
@@ -276,6 +402,7 @@ MemberListFacet const* Parser::parseMemberList() {
     return allocate<MemberListFacet>(elems);
 }
 
+#if 0
 VarDeclFacet const* Parser::parseVarDecl() {
     auto declarator = match(Var, Let);
     if (!declarator) return nullptr;
@@ -292,6 +419,36 @@ VarDeclFacet const* Parser::parseVarDecl() {
     return allocate<VarDeclFacet>(*declarator, name, colon.value_or(ErrorToken),
                                   typeSpec, assign.value_or(ErrorToken),
                                   initExpr, semicolon.value_or(ErrorToken));
+}
+#endif
+
+#define fn(Name) [this] { return Name(); }
+
+VarDeclFacet const* Parser::parseVarDecl() {
+    auto isStop = [](Token tok) {
+        return ranges::contains(std::array{ Var, Let, Function, Struct, Trait,
+                                            CloseBrace },
+                                tok.kind);
+    };
+    auto [declarator, name, colon, typespec, assign, initExpr, semicolon] =
+        parseLinearGrammar(
+            {
+                { matcher({ Var, Let }) },
+                { fn(parseName) },
+                //        Optionally {
+                { matcher(Colon) },
+                { fn(parseTypeSpec) },
+                //        },
+                //        Optionally {
+                { matcher(Equal) },
+                { fn(parseExpr) },
+                //        },
+                { .parser = matcher(Semicolon), .backtrackIfFailed = true },
+            },
+            isStop);
+    if (!declarator) return nullptr;
+    return allocate<VarDeclFacet>(declarator, name, colon, typespec, assign,
+                                  initExpr, semicolon);
 }
 
 StmtFacet const* Parser::parseStmt() {
@@ -679,22 +836,20 @@ std::optional<Token> Parser::peekMatch(TokenKind kind,
     return std::nullopt;
 }
 
-Token Parser::peek() {
-    if (peekToken) {
-        return *peekToken;
-    }
-    auto tok = lexer.next();
-    peekToken = tok;
-    return tok;
-}
+Token Parser::peek() { return eatPeekImpl(0); }
 
-Token Parser::eat() {
-    if (peekToken) {
-        auto tok = *peekToken;
-        peekToken.reset();
+Token Parser::eat() { return eatPeekImpl(1); }
+
+Token Parser::eatPeekImpl(uint32_t offset) {
+    if (tokenIndex < tokens.size()) {
+        auto tok = tokens[tokenIndex];
+        tokenIndex += offset;
         return tok;
     }
-    return lexer.next();
+    auto tok = lexer.next();
+    tokens.push_back(tok);
+    tokenIndex += offset;
+    return tok;
 }
 
 template <ParserFn Fn>

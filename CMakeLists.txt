@@ -104,6 +104,8 @@ set(PRISM_SOURCE_FILES
     
     src/Prism/Parser/Grammar.txt
     src/Prism/Parser/Parser.cpp
+    src/Prism/Parser/ParserBase.h
+    src/Prism/Parser/ParserBase.cpp
     src/Prism/Parser/SyntaxIssue.cpp
 
     src/Prism/Sema/Construction.cpp

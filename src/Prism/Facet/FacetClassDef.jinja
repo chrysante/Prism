@@ -24,6 +24,31 @@ explicit {{ facet.name }}({{ node_type_param }}
 {}
 {% endmacro %}
 
+{% macro uniform_constructor(facet, all_members) %}
+    {% if facet.abstract %}
+        {% set node_type_param = 'FacetType facetType, ' %}
+        {% set node_type_arg = 'facetType' %}
+        {% set trailing_params = ', auto const&... args' %}
+        {% set trailing_args = ', args...' %}
+    {% else %}
+        {% set node_type_arg = 'FacetType::' ~ facet.name %}
+    {% endif %}
+    {% if all_members %}
+        {% set comma_if_members = ',' %}
+    {% else %}
+        {% set comma_if_members = '' %}
+    {% endif %}
+explicit {{ facet.name }}({{ node_type_param }}
+                          MonotonicBufferResource& resource
+                          {{- comma_if_members }}
+                          {{ all_members | map('uniform_ctor_param') | join(', ') -}}
+                          {{ trailing_params }}):
+         {{ facet.base }}({{ node_type_arg }}, resource {{ comma_if_members }}
+                          {{ all_members | map('verify_uniform_ctor_arg') | join(', ') -}}
+                          {{ trailing_args }})
+{}
+{% endmacro %}
+
 {% macro field_accessor(member, index) %}
 /// {{member.comment}}
 {{ member.type|interface_type }} {{ member.name }}() const {
@@ -49,9 +74,16 @@ public:
     {{- all_field_accessors(facet, offset) -}}
 protected:
     {{ constructor(facet, all_members) }}
+    {% if all_members %}
+    {{ uniform_constructor(facet, all_members) }}
+    {% endif %}
+    using {{ facet.base }}::{{ facet.base }};
     {% else %}
 public:
     {{ constructor(facet, all_members) }}
+    {% if all_members %}
+    {{ uniform_constructor(facet, all_members) }}
+    {% endif %}
     {{ all_field_accessors(facet, offset) }}
     {% endif %}
 };
