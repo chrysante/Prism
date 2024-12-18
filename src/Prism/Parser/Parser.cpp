@@ -305,10 +305,10 @@ EmptyStmtFacet const* Parser::parseEmptyStmt() {
 }
 
 ExprStmtFacet const* Parser::parseExprStmt() {
-    if (auto* expr = parseCompoundFacet())
-        return allocate<ExprStmtFacet>(expr, ErrorToken);
     auto* expr = parseExpr();
     if (!expr) return nullptr;
+    if (auto* cmpd = dyncast<CompoundFacet const*>(expr))
+        return allocate<ExprStmtFacet>(expr, ErrorToken);
     auto semicolon = match(Semicolon);
     if (!semicolon) {
         assert(false); // Push error
