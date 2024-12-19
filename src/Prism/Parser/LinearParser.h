@@ -110,11 +110,11 @@ struct LinearParser: public ParserBase {
     template <size_t N, typename... Children>
     struct LinParser {
         LinearParser& parser;
-        RecoveryOptions const& recov;
+        RecoveryOptions recov;
         std::array<ParserRule, N> rules;
 
         template <typename NewChild = IndexTree<N>>
-        LinParser<N + 1, Children..., NewChild> rule(ParserRule rule) const {
+        LinParser<N + 1, Children..., NewChild> rule(ParserRule rule) const&& {
             LinParser<N + 1, Children..., NewChild> result = { parser, recov };
             ranges::move(rules, result.rules.begin());
             result.rules.back() = std::move(rule);
@@ -123,14 +123,15 @@ struct LinearParser: public ParserBase {
 
         template <size_t M>
             requires(M > 0)
-        auto optRule(ParserRule (&&rules)[M]) const {
+        auto optRule(ParserRule (&&rules)[M]) const&& {
             return [&]<size_t... I>(std::index_sequence<I...>) {
-                return rule<IndexTree<N, IndexTree<I>...>>(
-                    parser.option(std::move(rules)));
+                return std::move(*this)
+                    .template rule<IndexTree<N, IndexTree<I>...>>(
+                        parser.option(std::move(rules)));
             }(std::make_index_sequence<M>{});
         }
 
-        auto eval() const {
+        auto eval() const&& {
             static constexpr size_t Size = computeUnpackedSize<Children...>(N);
             auto packed = parser.parseLinearGrammar(std::span(rules), recov);
             std::array<Facet const*, Size> result;
@@ -139,9 +140,7 @@ struct LinearParser: public ParserBase {
         }
     };
 
-    LinParser<0> parseLin(RecoveryOptions const& recov) {
-        return { *this, recov };
-    }
+    LinParser<0> parseLin(RecoveryOptions recov) { return { *this, recov }; }
 
     template <size_t N>
         requires(N > 0)

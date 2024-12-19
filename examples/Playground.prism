@@ -1,12 +1,11 @@
 
 
-fn ä() {
-    
+fn d() {
+    s = ;
+    s +
+    return y;
 }
 
-
-
-/*
 let n: int =  ;
 let n  int = 0;
 let n:     = ;
@@ -24,7 +23,6 @@ fn test() {
     
     0 as fn -> fn -> int;
 }
-*/
 
 //struct X { fn test() {} }
 
