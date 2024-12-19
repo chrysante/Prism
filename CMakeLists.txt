@@ -103,6 +103,8 @@ set(PRISM_SOURCE_FILES
     src/Prism/Lexer/LexicalIssue.cpp
     
     src/Prism/Parser/Grammar.txt
+    src/Prism/Parser/LinearParser.h
+    src/Prism/Parser/LinearParser.cpp
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/ParserBase.h
     src/Prism/Parser/ParserBase.cpp

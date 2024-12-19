@@ -3,7 +3,7 @@
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)
 #endif
 
-SYNTAX_ISSUE_DEF(ExpectedExpression, SyntaxIssue, ((Token, tok)), ({
+SYNTAX_ISSUE_DEF(ExpectedExpr, SyntaxIssue, ((Token, tok)), ({
                      message(Primary, [this](std::ostream& str) {
                          str << "Expected expression";
                      });

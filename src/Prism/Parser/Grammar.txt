@@ -33,15 +33,13 @@
 <expr>               ::= <facet>
 <assign-expr>        ::= <assign-facet>
 <type-spec>          ::= <prefix-facet>
-<facet>              ::= <comma-facet>
-<comma-facet>        ::= <assign-facet>
-                       | <comma-facet> ',' <assign-facet>
+<facet>              ::= <assign-facet>
 <assign-facet>       ::= <cast-facet>
                        | <cast-facet> ('=', '+=', ...) <assign-facet>
 <cast-facet>         ::= <ternary-cond-facet>
                        | <cast-facet> 'as' <type-spec>
 <ternay-cond-facet>  ::= <binary-cond-facet>
-                       | <binary-cond-facet> '?' <comma-facet> ':' <cond-facet>
+                       | <binary-cond-facet> '?' <assign-facet> ':' <cond-facet>
 <binary-cond-facet>  ::= <logical-or-facet>
                        | <logical-or-facet> '?:' <binary-cond-facet>
 <logical-or-facet>   ::= <logical-and-facet>
@@ -89,7 +87,7 @@
                        | 'this'
                        | <closure-expr> | <fn-type-facet>
                        | <auto-arg>
-                       | '(' <comma-facet> ')'
+                       | '(' <assign-facet> ')'
                        | '[' ']'
                        | '[' <assign-facet> (',' <assign-facet>)* [','] ']'
                        | <compound-expr>

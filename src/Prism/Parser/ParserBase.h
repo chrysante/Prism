@@ -4,7 +4,6 @@
 #include <array>
 #include <concepts>
 #include <cstdint>
-#include <functional>
 #include <optional>
 #include <span>
 #include <vector>
@@ -36,102 +35,14 @@ struct VolatileList: std::span<T> {
     VolatileList(T& kind): std::span<T>(&kind, 1) {}
 };
 
-struct ParserRuleOptions {
-    bool backtrackIfFailed = false;
-};
-
-template <typename F>
-concept ParserRuleFn =
-    std::convertible_to<std::invoke_result_t<F>, Facet const*>;
-
-struct ParserRule: ParserRuleOptions {
-    ParserRule(ParserRuleFn auto&& parser,
-               std::function<void(Token)> error = {},
-               ParserRuleOptions opt = {}):
-        ParserRuleOptions(opt),
-        parser(std::move(parser)),
-        error(std::move(error)) {}
-
-    std::function<Facet const*()> parser;
-    std::function<void(Token)> error;
-
-private:
-    friend struct ParserBase;
-    ParserRule() = default;
-};
-
-struct RecoveryOptions {
-    std::function<bool(Token)> isStop;
-    int numAttempts = 3;
-};
-
-template <size_t N>
-std::array<Facet const*, N> unpack(Facet const* facet) {
-    if (!facet) return {};
-    std::array<Facet const*, N> res;
-    auto* list = cast<ListFacet const*>(facet);
-    PRISM_ASSERT(list->children().size() == N);
-    ranges::copy(list->children(), res.begin());
-    return res;
-}
-
 /// Generic parsing functionality that is independent of the language grammar
-class ParserBase {
-public:
+struct ParserBase {
     explicit ParserBase(MonotonicBufferResource& alloc,
                         SourceContext const& sourceCtx, IssueHandler& iss):
         alloc(alloc),
         sourceCtx(sourceCtx),
         lexer(sourceCtx.source(), iss),
         iss(iss) {}
-
-protected:
-    template <size_t N>
-        requires(N > 0)
-    std::array<Facet const*, N> parseLinearGrammar(
-        ParserRule const (&rules)[N], RecoveryOptions const& recoveryOptions) {
-        std::array<Facet const*, N> facets{};
-        parseLinearGrammarImpl(rules, facets, recoveryOptions);
-        return facets;
-    }
-
-    template <size_t N>
-    struct LinParser {
-        ParserBase& parser;
-        RecoveryOptions const& recov;
-        std::array<ParserRule, N> rules;
-
-        LinParser<N + 1> rule(ParserRule rule) const {
-            LinParser<N + 1> result = { parser, recov };
-            ranges::move(rules, result.rules.begin());
-            result.rules.back() = std::move(rule);
-            return result;
-        }
-
-        template <size_t M>
-            requires(M > 0)
-        LinParser<N + 1> optRule(ParserRule (&&rules)[M]) const {
-            return rule(parser.option(std::move(rules)));
-        }
-
-        std::array<Facet const*, N> eval() const {
-            return parser.parseLinearGrammar(rules.__elems_, recov);
-        }
-    };
-
-    LinParser<0> parseLin(RecoveryOptions const& recov) {
-        return { *this, recov };
-    }
-
-    template <size_t N>
-        requires(N > 0)
-    ParserRule option(ParserRule const (&rules)[N]) {
-        return { [&]() -> ListFacet const* {
-            auto elems = parseLinearGrammarNoRecov(rules);
-            if (elems.front()) return allocate<ListFacet>(elems);
-            return nullptr;
-        }, {}, { .backtrackIfFailed = true } };
-    }
 
     // MARK: Facet allocation
     template <typename T, typename... Args>
@@ -155,7 +66,7 @@ protected:
     std::optional<Token> match(VolatileList<TokenKind const> tokenKinds);
 
     /// \Returns a function calling `match(kinds)`
-    auto matcher(std::same_as<TokenKind> auto... kinds) {
+    auto Match(std::same_as<TokenKind> auto... kinds) {
         return [... kinds = kinds, this]() -> TerminalFacet const* {
             if (auto tok = match({ kinds... }))
                 return allocate<TerminalFacet>(*tok);
@@ -186,7 +97,7 @@ protected:
 
     template <std::derived_from<Issue> I, typename... Args>
         requires std::constructible_from<I, Token, Args&&...>
-    auto raiser(Args&&... args) {
+    auto Raise(Args&&... args) {
         return [... args = std::forward<Args>(args), this](Token token) {
             raise<I>(token, args...);
         };
@@ -205,31 +116,10 @@ protected:
         tokenIndex = backtrackingAnchorStack.pop();
     }
 
+protected:
+    uint32_t currentTokenIndex() const { return tokenIndex; }
+
 private:
-    // MARK: Automatic error recovery
-    template <size_t N>
-    std::array<Facet const*, N> parseLinearGrammarNoRecov(
-        ParserRule const (&rules)[N]) {
-        return parseLinearGrammar(rules, recovOptStack.top());
-    }
-
-    void parseLinearGrammarImpl(std::span<ParserRule const> rules,
-                                std::span<Facet const*> facets,
-                                RecoveryOptions const& recoveryOptions);
-
-    std::optional<size_t> recoverLinearGrammar(
-        std::span<ParserRule const> rules, std::span<Facet const*> facets,
-        RecoveryOptions const& recoveryOptions);
-
-    std::optional<size_t> recoverLinearGrammarImpl(
-        std::span<ParserRule const> rules, std::span<Facet const*> facets,
-        RecoveryOptions const& recoveryOptions);
-
-    std::pair<Facet const*, size_t> findFacetForRecovery(
-        std::span<ParserRule const> rules, bool first);
-
-    // MARK: Other implementation details
-
     /// Implementation of `match()` and `peekMatch()`
     std::optional<Token> matchImpl(bool eat, auto verify);
 
@@ -243,8 +133,6 @@ private:
     std::vector<Token> tokens;
     uint32_t tokenIndex = 0;
     utl::stack<uint32_t> backtrackingAnchorStack;
-    utl::stack<RecoveryOptions> recovOptStack;
-    bool inRecovery = false;
 };
 
 } // namespace prism

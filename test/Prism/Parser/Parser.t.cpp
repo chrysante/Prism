@@ -109,7 +109,7 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         Colon,
         Identifier
-    } >> IssueOnLine<prism::ExpectedExpression>(0, 4));
+    } >> IssueOnLine<prism::ExpectedExpr>(0, 4));
 
     CHECK(*parseFacet("x ? a b") == CondFacet >> Tree{
         Identifier,
@@ -125,7 +125,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier,
         Colon,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpression>(0, 7));
+    } >> IssueOnLine<prism::ExpectedExpr>(0, 7));
 
     CHECK(*parseFacet("x ? :") == CondFacet >> Tree{
         Identifier,
@@ -133,8 +133,8 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         Colon,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpression>(0, 4)
-      >> IssueOnLine<prism::ExpectedExpression>(0, 5));
+    } >> IssueOnLine<prism::ExpectedExpr>(0, 4)
+      >> IssueOnLine<prism::ExpectedExpr>(0, 5));
 
     CHECK(*parseFacet("x ?") == CondFacet >> Tree{
         Identifier,
@@ -142,9 +142,9 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         Error,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpression>(0, 3)
+    } >> IssueOnLine<prism::ExpectedExpr>(0, 3)
       >> IssueOnLine<prism::ExpectedToken>(0, 3)
-      >> IssueOnLine<prism::ExpectedExpression>(0, 3));
+      >> IssueOnLine<prism::ExpectedExpr>(0, 3));
 }
 
 TEST_CASE("Function types", "[parser]") {
