@@ -3,9 +3,9 @@
 using namespace prism;
 using ranges::views::enumerate;
 
-void ParserBase::parseLinearGrammarImpl(std::span<ParserRule const> rules,
-                                        std::span<Facet const*> facets,
-                                        RecoveryOptions recoveryOptions) {
+void ParserBase::parseLinearGrammarImpl(
+    std::span<ParserRule const> rules, std::span<Facet const*> facets,
+    RecoveryOptions const& recoveryOptions) {
     recovOptStack.push(recoveryOptions);
     utl::scope_guard pop = [this] { recovOptStack.pop(); };
     PRISM_ASSERT(rules.size() == facets.size());
@@ -43,7 +43,7 @@ void ParserBase::parseLinearGrammarImpl(std::span<ParserRule const> rules,
 
 std::optional<size_t> ParserBase::recoverLinearGrammar(
     std::span<ParserRule const> rules, std::span<Facet const*> facets,
-    RecoveryOptions recoveryOptions) {
+    RecoveryOptions const& recoveryOptions) {
     PRISM_ASSERT(!rules.empty());
     PRISM_ASSERT(rules.size() == facets.size());
     if (!rules.front().backtrackIfFailed) {
@@ -70,7 +70,7 @@ static auto exchangeForScope(T& state, U&& tmp) {
 
 std::optional<size_t> ParserBase::recoverLinearGrammarImpl(
     std::span<ParserRule const> rules, std::span<Facet const*> facets,
-    RecoveryOptions recoveryOptions) {
+    RecoveryOptions const& recoveryOptions) {
     auto guard = exchangeForScope(inRecovery, true);
     // We attempt to recover from the error by parsing subsequent rules in the
     // grammer. If we succeed, we leave the missing rule as null and continue

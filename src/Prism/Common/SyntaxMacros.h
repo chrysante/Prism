@@ -3,9 +3,9 @@
 
 #include <concepts>
 
-#define eval internal::DoToken{}->*[&]
+#define EVAL internal::DoToken{}->*[&]
 
-#define eval_as(...) eval()->__VA_ARGS__
+#define EVAL_AS(...) EVAL()->__VA_ARGS__
 
 namespace internal {
 

@@ -54,6 +54,10 @@ struct ParserRule: ParserRuleOptions {
 
     std::function<Facet const*()> parser;
     std::function<void(Token)> error;
+
+private:
+    friend struct ParserBase;
+    ParserRule() = default;
 };
 
 struct RecoveryOptions {
@@ -85,10 +89,38 @@ protected:
     template <size_t N>
         requires(N > 0)
     std::array<Facet const*, N> parseLinearGrammar(
-        ParserRule const (&rules)[N], RecoveryOptions recoveryOptions) {
+        ParserRule const (&rules)[N], RecoveryOptions const& recoveryOptions) {
         std::array<Facet const*, N> facets{};
         parseLinearGrammarImpl(rules, facets, recoveryOptions);
         return facets;
+    }
+
+    template <size_t N>
+    struct LinParser {
+        ParserBase& parser;
+        RecoveryOptions const& recov;
+        std::array<ParserRule, N> rules;
+
+        LinParser<N + 1> rule(ParserRule rule) const {
+            LinParser<N + 1> result = { parser, recov };
+            ranges::move(rules, result.rules.begin());
+            result.rules.back() = std::move(rule);
+            return result;
+        }
+
+        template <size_t M>
+            requires(M > 0)
+        LinParser<N + 1> optRule(ParserRule (&&rules)[M]) const {
+            return rule(parser.option(std::move(rules)));
+        }
+
+        std::array<Facet const*, N> eval() const {
+            return parser.parseLinearGrammar(rules.__elems_, recov);
+        }
+    };
+
+    LinParser<0> parseLin(RecoveryOptions const& recov) {
+        return { *this, recov };
     }
 
     template <size_t N>
@@ -183,15 +215,15 @@ private:
 
     void parseLinearGrammarImpl(std::span<ParserRule const> rules,
                                 std::span<Facet const*> facets,
-                                RecoveryOptions recoveryOptions);
+                                RecoveryOptions const& recoveryOptions);
 
     std::optional<size_t> recoverLinearGrammar(
         std::span<ParserRule const> rules, std::span<Facet const*> facets,
-        RecoveryOptions recoveryOptions);
+        RecoveryOptions const& recoveryOptions);
 
     std::optional<size_t> recoverLinearGrammarImpl(
         std::span<ParserRule const> rules, std::span<Facet const*> facets,
-        RecoveryOptions recoveryOptions);
+        RecoveryOptions const& recoveryOptions);
 
     std::pair<Facet const*, size_t> findFacetForRecovery(
         std::span<ParserRule const> rules, bool first);

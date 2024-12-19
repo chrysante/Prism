@@ -1,14 +1,19 @@
 
-let n: int = 0;
-let n: int =  ;
-let n  int = 0;
-let n:     = 0;
-let n:       0;
-let n =
-let n x=
+//let n: int = 0;
+//let n: int =  ;
+//let n  int = 0;
+let n:     = ;
+//let n:       0;
+//let n =
+let n : 0 =* 0;
 
-let n.x = 0 * 2;
+let n.x = fn -> i 0 * $2;
 
+
+fn test() {
+    432 7
+    return 31
+}
 
 
 /*
