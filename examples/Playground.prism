@@ -1,3 +1,11 @@
+
+
+fn ä() {
+    
+}
+
+
+
 /*
 let n: int =  ;
 let n  int = 0;
@@ -22,7 +30,7 @@ fn test() {
 
 // let x: dyn fn (n: int) -> int;
 
-fn test() -> T { T{}; { T{} } }
+//fn test() -> T { T{}; { T{} } }
 
 /*
 

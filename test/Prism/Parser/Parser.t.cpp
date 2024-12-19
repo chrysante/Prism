@@ -1,7 +1,9 @@
+#include <random>
 #include <span>
 #include <variant>
 
 #include <catch2/catch_test_macros.hpp>
+#include <range/v3/view.hpp>
 
 #include "Prism/Parser/ParserTestUtils.h"
 #include "Prism/Parser/SyntaxIssue.h"
@@ -265,8 +267,17 @@ TEST_CASE("Currying", "[parser]") {
     });
 }
 
-TEST_CASE("Illformed syntax", "Parser") {
-    // We only run this to see if it doesn't crash
+// clang-format on
+
+static std::vector<char> makeRandomBits(uint64_t seed, size_t count) {
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<uint32_t> dist(0, 255);
+    return ranges::views::generate([&] { return (char)dist(rng); }) |
+           ranges::views::take(count) | ranges::to<std::vector>;
+}
+
+TEST_CASE("Ill-formed syntax", "Parser") {
+    // We only run this to make sure it doesn't crash
     parseFile(R"(
 var x = 10 + (20 * 30) / "string_literal" ? true : false && this != null;
 fn test() {
@@ -298,6 +309,12 @@ do { while { fn } x + y ]]]]]]]] "string_literal \ false == struct void int
         this += [new:::: struct void if trait true false double fn () } !! ?}
 "unterminated again fn fn }}} {;;; ;;; ... continue ! end!!!
 )");
+    parseFile(R"(
+gB6z! $9jK* 1pS@qL^ 2fVx +T_wA& 7Y5Z c%nD4 hJ3eM0 tRb8oNwU 6gQ+ ;Fz#v @H9^ Pj7! B
+L0z Xv3QZb F*V4W1r_2G#l8u@ Y5d9s OiJ6k T x p N+Mw C&zA% Ht0Rj7w Kq9b F3z$ L!cJ
+PqB4#8 O^u7!9VzH2l* F1yAt5p3o D%_Tn GkWbX 6QNjCw M%Yz0p 1R+5Lz4 tS9fVk
++* KqYdN!7r 3p5Bzx F*W0_9l G4Oa2Tc H8s& JQ%vZb6y M1nRj9P +V7fL 0gTz8u
+)");
+    auto data = makeRandomBits(42, 1024);
+    parseFile({ data.data(), data.size() });
 }
-
-// clang-format on

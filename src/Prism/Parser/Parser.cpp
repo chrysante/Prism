@@ -105,7 +105,7 @@ struct Parser: LinearParser {
 
 } // namespace
 
-#define fn(Name, ...) [this] { return Name(__VA_ARGS__); }
+#define fn(Name, ...)    [this] { return Name(__VA_ARGS__); }
 #define valfn(Name, ...) [=, this] { return Name(__VA_ARGS__); }
 
 static bool stmtStopCond(Token tok) {
