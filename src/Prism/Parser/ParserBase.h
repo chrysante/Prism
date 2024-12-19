@@ -74,6 +74,14 @@ struct ParserBase {
         };
     }
 
+    /// \overload
+    auto Match(std::span<TokenKind const> kinds) {
+        return [this, kinds]() -> TerminalFacet const* {
+            if (auto tok = match(kinds)) return allocate<TerminalFacet>(*tok);
+            return nullptr;
+        };
+    }
+
     /// _Peeks_ and returns the peeked token, if its kind is any of the given
     /// arguments. Otherwise returns nullopt
     std::optional<Token> peekMatch(TokenKind tok);

@@ -158,7 +158,8 @@ private:
     template <size_t N>
     std::array<Facet const*, N> parseLinearGrammarNoRecov(
         ParserRule const (&rules)[N]) {
-        return parseLinearGrammar(rules, recovOptStack.top());
+        auto options = recovOptStack.top(); // Intentionally make a copy
+        return parseLinearGrammar(rules, options);
     }
 
     void parseLinearGrammarImpl(std::span<ParserRule const> rules,

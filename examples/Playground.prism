@@ -1,4 +1,4 @@
-
+/*
 let n: int =  ;
 let n  int = 0;
 let n:     = ;
@@ -16,7 +16,13 @@ fn test() {
     
     0 as fn -> fn -> int;
 }
+*/
 
+//struct X { fn test() {} }
+
+// let x: dyn fn (n: int) -> int;
+
+fn test() -> T { T{}; { T{} } }
 
 /*
 
@@ -29,3 +35,7 @@ struct Y {
 }
 
 */
+
+
+
+

@@ -189,6 +189,26 @@ facets:
       - name: operation
         type: TerminalFacet
   
+  - name: ParenthesisedFacet
+    base: NonTerminalFacet
+    members: 
+      - name: openParen
+        type: TerminalFacet
+      - name: inner
+        type: Facet
+      - name: closeParen
+        type: TerminalFacet
+
+  - name: ArrayFacet
+    base: NonTerminalFacet
+    members: 
+      - name: openBracket
+        type: TerminalFacet
+      - name: elements
+        type: ListFacet
+      - name: closeBracket
+        type: TerminalFacet
+
   - name: ListFacet
     base: NonTerminalFacet
     decl_only: true

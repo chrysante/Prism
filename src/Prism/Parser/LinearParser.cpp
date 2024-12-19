@@ -32,8 +32,6 @@ void LinearParser::parseLinearGrammarImpl(
                 "We should fail gracefully here without eating tokens");
             return;
         }
-        // Emit the rule error if we are not recovering
-        if (!inRecovery && rule.error) rule.error(peek());
         // We are committed, so we try to recover
         if (auto offset = recoverLinearGrammar(rules, facets, recoveryOptions))
             inc(*offset);
@@ -91,13 +89,23 @@ std::optional<size_t> LinearParser::recoverLinearGrammarImpl(
     return std::nullopt;
 }
 
+static void emitErrors(std::span<ParserRule const> rules, Token const& tok) {
+    for (auto& missed: rules)
+        if (missed.error) missed.error(tok);
+}
+
 std::pair<Facet const*, size_t> LinearParser::findFacetForRecovery(
     std::span<ParserRule const> rules, bool isFirst) {
+    auto tok = peek();
     for (auto [index, rule]: rules | enumerate) {
         // We continue here because we already tried to parse the first rule
         // and it failed
         if (isFirst && index == 0) continue;
-        if (auto* facet = rule.parser()) return { facet, index };
+        auto* facet = rule.parser();
+        if (!facet) continue;
+        emitErrors(rules.subspan(0, index), tok);
+        return { facet, index };
     }
+    emitErrors(rules, tok);
     return {};
 }

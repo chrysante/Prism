@@ -15,6 +15,42 @@ SYNTAX_ISSUE_DEF(ExpectedTypeSpec, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
+SYNTAX_ISSUE_DEF(ExpectedDecl, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedBaseDecl, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected base declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedParamDecl, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected parameter declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedDeclName, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected name of declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedCompoundFacet, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected compound facet";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedParamList, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected parameter list";
+                     });
+                 }))
+
 SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue,
                  ((Token, have), (TokenKind, expected)), ({
                      message(Primary, [=, this](std::ostream& str) {

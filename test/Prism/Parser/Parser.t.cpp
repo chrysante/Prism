@@ -102,7 +102,6 @@ TEST_CASE("Conditionals", "[parser]") {
             Identifier
         }
     });
-#if 0
     CHECK(*parseFacet("x ? : b") == CondFacet >> Tree{
         Identifier,
         Question,
@@ -115,7 +114,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier,
         Question,
         Identifier,
-        Error,
+        NullNode,
         Identifier
     } >> IssueOnLine<prism::ExpectedToken>(0, 6));
 
@@ -140,12 +139,11 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier,
         Question,
         NullNode,
-        Error,
+        NullNode,
         NullNode
     } >> IssueOnLine<prism::ExpectedExpr>(0, 3)
       >> IssueOnLine<prism::ExpectedToken>(0, 3)
       >> IssueOnLine<prism::ExpectedExpr>(0, 3));
-#endif
 }
 
 TEST_CASE("Function types", "[parser]") {
@@ -265,6 +263,41 @@ TEST_CASE("Currying", "[parser]") {
             Semicolon
         }
     });
+}
+
+TEST_CASE("Illformed syntax", "Parser") {
+    // We only run this to see if it doesn't crash
+    parseFile(R"(
+var x = 10 + (20 * 30) / "string_literal" ? true : false && this != null;
+fn test() {
+    let y = { x << 5; if (y >= 0) return y; else while (x--) x += 1; }
+    struct MyStruct {
+        trait TraitName {
+            fn method(arg: dyn &mut Type) -> int;
+        }
+    }
+}
+if (true && false || x > 42) {
+    var a = x ? y : z;
+    var b = [1, 2, 3];
+    let c = "Hello" + "World!";
+    fn inlineArrow -> { return new myObject(123); }
+}
+do { let flag = !false; move flag; } while (count-- > 0);
+x += y ? a.b(c, d) : x[0] * x[1];
+return x || y && !(z >= (a + b - c * d / e));
+)");
+    parseFile(R"(
+var x = (10 + 20 * { "unterminated_string 
+    fn } broken { -> struct ;;; if return 42 } let [
+[true false && || || ! != == ??? <:> +-*/ ** ,,, move dyn trait ?:
+do { while { fn } x + y ]]]]]]]] "string_literal \ false == struct void int
+    x---> new let if else for ,,,,,, %%%%%% :: ( ) } { [ { let var 10e10 fn return!!!
+        autoarg ]][intliteraldec]];;; mut dyn !!!!
+        return x < <= <<= >= >>> ->=> *== "hello + world
+        this += [new:::: struct void if trait true false double fn () } !! ?}
+"unterminated again fn fn }}} {;;; ;;; ... continue ! end!!!
+)");
 }
 
 // clang-format on
