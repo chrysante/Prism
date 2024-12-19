@@ -49,18 +49,20 @@ static std::string_view childName(Facet const& node, size_t index) {
 
 namespace {
 
-struct FacetPrinter {
+struct FacetPrinter: FacetPrintOptions {
     std::ostream& str;
     TreeFormatter& fmt;
-    SourceContext const* srcCtx;
 
-    void print(Facet const* node) {
+    void print(Facet const* node, Facet const* parent, size_t index) {
         if (!node) {
-            str << NullNode << "\n";
+            str << NullNode;
+            invokeCallback(node, parent, index);
+            str << "\n";
             return;
         }
         str << FacetName(*node);
         csp::visit(*node, [this](auto& node) { details(node); });
+        invokeCallback(node, parent, index);
         str << "\n";
         writeChildren(*node);
     }
@@ -70,7 +72,7 @@ struct FacetPrinter {
                           [&](size_t index, Facet const* child) {
             auto name = childName(node, index);
             if (!name.empty()) str << Secondary(name, ": ");
-            print(child);
+            print(child, &node, index);
         });
     }
 
@@ -81,17 +83,21 @@ struct FacetPrinter {
             str << " " << srcCtx->getTokenStr(term.token());
         }
     }
+
+    void invokeCallback(Facet const* facet, Facet const* parent, size_t index) {
+        if (nodeCallback) nodeCallback(str, facet, parent, index);
+    }
 };
 
 } // namespace
 
 void prism::print(Facet const* root, std::ostream& str,
-                  SourceContext const* srcCtx) {
+                  FacetPrintOptions options) {
     TreeFormatter fmt(str);
-    print(root, fmt);
+    print(root, fmt, options);
 }
 
 void prism::print(Facet const* root, TreeFormatter& fmt,
-                  SourceContext const* srcCtx) {
-    FacetPrinter{ fmt.ostream(), fmt, srcCtx }.print(root);
+                  FacetPrintOptions options) {
+    FacetPrinter{ options, fmt.ostream(), fmt }.print(root, nullptr, 0);
 }

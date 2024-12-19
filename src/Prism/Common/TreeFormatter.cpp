@@ -18,13 +18,16 @@ static constexpr std::array<std::string_view, 4> Repr[] = {
 
 void TreeFormatter::Indenter::operator()(std::streambuf* buf) const {
     static auto const Mod = tfmt::BrightGrey | tfmt::Bold;
-    buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
+    bool useAnsiCodes = tfmt::isTermFormattable(fmt->ostr);
+    if (useAnsiCodes)
+        buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
     auto const& repr = Repr[fmt->style.lines];
     for (auto& level: fmt->levels) {
         auto reprStr = repr[level];
         buf->sputn(reprStr.data(), reprStr.size());
         level = Next[level];
     }
-    buf->sputn(tfmt::Reset.ansiBuffer().data(),
-               tfmt::Reset.ansiBuffer().size());
+    if (useAnsiCodes)
+        buf->sputn(tfmt::Reset.ansiBuffer().data(),
+                   tfmt::Reset.ansiBuffer().size());
 }

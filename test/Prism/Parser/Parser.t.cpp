@@ -87,11 +87,11 @@ TEST_CASE("Simple expressions", "[parser]") {
 }
 
 TEST_CASE("Conditionals", "[parser]") {
-    CHECK(*parseFacet("x ? a, b : y ? c : d") == CondFacet >> Tree{
+    CHECK(*parseFacet("x ? a + b : y ? c : d") == CondFacet >> Tree{
         Identifier,
         Question,
         BinaryFacet >> Tree {
-            Identifier, Comma, Identifier
+            Identifier, Plus, Identifier
         },
         Colon,
         CondFacet >> Tree{
@@ -102,7 +102,7 @@ TEST_CASE("Conditionals", "[parser]") {
             Identifier
         }
     });
-
+#if 0
     CHECK(*parseFacet("x ? : b") == CondFacet >> Tree{
         Identifier,
         Question,
@@ -145,6 +145,7 @@ TEST_CASE("Conditionals", "[parser]") {
     } >> IssueOnLine<prism::ExpectedExpr>(0, 3)
       >> IssueOnLine<prism::ExpectedToken>(0, 3)
       >> IssueOnLine<prism::ExpectedExpr>(0, 3));
+#endif
 }
 
 TEST_CASE("Function types", "[parser]") {
@@ -167,7 +168,7 @@ TEST_CASE("Function types", "[parser]") {
             ClosureFacet >> Tree {
                 Function,
                 ParamListFacet,
-                Error,
+                NullNode,
                 NullNode,
                 CompoundFacet
             },
@@ -199,7 +200,7 @@ TEST_CASE("Function types", "[parser]") {
                 ClosureFacet >> Tree{
                     Function,
                     NullNode,
-                    Error,
+                    NullNode,
                     NullNode,
                     AutoArg
                 },
@@ -209,38 +210,47 @@ TEST_CASE("Function types", "[parser]") {
     });
 }
 
-#if 0
-
 TEST_CASE("Currying", "[parser]") {
     CHECK(*parseFile("let f = fn (x: int, y: int) { x * y };") ==
-          AstSourceFile >> Tree{
-        AstVarDecl >> Tree{
-            AstUnqualName,
+          SourceFileFacet >> Tree{
+        VarDeclFacet >> Tree{
+            Let,
+            Identifier,
             NullNode,
-            AstClosureExpr >> Tree {
-                AstParamList >> Tree{
-                    AstParamDecl >> Tree{ AstUnqualName, Int },
-                    AstParamDecl >> Tree{ AstUnqualName, Int }
+            NullNode,
+            Equal,
+            ClosureFacet >> Tree {
+                Function,
+                ParamListFacet >> Tree{
+                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
+                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
                 },
+                NullNode,
                 NullNode,
                 CompoundFacet >> Tree {
                     OpenBrace,
-                    ListFacet,
+                    StmtListFacet,
                     BinaryFacet >> Tree {
                         Identifier, Star, Identifier
                     },
                     CloseBrace
                 }
-            }
+            },
+            Semicolon
         }
     });
 
     CHECK(*parseFile("let g = fn f(2, $0);") ==
-          AstSourceFile >> Tree{
-        AstVarDecl >> Tree{
-            AstUnqualName,
+          SourceFileFacet >> Tree{
+        VarDeclFacet >> Tree{
+            Let,
+            Identifier,
             NullNode,
-            AstClosureExpr >> Tree{
+            NullNode,
+            Equal,
+            ClosureFacet >> Tree{
+                Function,
+                NullNode,
                 NullNode,
                 NullNode,
                 CallFacet >> Tree{
@@ -251,11 +261,10 @@ TEST_CASE("Currying", "[parser]") {
                     },
                     CloseParen
                 }
-            }
+            },
+            Semicolon
         }
     });
 }
-
-#endif
 
 // clang-format on

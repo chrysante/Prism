@@ -8,6 +8,7 @@
 
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/size.hpp>
+#include <utl/function_view.hpp>
 
 #include <Prism/Common/Allocator.h>
 #include <Prism/Common/Assert.h>
@@ -194,13 +195,20 @@ PRISM_DEFINE_LIST_FACET(SourceFileFacet, DeclFacet, decls)
 class SourceContext;
 class TreeFormatter;
 
+struct FacetPrintOptions {
+    SourceContext const* srcCtx = nullptr;
+    utl::function_view<void(std::ostream& ostream, Facet const* facet,
+                            Facet const* parent, size_t index)>
+        nodeCallback;
+};
+
 /// Prints \p facet  as a tree to \p ostream
 void print(Facet const* facet, std::ostream& ostream,
-           SourceContext const* srcCtx = nullptr);
+           FacetPrintOptions options = {});
 
 /// \overload
 void print(Facet const* facet, TreeFormatter& fmt,
-           SourceContext const* srcCtx = nullptr);
+           FacetPrintOptions options = {});
 
 } // namespace prism
 

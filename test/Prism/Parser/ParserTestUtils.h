@@ -66,7 +66,9 @@ enum class NullNodeT : int;
 
 inline constexpr NullNodeT NullNode{};
 
-using VarType = std::variant<FacetType, TokenKind, NullNodeT>;
+struct VarType: std::variant<FacetType, TokenKind, NullNodeT> {
+    using variant::variant;
+};
 
 /// Reference tree node for simple and consice testing of parsed ASTs and facet
 /// trees
@@ -76,18 +78,17 @@ public:
         type(type), children(children), expectedIssues(&internal::gAlloc) {}
 
 private:
-    friend bool operator==(Facet const& facet, AstRefNode const* ref) {
-        return ref->compare(&facet) && ref->verifyIssues();
-    }
+    friend bool operator==(Facet const& facet, AstRefNode const* ref);
 
     friend AstRefNode* operator>>(AstRefNode* node, ExpectedIssue const& e);
 
-    bool compare(Facet const* node) const;
+    bool compare(Facet const* node, Facet const* parent, size_t index) const;
 
     template <typename T>
     bool checkType(T t) const;
 
-    bool compareChildren(Facet const* node) const;
+    bool compareChildren(Facet const* node, Facet const* parent,
+                         size_t index) const;
 
     bool verifyIssues() const;
 
