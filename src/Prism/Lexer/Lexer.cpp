@@ -166,6 +166,7 @@ std::optional<Token> Lexer::lexStringLiteralImpl(TokenKind kind,
             iss.push<LexicalIssue>(LexicalIssue::UnterminatedStringLiteral,
                                    Token{ TokenKind::Error,
                                           (uint16_t)(index - begin), begin });
+            return Token{ kind, (uint16_t)(index - begin), begin };
         }
         if (current(index - 1) != '\\' && match(endDelim))
             return Token{ kind, (uint16_t)(index - begin), begin };

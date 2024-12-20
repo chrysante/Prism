@@ -130,6 +130,22 @@ TEST_CASE("Literals", "[lexer]") {
           RefToken{ ctx, TokenKind::IntLiteralHex, 0, 0, 5 });
 }
 
+TEST_CASE("Unterminated string literals", "[lexer]") {
+    auto source = R"(
+"an unterminated string literal
+id return
+)";
+    IssueHandler H;
+    Lexer L(source, H);
+    CHECK(L.next().kind == TokenKind::StringLiteral);
+    CHECK(L.next().kind == TokenKind::Identifier);
+    CHECK(L.next().kind == TokenKind::Return);
+
+    REQUIRE(H.size() == 1);
+    auto& err = dynamic_cast<LexicalIssue const&>(H.front());
+    CHECK(err.reason() == LexicalIssue::UnterminatedStringLiteral);
+}
+
 TEST_CASE("Errors", "[lexer]") {
     auto source = "#```abc`";
     SourceContext ctx({}, source);

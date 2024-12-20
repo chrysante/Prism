@@ -52,6 +52,7 @@ CPMAddPackage("gh:chrysante/termfmt#main")
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 CPMAddPackage("gh:catchorg/Catch2@3.7.1")
+CPMAddPackage("gh:CLIUtils/CLI11@2.4.2")
 
 set(PRISM_HEADER_FILES
     include/Prism/Common/Allocator.h
@@ -194,7 +195,9 @@ enable_sanitizers(Playground)
 
 target_sources(Playground
   PRIVATE  
-    src/Playground/Playground.cpp
+    src/Playground/Main.cpp
+    src/Playground/ParserPlayground.cpp
+    src/Playground/FuzzParser.cpp
     examples/Playground.prism
 )
 
@@ -202,4 +205,5 @@ target_link_libraries(Playground
   PRIVATE
     Prism
     termfmt
+    CLI11
 )
