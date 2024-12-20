@@ -1,5 +1,8 @@
 #include <fstream>
+#include <functional>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <sstream>
 
 #include <CLI/CLI.hpp>
@@ -18,11 +21,30 @@
 
 using namespace prism;
 
-static int parserPlaygroundMain(CLI::App*);
-CLI::App* addSubcommand(std::string name, int (*mainFn)(CLI::App*));
+CLI::App* addSubcommand(std::string name, std::function<int()>);
+
+namespace {
+
+enum class Mode { Program, Expr, Type };
+
+struct Options {
+    Mode mode{};
+};
+
+} // namespace
+
+static int parserPlaygroundMain(Options);
 
 static int const INIT = [] {
-    addSubcommand("parser", parserPlaygroundMain);
+    auto options = std::make_shared<Options>();
+    auto* cmd =
+        addSubcommand("parser", [=] { return parserPlaygroundMain(*options); });
+    std::map<std::string, Mode> modeMap = { { "file", Mode::Program },
+                                            { "expr", Mode::Expr },
+                                            { "type", Mode::Type } };
+    cmd->add_option("-m,--mode", options->mode, "Parsing mode")
+        ->transform(
+            CLI::CheckedTransformer(std::move(modeMap), CLI::ignore_case));
     return 0;
 }();
 
@@ -61,7 +83,8 @@ static void header(std::ostream& str, std::string_view title) {
     str << tfmt::format(mod, "╩", repeat(numCols - 2, "═"), "╩") << "\n";
 }
 
-static int parserPlaygroundMain(CLI::App* app) {
+static int parserPlaygroundMain(Options options) {
+
     std::filesystem::path filepath = "examples/Playground.prism";
     std::fstream file(filepath);
     if (!file) {
@@ -74,20 +97,22 @@ static int parserPlaygroundMain(CLI::App* app) {
     MonotonicBufferResource alloc;
     SourceContext sourceContext(filepath, source);
     IssueHandler issueHandler;
-    auto* sourceTree = parseSourceFile(alloc, sourceContext, issueHandler);
+    auto* tree = [&]() -> Facet const* {
+        switch (options.mode) {
+        case Mode::Program:
+            return parseSourceFile(alloc, sourceContext, issueHandler);
+        case Mode::Expr:
+            return parseExpr(alloc, sourceContext, issueHandler);
+        case Mode::Type:
+            return parseTypeSpec(alloc, sourceContext, issueHandler);
+        }
+    }();
     TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
     header(std::cout, "Parse Tree");
-    print(sourceTree, fmt, { &sourceContext });
+    print(tree, fmt, { &sourceContext });
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);
         return 1;
     }
     return 0;
-    if (false) {
-        SemaContext semaContext;
-        auto* target =
-            constructTarget(semaContext, { { { sourceTree, sourceContext } } });
-        header(std::cout, "Sema IR");
-        print(*target, std::cout);
-    }
 }

@@ -21,7 +21,7 @@ using prism::Tree;
 // clang-format off
 
 TEST_CASE("FuncDecl", "[parser]") {
-    CHECK(*parseFile("fn test() -> T({}) { T{}; { T{} } }") == SourceFileFacet >> Tree{
+    auto* refTree = SourceFileFacet >> Tree{
         FuncDeclFacet >> Tree{
             Fn,
             Identifier,
@@ -43,7 +43,7 @@ TEST_CASE("FuncDecl", "[parser]") {
                         Semicolon
                     }
                 },
-                CompoundFacet >> Tree {
+                CompoundFacet >> Tree{
                     OpenBrace,
                     StmtListFacet,
                     AggrConstructFacet >> Tree{
@@ -54,7 +54,8 @@ TEST_CASE("FuncDecl", "[parser]") {
                 CloseBrace
             },
         }
-    });
+    };
+    CHECK(*parseFile("fn test() -> T({}) { T{}; { T{} } }") == refTree);
 }
 
 TEST_CASE("Simple expressions", "[parser]") {
@@ -152,6 +153,20 @@ TEST_CASE("Conditionals", "[parser]") {
     } >> IssueOnLine<prism::ExpectedExpr>(0, 3)
       >> IssueOnLine<prism::ExpectedToken>(0, 3)
       >> IssueOnLine<prism::ExpectedExpr>(0, 3));
+}
+
+TEST_CASE("Binary expressions", "[parser]") {
+    CHECK(*parseExpr("x * ") == BinaryFacet >> Tree{
+        Identifier,
+        Star,
+        NullNode,
+    } >> IssueOnLine<prism::ExpectedExpr>(0, 4));
+    
+    CHECK(*parseExpr("x * = x") == BinaryFacet >> Tree{
+        Identifier,
+        Star,
+        Identifier,
+    } >> IssueOnLine<prism::UnexpectedToken>(0, 4));
 }
 
 TEST_CASE("Function types", "[parser]") {
@@ -311,7 +326,7 @@ static std::vector<char> makeRandomBits(uint64_t seed, size_t count) {
 }
 
 TEST_CASE("Ill-formed syntax", "Parser") {
-    // We only run this to make sure it doesn't crash
+    // We only run these to make sure it doesn't crash
     parseFile(R"(
 var x = 10 + (20 * 30) / "string_literal" ? true : false && this != null;
 fn test() {

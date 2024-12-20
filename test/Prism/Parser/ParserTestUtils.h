@@ -30,17 +30,23 @@ class ExpectedIssue {
 public:
     virtual ~ExpectedIssue() = default;
 
-    bool verify(IssueHandler const& iss, SourceContext const& ctx) const;
+    virtual bool checkType(Issue const* issue) const = 0;
+
+    uint32_t line;
+    std::optional<uint32_t> column;
 
 protected:
     ExpectedIssue(uint32_t line, std::optional<uint32_t> column):
         line(line), column(column) {}
 
-    uint32_t line;
-    std::optional<uint32_t> column;
-
 private:
-    virtual bool checkType(Issue const* issue) const = 0;
+    friend std::ostream& operator<<(std::ostream& str,
+                                    ExpectedIssue const& issue) {
+        issue.format(str);
+        return str;
+    }
+
+    virtual void format(std::ostream& str) const = 0;
 };
 
 template <typename IssueType>
@@ -49,9 +55,14 @@ public:
     explicit ExpectedIssueImpl(uint32_t line, std::optional<uint32_t> column):
         ExpectedIssue(line, column) {}
 
-private:
     bool checkType(Issue const* issue) const override {
         return dynamic_cast<IssueType const*>(issue) != nullptr;
+    }
+
+    void format(std::ostream& str) const override {
+        str << "L: " << line << " ";
+        if (column) str << "C: " << *column << " ";
+        str << IssueType::StaticName();
     }
 };
 

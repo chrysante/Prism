@@ -1,8 +1,9 @@
 #ifndef PRISM_LEXER_LEXICALISSUE_H
 #define PRISM_LEXER_LEXICALISSUE_H
 
-#include <Prism/Common/Issue.h>
+#include <string_view>
 
+#include <Prism/Common/Issue.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
@@ -14,6 +15,8 @@ public:
         UnterminatedStringLiteral,
         InvalidNumericLiteral
     };
+
+    static std::string_view StaticName() { return "LexicalIssue"; }
 
     explicit LexicalIssue(Reason reason, Token tok);
 

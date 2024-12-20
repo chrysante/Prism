@@ -63,6 +63,11 @@ static auto exchangeForScope(T& state, U&& tmp) {
     return utl::scope_guard(guard);
 }
 
+static void emitErrors(std::span<ParserRule const> rules, Token const& tok) {
+    for (auto& missed: rules)
+        if (missed.error) missed.error(tok);
+}
+
 std::optional<size_t> LinearParser::recoverLinearGrammarImpl(
     std::span<ParserRule const> rules, std::span<Facet const*> facets,
     RecoveryOptions const& recoveryOptions) {
@@ -71,9 +76,10 @@ std::optional<size_t> LinearParser::recoverLinearGrammarImpl(
     // grammer. If we succeed, we leave the missing rule as null and continue
     // where we succeeded. Otherwise we eat a token and try again a couple of
     // times.
+    auto tok = peek();
     for (int i = 0; i < recoveryOptions.numAttempts; ++i) {
         if (i > 0) {
-            if (recoveryOptions.isStop(peek())) return std::nullopt;
+            if (recoveryOptions.isStop(peek())) break;
             raise<UnexpectedToken>(peek());
             eat();
         }
@@ -82,29 +88,23 @@ std::optional<size_t> LinearParser::recoverLinearGrammarImpl(
                                  /* isFirst: */ i == 0);
         if (facet) {
             facets[recoveredIndex] = facet;
+            emitErrors(rules.subspan(0, recoveredIndex), tok);
             return recoveredIndex + 1;
         }
     }
+    emitErrors(rules, tok);
     return std::nullopt;
-}
-
-static void emitErrors(std::span<ParserRule const> rules, Token const& tok) {
-    for (auto& missed: rules)
-        if (missed.error) missed.error(tok);
 }
 
 std::pair<Facet const*, size_t> LinearParser::findFacetForRecovery(
     std::span<ParserRule const> rules, bool isFirst) {
-    auto tok = peek();
     for (auto [index, rule]: rules | enumerate) {
         // We continue here because we already tried to parse the first rule
         // and it failed
         if (isFirst && index == 0) continue;
         auto* facet = rule.parser();
         if (!facet) continue;
-        emitErrors(rules.subspan(0, index), tok);
         return { facet, index };
     }
-    emitErrors(rules, tok);
     return {};
 }

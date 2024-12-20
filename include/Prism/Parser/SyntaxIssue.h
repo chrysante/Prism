@@ -1,6 +1,8 @@
 #ifndef PRISM_PARSER_SYNTAXISSUE_H
 #define PRISM_PARSER_SYNTAXISSUE_H
 
+#include <string_view>
+
 #include <Prism/Common/Issue.h>
 #include <Prism/Source/SourceLocation.h>
 #include <Prism/Source/Token.h>
@@ -37,6 +39,8 @@ namespace prism {
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
     class Name: public Base {                                                  \
     public:                                                                    \
+        static std::string_view StaticName() { return #Name; }                 \
+                                                                               \
         explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
                                      PRISM_REMOVE_PARENS CtorArgs));           \
     };

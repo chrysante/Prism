@@ -101,8 +101,8 @@ struct Parser: LinearParser {
     LinParser<0> makeParser() {
         static constexpr auto stop = [](Token tok) {
             static constexpr std::array kinds = {
-                Var,   Let, Fn, Struct, Trait,      Return,   For,
-                While, Do,  If, Else,   CloseBrace, Semicolon
+                Var,   Let, Fn, Struct, Trait,      Return,    For,
+                While, Do,  If, Else,   CloseBrace, Semicolon, End
             };
             return ranges::contains(kinds, tok.kind);
         };

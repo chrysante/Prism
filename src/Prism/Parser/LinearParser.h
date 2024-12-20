@@ -155,8 +155,7 @@ struct LinearParser: public ParserBase {
     ParserRule option(ParserRule const (&rules)[N]) {
         return { [&]() -> ListFacet const* {
             auto elems = parseLinearGrammarNoRecov(rules);
-            if (elems.front()) return allocate<ListFacet>(elems);
-            return nullptr;
+            return allocate<ListFacet>(elems);
         } };
     }
 

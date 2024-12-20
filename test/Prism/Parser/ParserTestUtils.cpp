@@ -2,13 +2,16 @@
 
 #include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <termfmt/termfmt.h>
 #include <utl/hash.hpp>
+#include <utl/hashtable.hpp>
 #include <utl/strcat.hpp>
 
+#include <Prism/Common/Functional.h>
 #include <Prism/Common/IssueHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
@@ -48,6 +51,7 @@ struct std::hash<TreeErrorKey> {
 };
 
 static std::unordered_map<TreeErrorKey, std::string> gErrorMap;
+std::vector<std::function<void(std::ostream&)>> gIssueMatchErrors;
 
 static bool validate(bool value, TreeErrorKey key, auto&&... message) {
     if (value) return true;
@@ -66,19 +70,9 @@ std::ostream& prism::operator<<(std::ostream& str, Facet const& facet) {
         }
     };
     print(&facet, str, { .nodeCallback = callback });
+    for (auto& err: gIssueMatchErrors)
+        err(str);
     return str;
-}
-
-bool ExpectedIssue::verify(IssueHandler const& iss,
-                           SourceContext const& ctx) const {
-    for (auto& issue: iss) {
-        if (!checkType(&issue)) continue;
-        auto sourceLoc = ctx.getSourceLocation(issue.sourceIndex());
-        if (sourceLoc.line != line) continue;
-        if (column && sourceLoc.column != *column) continue;
-        return true;
-    }
-    return false;
 }
 
 namespace prism {
@@ -135,14 +129,47 @@ using internal::gAlloc;
 static SourceContext gCtx;
 static IssueHandler gIssueHandler;
 
+static bool matchIssue(ExpectedIssue const& expIss,
+                       utl::hashset<Issue const*>& issues,
+                       SourceContext const& ctx) {
+    for (auto itr = issues.begin(); itr != issues.end(); ++itr) {
+        auto& issue = **itr;
+        if (!expIss.checkType(&issue)) continue;
+        auto sourceLoc = ctx.getSourceLocation(issue.sourceIndex());
+        if (sourceLoc.line != expIss.line) continue;
+        if (expIss.column && sourceLoc.column != *expIss.column) continue;
+        issues.erase(itr);
+        return true;
+    }
+    return false;
+}
+
 bool AstRefNode::verifyIssues() const {
-    return ranges::all_of(expectedIssues, [](auto* e) {
-        return e->verify(gIssueHandler, gCtx);
-    });
+    auto issues = gIssueHandler | ranges::views::transform(AddressOf) |
+                  ranges::to<utl::hashset<Issue const*>>;
+    bool result = true;
+    for (auto* expIssue: expectedIssues) {
+        if (!matchIssue(*expIssue, issues, gCtx)) {
+            result = false;
+            gIssueMatchErrors.push_back([=](std::ostream& str) {
+                str << "Failed to match expected issue: " << *expIssue
+                    << std::endl;
+            });
+        }
+    }
+    for (auto* issue: issues) {
+        gIssueMatchErrors.push_back([=](std::ostream& str) {
+            str << "Unexpected issue: ";
+            issue->format(str, gCtx);
+            str << std::endl;
+        });
+    }
+    return result && issues.empty();
 }
 
 bool prism::operator==(Facet const& facet, AstRefNode const* ref) {
     gErrorMap.clear();
+    gIssueMatchErrors.clear();
     return ref->compare(&facet, nullptr, 0) && ref->verifyIssues();
 }
 

@@ -16,9 +16,9 @@ static std::vector<char> makeRandomBits(uint64_t seed, size_t count) {
            ranges::views::take(count) | ranges::to<std::vector>;
 }
 
-CLI::App* addSubcommand(std::string name, int (*mainFn)(CLI::App*));
+CLI::App* addSubcommand(std::string name, std::function<int()>);
 
-static int fuzzParserMain(CLI::App*);
+static int fuzzParserMain();
 
 static int const INIT = [] {
     addSubcommand("fuzz-parser", fuzzParserMain);
@@ -29,7 +29,7 @@ void printIndex(int index) {
     // Clear the line and move the cursor to the start
     std::cout << "\r\033[K" << "Index: " << index << std::flush;
 }
-static int fuzzParserMain(CLI::App*) {
+static int fuzzParserMain() {
     for (int i = 0;; ++i) {
         uint64_t seed = std::random_device{}();
         auto bytes = makeRandomBits(seed, 1 << 14);
