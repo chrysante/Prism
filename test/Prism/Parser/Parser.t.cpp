@@ -223,7 +223,7 @@ TEST_CASE("Function types", "[parser]") {
                     NullNode,
                     NullNode,
                     NullNode,
-                    AutoArg
+                    AutoArgFacet
                 },
                 CloseBrace
             }
@@ -278,7 +278,7 @@ TEST_CASE("Currying", "[parser]") {
                     Identifier,
                     OpenParen,
                     ListFacet >> Tree{
-                        IntLiteralDec, AutoArg
+                        IntLiteralDec, AutoArgFacet
                     },
                     CloseParen
                 }
@@ -306,13 +306,45 @@ TEST_CASE("Expressions nested in type specs", "[parser]") {
             },
             CloseParen
         },
-        AutoArg
+        AutoArgFacet
     });
 }
 
 TEST_CASE("Deduction qualifiers", "[parser]") {
     CHECK(*parseTypeSpec("&mut") == PrefixFacet >> Tree{
         Ampersand, Mut
+    });
+}
+
+TEST_CASE("Auto arguments", "[parser]") {
+    CHECK(*parseExpr("@0") == AutoArgFacet >> Tree{
+        AutoArgIntro, NullNode, NullNode, NullNode
+    });
+    CHECK(*parseExpr("@0arg") == AutoArgFacet >> Tree{
+        AutoArgIntro, Identifier, NullNode, NullNode
+    });
+    CHECK(*parseExpr("@0:&") == AutoArgFacet >> Tree{
+        AutoArgIntro, NullNode, Colon, Ampersand
+    });
+    CHECK(*parseExpr("@0:int") == AutoArgFacet >> Tree{
+        AutoArgIntro, NullNode, Colon, Int
+    });
+    CHECK(*parseExpr("@0arg:int") == AutoArgFacet >> Tree{
+        AutoArgIntro, Identifier, Colon, Int
+    });
+    CHECK(*parseExpr("fn @0arg:& (arg)") == ClosureFacet >> Tree{
+        Fn,
+        NullNode,
+        NullNode,
+        NullNode,
+        CallFacet >> Tree{
+            AutoArgFacet >> Tree{
+                AutoArgIntro, Identifier, Colon, Ampersand
+            },
+            OpenParen,
+            ListFacet >> Tree{ Identifier },
+            CloseParen
+        }
     });
 }
 

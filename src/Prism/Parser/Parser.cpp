@@ -71,6 +71,7 @@ struct Parser: LinearParser {
     Facet const* parsePrimaryFacet();
     Facet const* parseFstringFacet();
     CompoundFacet const* parseCompoundFacet();
+    Facet const* parseAutoArgFacet();
     Facet const* parseClosureOrFnTypeFacet();
     Facet const* parseParenthesisedFacet();
     Facet const* parseArrayFacet();
@@ -437,14 +438,17 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
 
 Facet const* Parser::parsePrimaryFacet() {
     static constexpr std::array TermKinds = {
-        Identifier, IntLiteralBin, IntLiteralDec, IntLiteralHex, True,  False,
-        This,       AutoArg,       Void,          Int,           Double
+        Identifier, IntLiteralBin, IntLiteralDec, IntLiteralHex, True,
+        False,      This,          Void,          Int,           Double
     };
     if (auto tok = match(TermKinds)) return allocate<TerminalFacet>(*tok);
     if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
-    if (auto* facet = parseParenthesisedFacet()) return facet;
-    if (auto* array = parseArrayFacet()) return array;
-    if (auto* cmpFacet = parseCompoundFacet()) return cmpFacet;
+    if (facetState != FacetState::Type) {
+        if (auto* facet = parseParenthesisedFacet()) return facet;
+        if (auto* array = parseArrayFacet()) return array;
+        if (auto* cmpFacet = parseCompoundFacet()) return cmpFacet;
+        if (auto* autoArg = parseAutoArgFacet()) return autoArg;
+    }
     return nullptr;
 }
 
@@ -475,6 +479,18 @@ CompoundFacet const* Parser::parseCompoundFacet() {
     auto close = matchExpect(CloseBrace);
     return allocate<CompoundFacet>(*open, allocate<StmtListFacet>(elems),
                                    returnFacet, close.value_or(ErrorToken));
+}
+
+Facet const* Parser::parseAutoArgFacet() {
+    auto [intro, name, colon, type] =
+        makeParser()
+            .fastFail(Match(AutoArgIntro))
+            .optRule({ fn(parseUnqualName) })
+            .optRule({ Match(Colon),
+                       { fn(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
+            .eval();
+    if (!intro) return nullptr;
+    return allocate<AutoArgFacet>(intro, name, colon, type);
 }
 
 Facet const* Parser::parseClosureOrFnTypeFacet() {

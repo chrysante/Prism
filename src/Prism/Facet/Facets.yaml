@@ -260,3 +260,15 @@ facets:
         type: Facet
       - name: body
         type: Facet
+
+  - name: AutoArgFacet
+    base: NonTerminalFacet
+    members:
+      - name: intro
+        type: TerminalFacet
+      - name: name
+        type: TerminalFacet
+      - name: Colon
+        type: TerminalFacet
+      - name: type
+        type: Facet
