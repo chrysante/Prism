@@ -18,7 +18,13 @@ concept ParserFn = std::invocable<Fn>;
 template <ParserFn Fn>
 using InvokeResult = std::invoke_result_t<Fn>;
 
-enum class FacetState { General, Type };
+template <typename>
+struct TagT {};
+
+template <typename T>
+constexpr TagT<T> Tag{};
+
+enum class FacetState { Expression, Type };
 
 struct Parser: LinearParser {
     using LinearParser::LinearParser;
@@ -115,7 +121,7 @@ struct Parser: LinearParser {
         return { Match(kind), Raise<ExpectedToken>(kind) };
     }
 
-    FacetState facetState = FacetState::General;
+    FacetState facetState = FacetState::Expression;
 };
 
 } // namespace
@@ -134,7 +140,7 @@ Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
                                SourceContext const& sourceCtx,
                                IssueHandler& iss) {
     Parser parser(alloc, sourceCtx, iss);
-    return parser.parseAssignFacet();
+    return parser.parseFacet();
 }
 
 SourceFileFacet const* Parser::parseSourceFile() {
@@ -267,10 +273,12 @@ ExprStmtFacet const* Parser::parseExprStmt() {
 
 Facet const* Parser::parseFacet() { return parseAssignFacet(); }
 
-Facet const* Parser::parseExpr() { return parseFacet(); }
+Facet const* Parser::parseExpr() {
+    return withFacetState(FacetState::Expression, fn(parseFacet));
+}
 
 Facet const* Parser::parseTypeSpec() {
-    return withFacetState(FacetState::Type, [&] { return parsePrefixFacet(); });
+    return withFacetState(FacetState::Type, fn(parsePrefixFacet));
 }
 
 Facet const* Parser::parseAssignFacet() {
@@ -387,7 +395,8 @@ Facet const* Parser::parsePostfixFacet() {
 
 Facet const* Parser::parseCallFacet(Facet const* primary) {
     if (isa<CompoundFacet>(primary)) return nullptr;
-    auto impl = [&](TokenKind openKind, TokenKind closeKind) -> Facet const* {
+    auto impl = [&]<typename T>(TagT<T>, TokenKind openKind,
+                                TokenKind closeKind) -> CallBaseFacet const* {
         auto [open, args, close] =
             makeParser()
                 .rule(Match(openKind))
@@ -395,12 +404,14 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
                 .rule(MatchExpect(closeKind))
                 .eval();
         if (!open) return nullptr;
-        return allocate<CallFacet>(primary, open, args, close);
+        return allocate<T>(primary, open, args, close);
     };
-    if (auto* call = impl(OpenParen, CloseParen)) return call;
-    if (auto* call = impl(OpenBracket, CloseBracket)) return call;
+    if (auto* call = impl(Tag<CallFacet>, OpenParen, CloseParen)) return call;
+    if (auto* call = impl(Tag<IndexFacet>, OpenBracket, CloseBracket))
+        return call;
     if (facetState != FacetState::Type)
-        if (auto* call = impl(OpenBrace, CloseBrace)) return call;
+        if (auto* call = impl(Tag<AggrConstructFacet>, OpenBrace, CloseBrace))
+            return call;
     return nullptr;
 }
 
@@ -423,15 +434,15 @@ CompoundFacet const* Parser::parseCompoundFacet() {
     utl::small_vector<StmtFacet const*> elems;
     auto* returnFacet = EVAL_AS(Facet const*) {
         while (true) {
-            Facet const* facet = parseAssignFacet();
-            if (facet) {
-                if (peekMatch(CloseBrace)) return facet;
+            Facet const* expr = parseExpr();
+            if (expr) {
+                if (peekMatch(CloseBrace)) return expr;
                 std::optional<Token> semicolon;
-                if (!isa<CompoundFacet>(facet)) {
+                if (!isa<CompoundFacet>(expr)) {
                     semicolon = matchExpect(Semicolon);
                 }
-                auto* stmt = allocate<ExprStmtFacet>(facet, semicolon.value_or(
-                                                                ErrorToken));
+                auto* stmt = allocate<ExprStmtFacet>(expr, semicolon.value_or(
+                                                               ErrorToken));
                 elems.push_back(stmt);
                 continue;
             }
@@ -466,7 +477,7 @@ Facet const* Parser::parseParenthesisedFacet() {
     auto [open, facet, close] =
         makeParser()
             .rule(Match(OpenParen))
-            .rule({ fn(parseFacet), Raise<ExpectedExpr>() })
+            .rule({ fn(parseExpr), Raise<ExpectedExpr>() })
             .rule(Match(CloseParen))
             .eval();
     if (!open) return nullptr;
@@ -486,7 +497,7 @@ Facet const* Parser::parseArrayFacet() {
 
 Facet const* Parser::parseListFacet(TokenKind delim, TokenKind end) {
     auto argList =
-        parseSequence(fn(parseAssignFacet), Raise<ExpectedExpr>(), end, delim);
+        parseSequence(fn(parseExpr), Raise<ExpectedExpr>(), end, delim);
     return allocate<ListFacet>(argList);
 }
 

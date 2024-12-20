@@ -1,28 +1,31 @@
 
+fn test() -> Array(int, int{}) {}
 
-fn d() {
-    s = ;
-    s +
-    return y;
-}
 
-let n: int =  ;
-let n  int = 0;
-let n:     = ;
-let n:       0;
-let n =
-let n : 0 =* 0;
 
-fn test() {
-    
-    x * 3
-    return 31
-    
-    return fn $0
-    return fn -> int $0
-    
-    0 as fn -> fn -> int;
-}
+// fn d() {
+//     s = ;
+//     s +
+//     return y;
+// }
+//
+// let n: int =  ;
+// let n  int = 0;
+// let n:     = ;
+// let n:       0;
+// let n =
+// let n : 0 =* 0;
+//
+// fn test() {
+//
+//     x * 3
+//     return 31
+//
+//     return fn $0
+//     return fn -> int $0
+//
+//     0 as fn -> fn -> int;
+// }
 
 //struct X { fn test() {} }
 

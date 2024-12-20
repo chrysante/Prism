@@ -213,9 +213,10 @@ facets:
     base: NonTerminalFacet
     decl_only: true
 
-  - name: CallFacet
+  - name: CallBaseFacet
     base: NonTerminalFacet
-    members: 
+    abstract: true
+    members:
       - name: callee
         type: Facet
       - name: openBracket
@@ -224,6 +225,15 @@ facets:
         type: ListFacet
       - name: closeBracket
         type: TerminalFacet
+
+  - name: CallFacet
+    base: CallBaseFacet
+
+  - name: AggrConstructFacet
+    base: CallBaseFacet
+
+  - name: IndexFacet
+    base: CallBaseFacet
 
   - name: FnTypeFacet
     base: NonTerminalFacet

@@ -20,18 +20,23 @@ using prism::Tree;
 // clang-format off
 
 TEST_CASE("FuncDecl", "[parser]") {
-    CHECK(*parseFile("fn test() -> T { T{}; { T{} } }") == SourceFileFacet >> Tree{
+    CHECK(*parseFile("fn test() -> T({}) { T{}; { T{} } }") == SourceFileFacet >> Tree{
         FuncDeclFacet >> Tree{
             Fn,
             Identifier,
             ParamListFacet,
             Arrow,
-            Identifier,
+            CallFacet >> Tree{
+                Identifier,
+                OpenParen,
+                ListFacet >> Tree{ CompoundFacet },
+                CloseParen
+            },
             CompoundFacet >> Tree{
                 OpenBrace,
                 StmtListFacet >> Tree{
                     ExprStmtFacet >> Tree{
-                        CallFacet >> Tree{
+                        AggrConstructFacet >> Tree{
                             Identifier, OpenBrace, ListFacet, CloseBrace
                         },
                         Semicolon
@@ -40,7 +45,7 @@ TEST_CASE("FuncDecl", "[parser]") {
                 CompoundFacet >> Tree {
                     OpenBrace,
                     StmtListFacet,
-                    CallFacet >> Tree{
+                    AggrConstructFacet >> Tree{
                         Identifier, OpenBrace, ListFacet, CloseBrace
                     },
                     CloseBrace
@@ -264,6 +269,28 @@ TEST_CASE("Currying", "[parser]") {
             },
             Semicolon
         }
+    });
+}
+
+TEST_CASE("Expressions nested in type specs", "[parser]") {
+    CHECK(*parseFacet("fn -> T(int{}) $0") == ClosureFacet >> Tree{
+        Fn,
+        NullNode,
+        Arrow,
+        CallFacet >> Tree{
+            Identifier,
+            OpenParen,
+            ListFacet >> Tree{
+                AggrConstructFacet >> Tree {
+                    Int,
+                    OpenBrace,
+                    ListFacet,
+                    CloseBrace
+                },
+            },
+            CloseParen
+        },
+        AutoArg
     });
 }
 
