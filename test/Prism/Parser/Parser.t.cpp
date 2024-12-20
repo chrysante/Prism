@@ -22,7 +22,7 @@ using prism::Tree;
 TEST_CASE("FuncDecl", "[parser]") {
     CHECK(*parseFile("fn test() -> T { T{}; { T{} } }") == SourceFileFacet >> Tree{
         FuncDeclFacet >> Tree{
-            Function,
+            Fn,
             Identifier,
             ParamListFacet,
             Arrow,
@@ -156,7 +156,7 @@ TEST_CASE("Function types", "[parser]") {
             Identifier,
             Colon,
             FnTypeFacet >> Tree{
-                Function,
+                Fn,
                 ParamListFacet >> Tree{
                     ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
                     ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
@@ -166,7 +166,7 @@ TEST_CASE("Function types", "[parser]") {
             },
             Equal,
             ClosureFacet >> Tree {
-                Function,
+                Fn,
                 ParamListFacet,
                 NullNode,
                 NullNode,
@@ -179,14 +179,14 @@ TEST_CASE("Function types", "[parser]") {
     CHECK(*parseFile("fn foo() -> dyn fn (n: int) -> int { fn $0 }") ==
           SourceFileFacet >> Tree{
         FuncDeclFacet >> Tree{
-            Function,
+            Fn,
             Identifier,
             ParamListFacet,
             Arrow,
             PrefixFacet >> Tree {
                 Dyn,
                 FnTypeFacet >> Tree{
-                    Function,
+                    Fn,
                     ParamListFacet >> Tree{
                         ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
                     },
@@ -198,7 +198,7 @@ TEST_CASE("Function types", "[parser]") {
                 OpenBrace,
                 StmtListFacet,
                 ClosureFacet >> Tree{
-                    Function,
+                    Fn,
                     NullNode,
                     NullNode,
                     NullNode,
@@ -220,7 +220,7 @@ TEST_CASE("Currying", "[parser]") {
             NullNode,
             Equal,
             ClosureFacet >> Tree {
-                Function,
+                Fn,
                 ParamListFacet >> Tree{
                     ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
                     ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
@@ -249,7 +249,7 @@ TEST_CASE("Currying", "[parser]") {
             NullNode,
             Equal,
             ClosureFacet >> Tree{
-                Function,
+                Fn,
                 NullNode,
                 NullNode,
                 NullNode,

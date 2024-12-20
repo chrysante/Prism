@@ -95,8 +95,8 @@ struct Parser: LinearParser {
     LinParser<0> makeParser() {
         static constexpr auto stop = [](Token tok) {
             static constexpr std::array kinds = {
-                Var,   Let, Function, Struct, Trait,      Return,   For,
-                While, Do,  If,       Else,   CloseBrace, Semicolon
+                Var,   Let, Fn, Struct, Trait,      Return,   For,
+                While, Do,  If, Else,   CloseBrace, Semicolon
             };
             return ranges::contains(kinds, tok.kind);
         };
@@ -152,7 +152,7 @@ DeclFacet const* Parser::parseGlobalDecl() {
 FuncDeclFacet const* Parser::parseFuncDecl() {
     auto [declarator, name, params, arrow, retType, body] =
         makeParser()
-            .rule(Match(Function))
+            .rule(Match(Fn))
             .rule({ fn(parseName), Raise<ExpectedDeclName>() })
             .rule({ fn(parseParamList), Raise<ExpectedParamList>() })
             .optRule({ Match(Arrow),
@@ -452,7 +452,7 @@ Facet const* Parser::parseClosureOrFnTypeFacet() {
     };
     auto [fn, params, arrow, retType, body] =
         makeParser()
-            .rule(Match(Function))
+            .rule(Match(Fn))
             .optRule({ fn(parseParamList) })
             .optRule({ Match(Arrow), fn(parseTypeSpec) })
             .optRule({ bodyIfNotType })

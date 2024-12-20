@@ -40,7 +40,7 @@ fn test(aParam: int, b: double) -> void {
     SourceContext ctx({}, source);
     IssueHandler H;
     Lexer L(source, H);
-    CHECK(L.next() == RefToken{ ctx, TokenKind::Function, 1, 0, 2 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::Fn, 1, 0, 2 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 1, 3, 4 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::OpenParen, 1, 7, 1 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 1, 8, 6 });
@@ -70,7 +70,7 @@ TEST_CASE("Integration no spaces", "[lexer]") {
 fn test(aParam:int,b:double)->void{return;})";
     IssueHandler H;
     Lexer L(source, H);
-    CHECK(L.next().kind == TokenKind::Function);
+    CHECK(L.next().kind == TokenKind::Fn);
     CHECK(L.next().kind == TokenKind::Identifier);
     CHECK(L.next().kind == TokenKind::OpenParen);
     CHECK(L.next().kind == TokenKind::Identifier);
