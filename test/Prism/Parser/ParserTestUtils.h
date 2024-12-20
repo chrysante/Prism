@@ -119,7 +119,9 @@ AstRefNode* operator>>(std::convertible_to<VarType> auto type,
 
 SourceFileFacet const* parseFile(std::string_view text);
 
-Facet const* parseFacet(std::string_view text);
+Facet const* parseExpr(std::string_view text);
+
+Facet const* parseTypeSpec(std::string_view text);
 
 } // namespace prism
 

@@ -80,11 +80,7 @@ static bool isIDBegin(char c) {
 static bool isIDContinue(char c) { return isIDBegin(c) || isDec(c); }
 
 std::optional<Token> Lexer::lexAutoArg() {
-    if (auto tok = lexIntLiteralImpl(TokenKind::AutoArg, "$", isDec))
-        return tok;
-    if (auto tok = lexIntLiteralImpl(TokenKind::AutoArg, "&", isDec))
-        return tok;
-    return std::nullopt;
+    return lexIntLiteralImpl(TokenKind::AutoArg, "@", isDec);
 }
 
 static constexpr auto operatorLetterArrayImpl(auto cont) {

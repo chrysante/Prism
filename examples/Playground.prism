@@ -1,7 +1,9 @@
 
-fn test() -> Array(int, int{}) {}
 
 
+//let f = fn @0:&mut +
+
+let f: fn (n: int, m: int) -> int;// = fn (){};
 
 // fn d() {
 //     s = ;

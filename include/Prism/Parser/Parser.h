@@ -16,11 +16,14 @@ SourceFileFacet const* parseSourceFile(MonotonicBufferResource& alloc,
                                        SourceContext const& sourceCtx,
                                        IssueHandler& iss);
 
-/// Parses a single facet, i.e. expression or type specifier.
-///
+/// Parses a single expression facet.
 /// This function is only exposed for testing
-Facet const* parseFacet(MonotonicBufferResource& alloc,
-                        SourceContext const& sourceCtx, IssueHandler& iss);
+Facet const* parseExpr(MonotonicBufferResource& alloc,
+                       SourceContext const& sourceCtx, IssueHandler& iss);
+
+/// This function is only exposed for testing
+Facet const* parseTypeSpec(MonotonicBufferResource& alloc,
+                           SourceContext const& sourceCtx, IssueHandler& iss);
 
 } // namespace prism
 

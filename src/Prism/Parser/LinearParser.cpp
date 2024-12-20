@@ -15,18 +15,17 @@ void LinearParser::parseLinearGrammarImpl(
         facets = facets.subspan(offset);
     };
     uint32_t startTokenIndex = currentTokenIndex();
-    bool first = true;
     while (!rules.empty()) {
         auto& rule = rules.front();
         auto& facet = facets.front();
         facet = rule.parser();
         if (facet) {
             inc(1);
-            first = false;
             continue;
         }
-        // If the first rule fails we return directly
-        if (first) {
+        // Okay, we failed to parse the current fule.
+        // For fast fail rules we return directly
+        if (rule.isFastFail) {
             PRISM_ASSERT(
                 startTokenIndex == currentTokenIndex(),
                 "We should fail gracefully here without eating tokens");

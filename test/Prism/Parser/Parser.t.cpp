@@ -13,8 +13,9 @@ using enum prism::TokenKind;
 
 using prism::IssueOnLine;
 using prism::NullNode;
-using prism::parseFacet;
+using prism::parseExpr;
 using prism::parseFile;
+using prism::parseTypeSpec;
 using prism::Tree;
 
 // clang-format off
@@ -57,7 +58,7 @@ TEST_CASE("FuncDecl", "[parser]") {
 }
 
 TEST_CASE("Simple expressions", "[parser]") {
-    CHECK(*parseFacet("0xff + 42 * ++c") == BinaryFacet >> Tree{
+    CHECK(*parseExpr("0xff + 42 * ++c") == BinaryFacet >> Tree{
         IntLiteralHex,
         Plus,
         BinaryFacet >> Tree{
@@ -67,7 +68,7 @@ TEST_CASE("Simple expressions", "[parser]") {
         }
     });
 
-    CHECK(*parseFacet("f(x, y, z)") == CallFacet >> Tree{
+    CHECK(*parseExpr("f(x, y, z)") == CallFacet >> Tree{
         Identifier,
         OpenParen,
         ListFacet >> Tree{
@@ -76,7 +77,7 @@ TEST_CASE("Simple expressions", "[parser]") {
         CloseParen
     });
 
-    CHECK(*parseFacet("x < y < z") == BinaryFacet >> Tree{
+    CHECK(*parseExpr("x < y < z") == BinaryFacet >> Tree{
         BinaryFacet >> Tree{
             Identifier, LeftAngle, Identifier
         },
@@ -84,7 +85,7 @@ TEST_CASE("Simple expressions", "[parser]") {
         Identifier
     });
 
-    CHECK(*parseFacet("x = y = z") == BinaryFacet >> Tree{
+    CHECK(*parseExpr("x = y = z") == BinaryFacet >> Tree{
         Identifier,
         Equal,
         BinaryFacet >> Tree{
@@ -94,7 +95,7 @@ TEST_CASE("Simple expressions", "[parser]") {
 }
 
 TEST_CASE("Conditionals", "[parser]") {
-    CHECK(*parseFacet("x ? a + b : y ? c : d") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ? a + b : y ? c : d") == CondFacet >> Tree{
         Identifier,
         Question,
         BinaryFacet >> Tree {
@@ -109,7 +110,7 @@ TEST_CASE("Conditionals", "[parser]") {
             Identifier
         }
     });
-    CHECK(*parseFacet("x ? : b") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ? : b") == CondFacet >> Tree{
         Identifier,
         Question,
         NullNode,
@@ -117,7 +118,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier
     } >> IssueOnLine<prism::ExpectedExpr>(0, 4));
 
-    CHECK(*parseFacet("x ? a b") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ? a b") == CondFacet >> Tree{
         Identifier,
         Question,
         Identifier,
@@ -125,7 +126,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier
     } >> IssueOnLine<prism::ExpectedToken>(0, 6));
 
-    CHECK(*parseFacet("x ? a :") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ? a :") == CondFacet >> Tree{
         Identifier,
         Question,
         Identifier,
@@ -133,7 +134,7 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode
     } >> IssueOnLine<prism::ExpectedExpr>(0, 7));
 
-    CHECK(*parseFacet("x ? :") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ? :") == CondFacet >> Tree{
         Identifier,
         Question,
         NullNode,
@@ -142,7 +143,7 @@ TEST_CASE("Conditionals", "[parser]") {
     } >> IssueOnLine<prism::ExpectedExpr>(0, 4)
       >> IssueOnLine<prism::ExpectedExpr>(0, 5));
 
-    CHECK(*parseFacet("x ?") == CondFacet >> Tree{
+    CHECK(*parseExpr("x ?") == CondFacet >> Tree{
         Identifier,
         Question,
         NullNode,
@@ -181,7 +182,7 @@ TEST_CASE("Function types", "[parser]") {
         }
     });
 
-    CHECK(*parseFile("fn foo() -> dyn fn (n: int) -> int { fn $0 }") ==
+    CHECK(*parseFile("fn foo() -> dyn fn (n: int) -> int { fn @0 }") ==
           SourceFileFacet >> Tree{
         FuncDeclFacet >> Tree{
             Fn,
@@ -245,7 +246,7 @@ TEST_CASE("Currying", "[parser]") {
         }
     });
 
-    CHECK(*parseFile("let g = fn f(2, $0);") ==
+    CHECK(*parseFile("let g = fn f(2, @0);") ==
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
             Let,
@@ -273,7 +274,7 @@ TEST_CASE("Currying", "[parser]") {
 }
 
 TEST_CASE("Expressions nested in type specs", "[parser]") {
-    CHECK(*parseFacet("fn -> T(int{}) $0") == ClosureFacet >> Tree{
+    CHECK(*parseExpr("fn -> T(int{}) @0") == ClosureFacet >> Tree{
         Fn,
         NullNode,
         Arrow,
@@ -291,6 +292,12 @@ TEST_CASE("Expressions nested in type specs", "[parser]") {
             CloseParen
         },
         AutoArg
+    });
+}
+
+TEST_CASE("Deduction qualifiers", "[parser]") {
+    CHECK(*parseTypeSpec("&mut") == PrefixFacet >> Tree{
+        Ampersand, Mut
     });
 }
 

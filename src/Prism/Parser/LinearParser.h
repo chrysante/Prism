@@ -20,6 +20,7 @@ struct ParserRule: ParserRuleOptions {
 
     std::function<Facet const*()> parser;
     std::function<void(Token)> error;
+    bool isFastFail = false;
 
 private:
     friend struct LinearParser;
@@ -121,9 +122,16 @@ struct LinearParser: public ParserBase {
             return result;
         }
 
+        LinParser<N + 1, Children..., IndexTree<N>> fastFail(
+            ParserRule rule) const&& {
+            rule.isFastFail = true;
+            return std::move(*this).template rule(std::move(rule));
+        }
+
         template <size_t M>
             requires(M > 0)
         auto optRule(ParserRule (&&rules)[M]) const&& {
+            rules[0].isFastFail = true;
             return [&]<size_t... I>(std::index_sequence<I...>) {
                 return std::move(*this)
                     .template rule<IndexTree<N, IndexTree<I>...>>(

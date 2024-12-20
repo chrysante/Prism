@@ -180,8 +180,14 @@ SourceFileFacet const* prism::parseFile(std::string_view text) {
     return parseSourceFile(gAlloc, gCtx, gIssueHandler);
 }
 
-Facet const* prism::parseFacet(std::string_view text) {
+Facet const* prism::parseExpr(std::string_view text) {
     gCtx = SourceContext({}, text);
     gIssueHandler.clear();
-    return parseFacet(gAlloc, gCtx, gIssueHandler);
+    return parseExpr(gAlloc, gCtx, gIssueHandler);
+}
+
+Facet const* prism::parseTypeSpec(std::string_view text) {
+    gCtx = SourceContext({}, text);
+    gIssueHandler.clear();
+    return parseTypeSpec(gAlloc, gCtx, gIssueHandler);
 }

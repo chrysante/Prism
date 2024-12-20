@@ -126,9 +126,6 @@ struct Parser: LinearParser {
 
 } // namespace
 
-#define fn(Name, ...)    [this] { return Name(__VA_ARGS__); }
-#define valfn(Name, ...) [=, this] { return Name(__VA_ARGS__); }
-
 SourceFileFacet const* prism::parseSourceFile(MonotonicBufferResource& alloc,
                                               SourceContext const& sourceCtx,
                                               IssueHandler& iss) {
@@ -136,12 +133,22 @@ SourceFileFacet const* prism::parseSourceFile(MonotonicBufferResource& alloc,
     return parser.parseSourceFile();
 }
 
-Facet const* prism::parseFacet(MonotonicBufferResource& alloc,
-                               SourceContext const& sourceCtx,
-                               IssueHandler& iss) {
+Facet const* prism::parseExpr(MonotonicBufferResource& alloc,
+                              SourceContext const& sourceCtx,
+                              IssueHandler& iss) {
     Parser parser(alloc, sourceCtx, iss);
-    return parser.parseFacet();
+    return parser.parseExpr();
 }
+
+Facet const* prism::parseTypeSpec(MonotonicBufferResource& alloc,
+                                  SourceContext const& sourceCtx,
+                                  IssueHandler& iss) {
+    Parser parser(alloc, sourceCtx, iss);
+    return parser.parseTypeSpec();
+}
+
+#define fn(Name, ...)    [this] { return Name(__VA_ARGS__); }
+#define valfn(Name, ...) [=, this] { return Name(__VA_ARGS__); }
 
 SourceFileFacet const* Parser::parseSourceFile() {
     return allocate<SourceFileFacet>(
@@ -158,7 +165,7 @@ DeclFacet const* Parser::parseGlobalDecl() {
 FuncDeclFacet const* Parser::parseFuncDecl() {
     auto [declarator, name, params, arrow, retType, body] =
         makeParser()
-            .rule(Match(Fn))
+            .fastFail(Match(Fn))
             .rule({ fn(parseName), Raise<ExpectedDeclName>() })
             .rule({ fn(parseParamList), Raise<ExpectedParamList>() })
             .optRule({ Match(Arrow),
@@ -173,7 +180,7 @@ FuncDeclFacet const* Parser::parseFuncDecl() {
 CompTypeDeclFacet const* Parser::parseCompTypeDecl() {
     auto [declarator, name, colon, baselist, openbrace, body, closebrace] =
         makeParser()
-            .rule(Match(Struct, Trait))
+            .fastFail(Match(Struct, Trait))
             .rule({ fn(parseName), Raise<ExpectedDeclName>() })
             .optRule({ Match(Colon), fn(parseBaseList) })
             .rule(MatchExpect(OpenBrace))
@@ -206,7 +213,7 @@ MemberListFacet const* Parser::parseMemberList() {
 VarDeclFacet const* Parser::parseVarDecl() {
     auto [declarator, name, colon, type, assign, init, semicolon] =
         makeParser()
-            .rule(Match(Var, Let))
+            .fastFail(Match(Var, Let))
             .rule(fn(parseName))
             .optRule({ Match(Colon),
                        { fn(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
@@ -249,7 +256,7 @@ ParamListFacet const* Parser::parseParamList() {
 
 ReturnStmtFacet const* Parser::parseReturnStmt() {
     auto [ret, expr, semicolon] = makeParser()
-                                      .rule(Match(Return))
+                                      .fastFail(Match(Return))
                                       .optRule({ fn(parseExpr) })
                                       .rule(MatchExpect(Semicolon))
                                       .eval();
@@ -265,8 +272,10 @@ EmptyStmtFacet const* Parser::parseEmptyStmt() {
 ExprStmtFacet const* Parser::parseExprStmt() {
     if (auto* expr = parseCompoundFacet())
         return allocate<ExprStmtFacet>(expr, nullptr);
-    auto [expr, semicolon] =
-        makeParser().rule(fn(parseExpr)).rule(MatchExpect(Semicolon)).eval();
+    auto [expr, semicolon] = makeParser()
+                                 .fastFail(fn(parseExpr))
+                                 .rule(MatchExpect(Semicolon))
+                                 .eval();
     if (!expr) return nullptr;
     return allocate<ExprStmtFacet>(expr, semicolon);
 }
@@ -294,7 +303,7 @@ Facet const* Parser::parseCastFacet() {
     while (true) {
         auto [as, type] =
             makeParser()
-                .rule(Match(As))
+                .fastFail(Match(As))
                 .rule({ fn(parsePrefixFacet), Raise<ExpectedTypeSpec>() })
                 .eval();
         if (!as) return facet;
@@ -307,7 +316,7 @@ Facet const* Parser::parseTernCondFacet() {
     if (!cond) return nullptr;
     auto [question, lhs, colon, rhs] =
         makeParser()
-            .rule(Match(Question))
+            .fastFail(Match(Question))
             .rule({ fn(parseAssignFacet), Raise<ExpectedExpr>() })
             .rule(MatchExpect(Colon))
             .rule({ fn(parseTernCondFacet), Raise<ExpectedExpr>() })
@@ -364,17 +373,28 @@ Facet const* Parser::parseMulFacet() {
 }
 
 Facet const* Parser::parsePrefixFacet() {
+    static constexpr std::array QualOps = { Exclam, Mut, Star, Ampersand,
+                                            Question };
     static constexpr std::array Ops = {
         Plus, Minus, Tilde,     Exclam,   DoublePlus, DoubleMinus, Mut,
         Dyn,  Star,  Ampersand, Question, New,        Move
     };
-    auto [op, operand] =
-        makeParser()
-            .rule(Match(Ops))
-            .rule({ fn(parsePrefixFacet), Raise<ExpectedExpr>() })
-            .eval();
-    if (!op) return parsePostfixFacet();
-    return allocate<PrefixFacet>(op, operand);
+    auto* operation = Match(Ops)();
+    if (!operation) return parsePostfixFacet();
+    if (facetState == FacetState::Type &&
+        ranges::contains(QualOps, operation->token().kind))
+    {
+        auto [operand] =
+            makeParser()
+                .fastFail({ fn(parsePrefixFacet), Raise<ExpectedExpr>() })
+                .eval();
+        if (operand) return allocate<PrefixFacet>(operation, operand);
+        return operation;
+    }
+    auto [operand] = makeParser()
+                         .rule({ fn(parsePrefixFacet), Raise<ExpectedExpr>() })
+                         .eval();
+    return allocate<PrefixFacet>(operation, operand);
 }
 
 Facet const* Parser::parsePostfixFacet() {
@@ -399,7 +419,7 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
                                 TokenKind closeKind) -> CallBaseFacet const* {
         auto [open, args, close] =
             makeParser()
-                .rule(Match(openKind))
+                .fastFail(Match(openKind))
                 .rule(valfn(parseListFacet, Comma, closeKind))
                 .rule(MatchExpect(closeKind))
                 .eval();
@@ -463,7 +483,7 @@ Facet const* Parser::parseClosureOrFnTypeFacet() {
     };
     auto [fn, params, arrow, retType, body] =
         makeParser()
-            .rule(Match(Fn))
+            .fastFail(Match(Fn))
             .optRule({ fn(parseParamList) })
             .optRule({ Match(Arrow), fn(parseTypeSpec) })
             .optRule({ bodyIfNotType })
@@ -476,7 +496,7 @@ Facet const* Parser::parseClosureOrFnTypeFacet() {
 Facet const* Parser::parseParenthesisedFacet() {
     auto [open, facet, close] =
         makeParser()
-            .rule(Match(OpenParen))
+            .fastFail(Match(OpenParen))
             .rule({ fn(parseExpr), Raise<ExpectedExpr>() })
             .rule(Match(CloseParen))
             .eval();
@@ -487,7 +507,7 @@ Facet const* Parser::parseParenthesisedFacet() {
 Facet const* Parser::parseArrayFacet() {
     auto listParser = [this] { return parseListFacet(Comma, CloseBracket); };
     auto [open, list, close] = makeParser()
-                                   .rule(Match(OpenBracket))
+                                   .fastFail(Match(OpenBracket))
                                    .rule(listParser)
                                    .rule(Match(CloseParen))
                                    .eval();
@@ -509,7 +529,7 @@ Facet const* Parser::parseBinaryFacetLTR(
     if (!lhs) return nullptr;
     while (true) {
         auto [op, rhs] = makeParser()
-                             .rule(Match(acceptedOperators))
+                             .fastFail(Match(acceptedOperators))
                              .rule({ next, Raise<ExpectedExpr>() })
                              .eval();
         if (!op) return lhs;
@@ -523,7 +543,7 @@ Facet const* Parser::parseBinaryFacetRTL(
     if (!lhs) return nullptr;
     auto [op, rhs] =
         makeParser()
-            .rule(Match(acceptedOperators))
+            .fastFail(Match(acceptedOperators))
             .rule({ valfn(parseBinaryFacetRTL, acceptedOperators, next),
                     Raise<ExpectedExpr>() })
             .eval();
