@@ -14,8 +14,8 @@ void LinearParser::parseLinearGrammarImpl(
         rules = rules.subspan(offset);
         facets = facets.subspan(offset);
     };
-    uint32_t startTokenIndex = currentTokenIndex();
     while (!rules.empty()) {
+        uint32_t startTokenIndex = currentTokenIndex();
         auto& rule = rules.front();
         auto& facet = facets.front();
         facet = rule.parser();

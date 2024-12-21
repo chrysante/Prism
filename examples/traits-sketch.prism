@@ -2,11 +2,13 @@
 // Defined by compiler
 // module std {
 //
-// trait [R: type, ... each Arg: type] function {
+// trait [... each Arg: type] function {
+//     let R: type;
 //     fn call(&this, ... each Arg) -> R;
 // }
 //
-// trait [R: type, ... each Arg: type] mut_function {
+// trait [... each Arg: type] mut_function {
+//     let R: type;
 //     fn call(&this, ... each Arg) -> R;
 // }
 //
@@ -22,12 +24,12 @@ trait MyTrait {
     fn myTraitFn(&this, n: int) -> double;
 }
 
-/// Implementation of std.function(R, M) for MyFunction
-impl [R: type, M: MyTrait] std.function for MyFunction {
-    fn call(&this, m: &M) -> R { m.myTraitFn(this.value) }
+/// Implementation of std.function(M) for MyFunction
+impl [M: MyTrait] std.function for MyFunction {
+    fn call(&this, m: &M) -> double { m.myTraitFn(this.value) }
 }
 
-/// Implementation of std.function(int, int, int) for MyFunction
+/// Implementation of std.function(int, int) for MyFunction
 impl std.function for MyFunction {
     fn call(&this, n: int, m: int) -> int { n + m + this.value }
 }

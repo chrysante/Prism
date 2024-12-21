@@ -80,6 +80,7 @@ struct Parser: LinearParser {
     Facet const* parseCallFacet(Facet const* primary);
     Facet const* parseMemAccessFacet(Facet const* primary);
     Facet const* parsePrimaryFacet();
+    Facet const* parseThisFacet();
     Facet const* parseFstringFacet();
     CompoundFacet const* parseCompoundFacet();
     Facet const* parseAutoArgFacet();
@@ -113,8 +114,8 @@ struct Parser: LinearParser {
     LinParser<0> makeParser() {
         static constexpr auto stop = [](Token tok) {
             static constexpr std::array kinds = {
-                Var, Let, Fn,   Struct,     Trait, Impl,      Return,    For, While,
-                Do,  If,  Else, CloseBrace, CloseBrace, Semicolon, End
+                Var,   Let, Fn, Struct, Trait,      Impl,       Return,    For,
+                While, Do,  If, Else,   CloseBrace, CloseBrace, Semicolon, End
             };
             return ranges::contains(kinds, tok.kind);
         };
@@ -416,7 +417,9 @@ Facet const* Parser::parseExpr() {
 }
 
 Facet const* Parser::parseTypeSpec() {
-    return withFacetState(FacetState::Type, fn(parsePrefixFacet));
+    return withFacetState(FacetState::Type, [this] {
+        return parseBinaryFacetLTR(Ampersand, fn(parsePrefixFacet));
+    });
 }
 
 Facet const* Parser::parseAssignFacet() {
@@ -573,10 +576,11 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
 Facet const* Parser::parseMemAccessFacet(Facet const* primary) {
     auto* base = primary;
     while (true) {
-        auto [period, member] = makeParser()
-            .fastFail(Match(Period))
-            .rule({ fn(parseUnqualName), Raise<ExpectedId>() })
-            .eval();
+        auto [period, member] =
+            makeParser()
+                .fastFail(Match(Period))
+                .rule({ fn(parseUnqualName), Raise<ExpectedId>() })
+                .eval();
         if (!period) return base == primary ? nullptr : base;
         base = allocate<BinaryFacet>(base, period, member);
     }
@@ -589,6 +593,7 @@ Facet const* Parser::parsePrimaryFacet() {
 #include "Prism/Source/Token.def"
         Identifier
     };
+    if (auto* thisFacet = parseThisFacet()) return thisFacet;
     if (auto tok = match(TermKinds)) return allocate<TerminalFacet>(*tok);
     if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
     if (facetState != FacetState::Type) {
@@ -598,6 +603,14 @@ Facet const* Parser::parsePrimaryFacet() {
         if (auto* autoArg = parseAutoArgFacet()) return autoArg;
     }
     return nullptr;
+}
+
+Facet const* Parser::parseThisFacet() {
+    auto [thisTerm, typeTerm] =
+        makeParser().fastFail(Match(This)).fastFail(Match(Type)).eval();
+    if (!thisTerm) return nullptr;
+    if (!typeTerm) return thisTerm;
+    return allocate<PrefixFacet>(thisTerm, typeTerm);
 }
 
 CompoundFacet const* Parser::parseCompoundFacet() {

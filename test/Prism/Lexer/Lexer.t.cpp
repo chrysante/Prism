@@ -33,7 +33,7 @@ bool operator==(RefToken const& ref, Token const& tok) {
 
 TEST_CASE("Integration", "[lexer]") {
     auto source = R"(
-fn test(aParam: int, b: double) -> void {
+fn test(aParam: int, b: f64) -> void {
     return "Hello World\n";
 }
 )";
@@ -49,11 +49,11 @@ fn test(aParam: int, b: double) -> void {
     CHECK(L.next() == RefToken{ ctx, TokenKind::Comma, 1, 19, 1 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 1, 21, 1 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Colon, 1, 22, 1 });
-    CHECK(L.next() == RefToken{ ctx, TokenKind::Double, 1, 24, 6 });
-    CHECK(L.next() == RefToken{ ctx, TokenKind::CloseParen, 1, 30, 1 });
-    CHECK(L.next() == RefToken{ ctx, TokenKind::Arrow, 1, 32, 2 });
-    CHECK(L.next() == RefToken{ ctx, TokenKind::Void, 1, 35, 4 });
-    CHECK(L.next() == RefToken{ ctx, TokenKind::OpenBrace, 1, 40, 1 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::Float64, 1, 24, 3 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::CloseParen, 1, 27, 1 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::Arrow, 1, 29, 2 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::Void, 1, 32, 4 });
+    CHECK(L.next() == RefToken{ ctx, TokenKind::OpenBrace, 1, 37, 1 });
 
     CHECK(L.next() == RefToken{ ctx, TokenKind::Return, 2, 4, 6 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::StringLiteral, 2, 11, 15 });
@@ -67,7 +67,7 @@ fn test(aParam: int, b: double) -> void {
 
 TEST_CASE("Integration no spaces", "[lexer]") {
     auto source = R"(
-fn test(aParam:int,b:double)->void{return;})";
+fn test(aParam:int,b:f64)->void{return;})";
     IssueHandler H;
     Lexer L(source, H);
     CHECK(L.next().kind == TokenKind::Fn);
@@ -79,7 +79,7 @@ fn test(aParam:int,b:double)->void{return;})";
     CHECK(L.next().kind == TokenKind::Comma);
     CHECK(L.next().kind == TokenKind::Identifier);
     CHECK(L.next().kind == TokenKind::Colon);
-    CHECK(L.next().kind == TokenKind::Double);
+    CHECK(L.next().kind == TokenKind::Float64);
     CHECK(L.next().kind == TokenKind::CloseParen);
     CHECK(L.next().kind == TokenKind::Arrow);
     CHECK(L.next().kind == TokenKind::Void);
