@@ -23,14 +23,17 @@ static constexpr utl::streammanip NullNode = [](std::ostream& str) {
     str << tfmt::format(BrightRed | Bold, "NULL");
 };
 
-static constexpr utl::streammanip FacetName = [](std::ostream& str,
-                                                 Facet const& facet) {
-    tfmt::FormatGuard fmt(Green | Italic, str);
+static constexpr utl::streammanip FacetName =
+    [](std::ostream& str, Facet const& facet, SourceContext const* ctx) {
+    static auto const Mod = Green | Italic;
     if (auto* term = dyncast<TerminalFacet const*>(&facet)) {
-        str << term->token().kind;
+        if (ctx)
+            str << ctx->getTokenStr(term->token());
+        else
+            str << tfmt::format(Mod, term->token().kind);
     }
     else {
-        str << get_rtti(facet);
+        str << tfmt::format(Mod, get_rtti(facet));
     }
 };
 
@@ -60,7 +63,7 @@ struct FacetPrinter: FacetPrintOptions {
             str << "\n";
             return;
         }
-        str << FacetName(*node);
+        str << FacetName(*node, srcCtx);
         csp::visit(*node, [this](auto& node) { details(node); });
         invokeCallback(node, parent, index);
         str << "\n";
@@ -77,12 +80,6 @@ struct FacetPrinter: FacetPrintOptions {
     }
 
     void details(Facet const&) {}
-
-    void details(TerminalFacet const& term) {
-        if (srcCtx) {
-            str << " " << srcCtx->getTokenStr(term.token());
-        }
-    }
 
     void invokeCallback(Facet const* facet, Facet const* parent, size_t index) {
         if (nodeCallback) nodeCallback(str, facet, parent, index);

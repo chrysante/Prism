@@ -1,15 +1,14 @@
 
+fn foo(t: MyType) { t.mem_foo(); }
 
-fn foo(s: S) -> S {}
-
-struct S {
-    fn mem(s: S) -> S {}
+struct MyType {
+    fn mem_foo(&this) {}
 }
 
-trait T {
-    fn mem(&this);
+trait MyTrait {
+    fn bar(&this);
 }
 
-impl T for S {
-    fn mem(&this) {}
+impl MyTrait for MyType {
+    fn bar(&this) { this.mem_foo(); }
 }
