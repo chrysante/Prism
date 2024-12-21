@@ -9,6 +9,12 @@ SYNTAX_ISSUE_DEF(ExpectedExpr, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
+SYNTAX_ISSUE_DEF(ExpectedId, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected identifier";
+                     });
+                 }))
+
 SYNTAX_ISSUE_DEF(ExpectedTypeSpec, SyntaxIssue, ((Token, tok)), ({
                      message(Primary, [this](std::ostream& str) {
                          str << "Expected type specifier";

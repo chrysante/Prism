@@ -601,13 +601,18 @@ Facet const* Parser::parseBinaryFacetRTL(
     return allocate<BinaryFacet>(lhs, op, rhs);
 }
 
-Facet const* Parser::parseName() { return parseUnqualName(); }
+Facet const* Parser::parseName() {
+    auto [base, period, member] =
+        makeParser()
+            .fastFail(fn(parseUnqualName))
+            .optRule({ Match(Period), { fn(parseName), Raise<ExpectedId>() } })
+            .eval();
+    if (!period) return base;
+    return allocate<BinaryFacet>(base, period, member);
+}
 
 Facet const* Parser::parseUnqualName() {
-    if (auto tok = match(Identifier)) {
-        return allocate<TerminalFacet>(*tok);
-    }
-    return nullptr;
+    return makeParser().fastFail(Match(Identifier)).eval()[0];
 }
 
 template <ParserFn Fn>
