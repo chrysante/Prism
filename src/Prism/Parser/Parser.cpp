@@ -32,17 +32,25 @@ struct Parser: LinearParser {
     SourceFileFacet const* parseSourceFile();
     DeclFacet const* parseGlobalDecl();
     FuncDeclFacet const* parseFuncDecl();
+    FuncDefFacet const* parseFuncDef();
     Facet const* parseFuncBody();
     CompTypeDeclFacet const* parseCompTypeDecl();
     BaseDeclFacet const* parseBaseDecl();
     BaseListFacet const* parseBaseList();
+    DeclFacet const* parseCompTypeMemberDecl();
     MemberListFacet const* parseMemberList();
+    TraitImplFacet const* parseTraitImpl();
+    TraitImplDeclFacet const* parseTraitDecl();
+    TraitTypeDeclFacet const* parseTraitTypeDecl();
+    TraitFuncDeclFacet const* parseTraitFuncDecl();
     VarDeclFacet const* parseVarDecl();
     StmtFacet const* parseStmt();
     DeclFacet const* parseLocalDecl();
     ParamDeclFacet const* parseParamDecl();
     ParamDeclFacet const* parseThisParamDecl();
     ParamListFacet const* parseParamList();
+    GenParamDeclFacet const* parseGenericParamDecl();
+    GenParamListFacet const* parseGenericParamList();
     ReturnStmtFacet const* parseReturnStmt();
     EmptyStmtFacet const* parseEmptyStmt();
     ExprStmtFacet const* parseExprStmt();
@@ -54,7 +62,6 @@ struct Parser: LinearParser {
     Facet const* parseTypeSpec();
 
     Facet const* parseAssignFacet();
-    Facet const* parseCastFacet();
     Facet const* parseTernCondFacet();
     Facet const* parseBinCondFacet();
     Facet const* parseLogicalOrFacet();
@@ -67,9 +74,11 @@ struct Parser: LinearParser {
     Facet const* parseShiftFacet();
     Facet const* parseAddFacet();
     Facet const* parseMulFacet();
+    Facet const* parseCastFacet();
     Facet const* parsePrefixFacet();
     Facet const* parsePostfixFacet();
     Facet const* parseCallFacet(Facet const* primary);
+    Facet const* parseMemAccessFacet(Facet const* primary);
     Facet const* parsePrimaryFacet();
     Facet const* parseFstringFacet();
     CompoundFacet const* parseCompoundFacet();
@@ -104,8 +113,8 @@ struct Parser: LinearParser {
     LinParser<0> makeParser() {
         static constexpr auto stop = [](Token tok) {
             static constexpr std::array kinds = {
-                Var,   Let, Fn, Struct, Trait,      Return,    For,
-                While, Do,  If, Else,   CloseBrace, Semicolon, End
+                Var, Let, Fn,   Struct,     Trait, Impl,      Return,    For, While,
+                Do,  If,  Else, CloseBrace, CloseBrace, Semicolon, End
             };
             return ranges::contains(kinds, tok.kind);
         };
@@ -159,16 +168,36 @@ SourceFileFacet const* Parser::parseSourceFile() {
 }
 
 DeclFacet const* Parser::parseGlobalDecl() {
-    if (auto fn = parseFuncDecl()) return fn;
+    if (auto fn = parseFuncDef()) return fn;
     if (auto str = parseCompTypeDecl()) return str;
     if (auto var = parseVarDecl()) return var;
+    if (auto impl = parseTraitImpl()) return impl;
     return nullptr;
 }
 
 FuncDeclFacet const* Parser::parseFuncDecl() {
-    auto [declarator, name, params, arrow, retType, body] =
+    auto [declarator, genParams, name, params, arrow, retType] =
         makeParser()
             .fastFail(Match(Fn))
+            .optRule({ fn(parseGenericParamList) })
+            .rule({ fn(parseName), Raise<ExpectedDeclName>() })
+            .rule({ fn(parseParamList), Raise<ExpectedParamList>() })
+            .optRule({ Match(Arrow),
+                       { fn(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
+            .eval();
+    if (!declarator) return nullptr;
+    return allocate<FuncDeclFacet>(declarator, genParams, name, params, arrow,
+                                   retType);
+}
+
+FuncDefFacet const* Parser::parseFuncDef() {
+    // We can't abstract the construction of the parser into a function, because
+    // the rules are captured by reference. We leave this code duplication until
+    // we rewrite the parser generator.
+    auto [declarator, genParams, name, params, arrow, retType, body] =
+        makeParser()
+            .fastFail(Match(Fn))
+            .optRule({ fn(parseGenericParamList) })
             .rule({ fn(parseName), Raise<ExpectedDeclName>() })
             .rule({ fn(parseParamList), Raise<ExpectedParamList>() })
             .optRule({ Match(Arrow),
@@ -176,8 +205,8 @@ FuncDeclFacet const* Parser::parseFuncDecl() {
             .rule({ fn(parseFuncBody), Raise<ExpectedFuncBody>() })
             .eval();
     if (!declarator) return nullptr;
-    return allocate<FuncDeclFacet>(declarator, name, params, arrow, retType,
-                                   body);
+    return allocate<FuncDefFacet>(declarator, genParams, name, params, arrow,
+                                  retType, body);
 }
 
 Facet const* Parser::parseFuncBody() {
@@ -187,23 +216,24 @@ Facet const* Parser::parseFuncBody() {
 }
 
 CompTypeDeclFacet const* Parser::parseCompTypeDecl() {
-    auto [declarator, name, colon, baselist, openbrace, body, closebrace] =
-        makeParser()
-            .fastFail(Match(Struct, Trait))
-            .rule({ fn(parseName), Raise<ExpectedDeclName>() })
-            .optRule({ Match(Colon), fn(parseBaseList) })
-            .rule(MatchExpect(OpenBrace))
-            .rule(fn(parseMemberList))
-            .rule(MatchExpect(CloseBrace))
-            .eval();
+    auto [declarator, genParams, name, colon, baselist, openbrace, body,
+          closebrace] = makeParser()
+                            .fastFail(Match(Struct, Trait))
+                            .optRule({ fn(parseGenericParamList) })
+                            .rule({ fn(parseName), Raise<ExpectedDeclName>() })
+                            .optRule({ Match(Colon), fn(parseBaseList) })
+                            .rule(MatchExpect(OpenBrace))
+                            .rule(fn(parseMemberList))
+                            .rule(MatchExpect(CloseBrace))
+                            .eval();
     if (!declarator) return nullptr;
-    return allocate<CompTypeDeclFacet>(declarator, name, colon, baselist,
-                                       openbrace, body, closebrace);
+    return allocate<CompTypeDeclFacet>(declarator, genParams, name, colon,
+                                       baselist, openbrace, body, closebrace);
 }
 
 BaseDeclFacet const* Parser::parseBaseDecl() {
     auto* type = parseTypeSpec();
-    return allocate<BaseDeclFacet>(nullptr, nullptr, nullptr, type);
+    return allocate<BaseDeclFacet>(nullptr, type);
 }
 
 BaseListFacet const* Parser::parseBaseList() {
@@ -213,10 +243,61 @@ BaseListFacet const* Parser::parseBaseList() {
     return allocate<BaseListFacet>(elems);
 }
 
+DeclFacet const* Parser::parseCompTypeMemberDecl() {
+    if (auto fn = parseFuncDef()) return fn;
+    if (auto str = parseCompTypeDecl()) return str;
+    if (auto var = parseVarDecl()) return var;
+    return nullptr;
+}
+
 MemberListFacet const* Parser::parseMemberList() {
-    auto elems =
-        parseSequence(fn(parseGlobalDecl), Raise<ExpectedDecl>(), CloseBrace);
+    auto elems = parseSequence(fn(parseCompTypeMemberDecl),
+                               Raise<ExpectedDecl>(), CloseBrace);
     return allocate<MemberListFacet>(elems);
+}
+
+TraitImplFacet const* Parser::parseTraitImpl() {
+    auto [declarator, genParams, decl] =
+        makeParser()
+            .fastFail(Match(Impl))
+            .optRule({ fn(parseGenericParamList) })
+            .rule({ fn(parseTraitDecl), Raise<ExpectedTraitDecl>() })
+            .eval();
+    if (!declarator) return nullptr;
+    return allocate<TraitImplFacet>(declarator, genParams, decl);
+}
+
+TraitImplDeclFacet const* Parser::parseTraitDecl() {
+    if (auto* func = parseTraitFuncDecl()) return func;
+    if (auto* type = parseTraitTypeDecl()) return type;
+    return nullptr;
+}
+
+TraitTypeDeclFacet const* Parser::parseTraitTypeDecl() {
+    auto [trait, forTok, conforming, openbrace, body, closebrace] =
+        makeParser()
+            .fastFail(fn(parseTypeSpec))
+            .rule(MatchExpect(For))
+            .rule({ fn(parseTypeSpec), Raise<ExpectedTypeSpec>() })
+            .rule(MatchExpect(OpenBrace))
+            .rule(fn(parseMemberList))
+            .rule(MatchExpect(CloseBrace))
+            .eval();
+    if (!trait) return nullptr;
+    return allocate<TraitTypeDeclFacet>(trait, forTok, conforming, openbrace,
+                                        body, closebrace);
+}
+
+TraitFuncDeclFacet const* Parser::parseTraitFuncDecl() {
+    auto [func, forTok, conforming, body] =
+        makeParser()
+            .fastFail(fn(parseFuncDecl))
+            .rule(MatchExpect(For))
+            .rule({ fn(parseTypeSpec), Raise<ExpectedTypeSpec>() })
+            .rule({ fn(parseFuncBody), Raise<ExpectedFuncBody>() })
+            .eval();
+    if (!func) return nullptr;
+    return allocate<TraitFuncDeclFacet>(func, forTok, conforming, body);
 }
 
 VarDeclFacet const* Parser::parseVarDecl() {
@@ -255,7 +336,7 @@ ParamDeclFacet const* Parser::parseParamDecl() {
             .rule(MatchExpect(Colon))
             .rule({ fn(parseTypeSpec), Raise<ExpectedTypeSpec>() })
             .eval();
-    return allocate<ParamDeclFacet>(nullptr, name, colon, type);
+    return allocate<NamedParamDeclFacet>(name, colon, type);
 }
 
 ParamDeclFacet const* Parser::parseThisParamDecl() {
@@ -272,8 +353,7 @@ ParamDeclFacet const* Parser::parseThisParamDecl() {
                 .eval();
         return allocate<PrefixFacet>(*tok, operand);
     };
-    if (auto* name = prefix(prefix))
-        return allocate<ParamDeclFacet>(nullptr, name, nullptr, nullptr);
+    if (auto* spec = prefix(prefix)) return allocate<ThisParamDeclFacet>(spec);
     return nullptr;
 }
 
@@ -283,6 +363,24 @@ ParamListFacet const* Parser::parseParamList() {
                              CloseParen, Comma);
     match(CloseParen);
     return allocate<ParamListFacet>(seq);
+}
+
+GenParamDeclFacet const* Parser::parseGenericParamDecl() {
+    auto [name, colon, type] =
+        makeParser()
+            .rule({ fn(parseUnqualName), Raise<ExpectedDeclName>() })
+            .rule(MatchExpect(Colon))
+            .rule({ fn(parseTypeSpec), Raise<ExpectedTypeSpec>() })
+            .eval();
+    return allocate<GenParamDeclFacet>(name, colon, type);
+}
+
+GenParamListFacet const* Parser::parseGenericParamList() {
+    if (!match(OpenBracket)) return nullptr;
+    auto seq = parseSequence(fn(parseGenericParamDecl),
+                             Raise<ExpectedParamDecl>(), CloseBracket, Comma);
+    match(CloseBracket);
+    return allocate<GenParamListFacet>(seq);
 }
 
 ReturnStmtFacet const* Parser::parseReturnStmt() {
@@ -327,21 +425,7 @@ Facet const* Parser::parseAssignFacet() {
         SlashEq,     PercentEq, DoubleLeftAngleEq, DoubleRightAngleEq,
         AmpersandEq, VertBarEq, CircumflexEq
     };
-    return parseBinaryFacetRTL(Ops, fn(parseCastFacet));
-}
-
-Facet const* Parser::parseCastFacet() {
-    Facet const* facet = parseTernCondFacet();
-    if (!facet) return nullptr;
-    while (true) {
-        auto [as, type] =
-            makeParser()
-                .fastFail(Match(As))
-                .rule({ fn(parsePrefixFacet), Raise<ExpectedTypeSpec>() })
-                .eval();
-        if (!as) return facet;
-        facet = allocate<BinaryFacet>(facet, as, type);
-    }
+    return parseBinaryFacetRTL(Ops, fn(parseTernCondFacet));
 }
 
 Facet const* Parser::parseTernCondFacet() {
@@ -402,7 +486,21 @@ Facet const* Parser::parseAddFacet() {
 }
 
 Facet const* Parser::parseMulFacet() {
-    return parseBinaryFacetLTR({ Star, Slash, Percent }, fn(parsePrefixFacet));
+    return parseBinaryFacetLTR({ Star, Slash, Percent }, fn(parseCastFacet));
+}
+
+Facet const* Parser::parseCastFacet() {
+    Facet const* facet = parsePrefixFacet();
+    if (!facet) return nullptr;
+    while (true) {
+        auto [as, type] =
+            makeParser()
+                .fastFail(Match(As))
+                .rule({ fn(parseTypeSpec), Raise<ExpectedTypeSpec>() })
+                .eval();
+        if (!as) return facet;
+        facet = allocate<BinaryFacet>(facet, as, type);
+    }
 }
 
 Facet const* Parser::parsePrefixFacet() {
@@ -442,6 +540,10 @@ Facet const* Parser::parsePostfixFacet() {
             operand = call;
             continue;
         }
+        if (auto* memacc = parseMemAccessFacet(operand)) {
+            operand = memacc;
+            continue;
+        }
         return operand;
     }
 }
@@ -466,6 +568,18 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
         if (auto* call = impl(Tag<AggrConstructFacet>, OpenBrace, CloseBrace))
             return call;
     return nullptr;
+}
+
+Facet const* Parser::parseMemAccessFacet(Facet const* primary) {
+    auto* base = primary;
+    while (true) {
+        auto [period, member] = makeParser()
+            .fastFail(Match(Period))
+            .rule({ fn(parseUnqualName), Raise<ExpectedId>() })
+            .eval();
+        if (!period) return base == primary ? nullptr : base;
+        base = allocate<BinaryFacet>(base, period, member);
+    }
 }
 
 Facet const* Parser::parsePrimaryFacet() {
@@ -602,13 +716,10 @@ Facet const* Parser::parseBinaryFacetRTL(
 }
 
 Facet const* Parser::parseName() {
-    auto [base, period, member] =
-        makeParser()
-            .fastFail(fn(parseUnqualName))
-            .optRule({ Match(Period), { fn(parseName), Raise<ExpectedId>() } })
-            .eval();
-    if (!period) return base;
-    return allocate<BinaryFacet>(base, period, member);
+    auto* base = parseUnqualName();
+    if (!base) return nullptr;
+    if (auto* memacc = parseMemAccessFacet(base)) return memacc;
+    return base;
 }
 
 Facet const* Parser::parseUnqualName() {

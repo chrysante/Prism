@@ -74,14 +74,14 @@ public:
     {{- all_field_accessors(facet, offset) -}}
 protected:
     {{ constructor(facet, all_members) }}
-    {% if all_members %}
+    {% if all_members | contains_terminals %}
     {{ uniform_constructor(facet, all_members) }}
     {% endif %}
     using {{ facet.base }}::{{ facet.base }};
     {% else %}
 public:
     {{ constructor(facet, all_members) }}
-    {% if all_members %}
+    {% if all_members | contains_terminals %}
     {{ uniform_constructor(facet, all_members) }}
     {% endif %}
     {{ all_field_accessors(facet, offset) }}

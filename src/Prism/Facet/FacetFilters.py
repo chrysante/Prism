@@ -22,6 +22,9 @@ def uniform_ctor_param(member):
 def verify_uniform_ctor_arg(member):
     return f"cast<{member['type']} const*>({member['name']})"
 
+def contains_terminals(members):
+    return any(member.get('type') == 'TerminalFacet' for member in members)
+
 def get_base(cls, classes):
     base_name = cls.get('base', None)
     if not base_name:
@@ -82,6 +85,7 @@ filters = {
     "ctor_arg_as_stored": ctor_arg_as_stored,
     "uniform_ctor_param": uniform_ctor_param,
     "verify_uniform_ctor_arg": verify_uniform_ctor_arg,
+    "contains_terminals": contains_terminals,
     "collect_all_members": collect_all_members,
     "build_inheritance_tree": build_inheritance_tree,
 }

@@ -2,11 +2,15 @@
 <global-decl>        ::= [<access-spec>] (<func-decl> | <comp-type-decl> | <var-decl>)
 <local-decl>         ::= <var-decl>
 <access-spec>        ::= 'public' | 'internal' | 'private'
-<func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>] (';' | <compound-expr>)
+<func-def>           ::= <func-decl> (';' | <compound-expr>)
+<func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>]
 <param-list>         ::= '(' ')'
                        | '(' [<param-decl> (',' <param-decl>)*] ')'
 <param-decl>         ::= <name> ':' <type-spec>
 <comp-type-decl>     ::= ('struct' | 'trait') <name> [':' <base-list>] '{' <member-decl-list> '}'
+<trait-impl>         ::= 'impl' <gen-param-list> <trait-impl-decl>
+<trait-impl-decl>    ::= <func-decl> 'for' <type-spec> <compound-expr>
+                       | <type-spec> for <type-spec> '{' <member-decl-list> '}'
 <base-list>          ::= <base-decl> (',' <base-decl>)*
 <base-decl>          ::= [<access-spec>] <name>
 <member-decl-list>   ::= <global-decl>*
@@ -34,10 +38,8 @@
 <assign-expr>        ::= <assign-facet>
 <type-spec>          ::= <prefix-facet>
 <facet>              ::= <assign-facet>
-<assign-facet>       ::= <cast-facet>
-                       | <cast-facet> ('=', '+=', ...) <assign-facet>
-<cast-facet>         ::= <ternary-cond-facet>
-                       | <cast-facet> 'as' <type-spec>
+<assign-facet>       ::= <ternay-cond-facet>
+                       | <ternay-cond-facet> ('=', '+=', ...) <assign-facet>
 <ternay-cond-facet>  ::= <binary-cond-facet>
                        | <binary-cond-facet> '?' <assign-facet> ':' <cond-facet>
 <binary-cond-facet>  ::= <logical-or-facet>
@@ -60,8 +62,10 @@
                        | <shift-facet> ('<<' | '>>') <add-facet>
 <add-facet>          ::= <mul-facet>
                        | <add-facet> ('+' | '-') <mul-facet>
-<mul-facet>          ::= <prefix-facet>
-                       | <mul-facet> ('*' | '/' | '%') <prefix-facet>
+<mul-facet>          ::= <cast-facet>
+                       | <mul-facet> ('*' | '/' | '%') <cast-facet>
+<cast-facet>         ::= <prefix-facet>
+                       | <cast-facet> 'as' <type-spec>
 <prefix-facet>       ::= <postfix-facet>
                        | <prefix-op> <prefix-facet>
 <prefix-op>          ::= '+' | '-' | '~' | '!' | '++' | '--'

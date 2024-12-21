@@ -63,6 +63,12 @@ SYNTAX_ISSUE_DEF(ExpectedParamList, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
+SYNTAX_ISSUE_DEF(ExpectedTraitDecl, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected trait declaration";
+                     });
+                 }))
+
 SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxIssue,
                  ((Token, have), (TokenKind, expected)), ({
                      message(Primary, [=, this](std::ostream& str) {

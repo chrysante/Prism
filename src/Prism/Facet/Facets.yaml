@@ -34,27 +34,38 @@ facets:
   - name: DeclFacet
     base: StmtFacet
     abstract: true
-    members:
-      - name: declarator
-        type: TerminalFacet
-      - name: name
-        type: Facet
 
-  - name: VarDeclBaseFacet
+  - name: ParamDeclFacet
     base: DeclFacet
     abstract: true
+
+  - name: ThisParamDeclFacet
+    base: ParamDeclFacet
     members:
+      - name: spec
+        type: Facet
+
+  - name: NamedParamDeclFacet
+    base: ParamDeclFacet
+    members:
+      - name: name
+        type: TerminalFacet
       - name: colon
         type: TerminalFacet
       - name: typespec
         type: Facet
 
-  - name: ParamDeclFacet
-    base: VarDeclBaseFacet
-
   - name: VarDeclFacet
-    base: VarDeclBaseFacet
+    base: DeclFacet
     members:
+      - name: declarator
+        type: TerminalFacet
+      - name: name
+        type: Facet
+      - name: colon
+        type: TerminalFacet
+      - name: typespec
+        type: Facet
       - name: assign
         type: TerminalFacet
       - name: initExpr
@@ -66,16 +77,44 @@ facets:
     base: NonTerminalFacet
     decl_only: true
 
-  - name: FuncDeclFacet
+  - name: FuncDeclBaseFacet
     base: DeclFacet
+    abstract: true
     members:
+      - name: declarator
+        type: TerminalFacet
+      - name: genParams
+        type: GenParamListFacet
+      - name: name
+        type: Facet
       - name: params
         type: ParamListFacet
       - name: arrow
         type: TerminalFacet
       - name: retType
         type: Facet
+
+  - name: FuncDeclFacet
+    base: FuncDeclBaseFacet
+
+  - name: FuncDefFacet
+    base: FuncDeclBaseFacet
+    members:
       - name: body
+        type: Facet
+
+  - name: GenParamListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: GenParamDeclFacet
+    base: NonTerminalFacet
+    members:
+      - name: name
+        type: TerminalFacet
+      - name: colon
+        type: TerminalFacet
+      - name: requirements
         type: Facet
 
   - name: BaseDeclFacet
@@ -97,6 +136,12 @@ facets:
   - name: CompTypeDeclFacet
     base: DeclFacet
     members:
+      - name: declarator
+        type: TerminalFacet
+      - name: genParams
+        type: GenParamListFacet
+      - name: name
+        type: Facet
       - name: colon
         type: TerminalFacet
       - name: bases
@@ -107,6 +152,48 @@ facets:
         type: MemberListFacet
       - name: closeBrace
         type: TerminalFacet
+
+  - name: TraitImplDeclFacet
+    base: NonTerminalFacet
+    abstract: true
+
+  - name: TraitTypeDeclFacet
+    base: TraitImplDeclFacet
+    members:
+      - name: trait
+        type: Facet
+      - name: forToken
+        type: TerminalFacet
+      - name: conformingType
+        type: Facet
+      - name: openBrace
+        type: TerminalFacet
+      - name: body
+        type: MemberListFacet
+      - name: closeBrace
+        type: TerminalFacet
+
+  - name: TraitFuncDeclFacet
+    base: TraitImplDeclFacet
+    members:
+      - name: funcDecl
+        type: FuncDeclFacet
+      - name: forToken
+        type: TerminalFacet
+      - name: conformingType
+        type: Facet
+      - name: body
+        type: CompoundFacet
+
+  - name: TraitImplFacet
+    base: DeclFacet
+    members:
+      - name: declarator
+        type: TerminalFacet
+      - name: genParams
+        type: GenParamListFacet
+      - name: declaration
+        type: TraitImplDeclFacet
 
   - name: SourceFileFacet
     base: NonTerminalFacet

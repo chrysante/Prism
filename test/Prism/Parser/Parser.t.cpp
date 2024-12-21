@@ -22,8 +22,9 @@ using prism::Tree;
 
 TEST_CASE("FuncDecl", "[parser]") {
     auto* refTree = SourceFileFacet >> Tree{
-        FuncDeclFacet >> Tree{
+        FuncDefFacet >> Tree{
             Fn,
+            NullNode,
             Identifier,
             ParamListFacet,
             Arrow,
@@ -179,8 +180,8 @@ TEST_CASE("Function types", "[parser]") {
             FnTypeFacet >> Tree{
                 Fn,
                 ParamListFacet >> Tree{
-                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
-                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int }
+                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
+                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int }
                 },
                 Arrow,
                 Int
@@ -197,10 +198,13 @@ TEST_CASE("Function types", "[parser]") {
         }
     });
 
-    CHECK(*parseFile("fn foo() -> dyn fn (n: int) -> int { fn @0 }") ==
+    CHECK(*parseFile("fn[T: type] foo() -> dyn fn (n: int) -> int { fn @0 }") ==
           SourceFileFacet >> Tree{
-        FuncDeclFacet >> Tree{
+        FuncDefFacet >> Tree{
             Fn,
+            GenParamListFacet >> Tree{
+                GenParamDeclFacet >> Tree{ Identifier, Colon, Type }
+            },
             Identifier,
             ParamListFacet,
             Arrow,
@@ -209,7 +213,7 @@ TEST_CASE("Function types", "[parser]") {
                 FnTypeFacet >> Tree{
                     Fn,
                     ParamListFacet >> Tree{
-                        ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
+                        NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
                     },
                     Arrow,
                     Int
@@ -243,8 +247,8 @@ TEST_CASE("Currying", "[parser]") {
             ClosureFacet >> Tree {
                 Fn,
                 ParamListFacet >> Tree{
-                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
-                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int }
+                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
+                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int }
                 },
                 NullNode,
                 NullNode,
@@ -344,6 +348,45 @@ TEST_CASE("Auto arguments", "[parser]") {
             OpenParen,
             ListFacet >> Tree{ Identifier },
             CloseParen
+        }
+    });
+}
+
+TEST_CASE("Trait implementation", "[parser]") {
+    auto* typeImpl = parseFile(R"(
+impl [R: type, M: MyTrait] std.function for MyFunction {}
+)");
+    CHECK(*typeImpl == SourceFileFacet >> Tree{
+        TraitImplFacet >> Tree{
+            Impl,
+            GenParamListFacet >> Tree{
+                GenParamDeclFacet >> Tree{ Identifier, Colon, Type },
+                GenParamDeclFacet >> Tree{ Identifier, Colon, Identifier }
+            },
+            TraitTypeDeclFacet >> Tree{
+                BinaryFacet >> Tree{ Identifier, Period, Identifier },
+                For,
+                Identifier,
+                OpenBrace,
+                MemberListFacet,
+                CloseBrace
+            }
+        }
+    });
+
+    auto* funcImpl = parseFile(R"(
+impl fn std.function.call(&this, n: int, m: int) -> int for MyFunction {}
+)");
+    CHECK(*funcImpl == SourceFileFacet >> Tree{
+        TraitImplFacet >> Tree{
+            Impl,
+            NullNode,
+            TraitFuncDeclFacet >> Tree{
+                FuncDeclFacet,
+                For,
+                Identifier,
+                CompoundFacet
+            }
         }
     });
 }

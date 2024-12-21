@@ -53,7 +53,7 @@ struct GloablDeclDeclare {
 
     void declareImpl(Scope*, Facet const&) {}
 
-    std::string getName(DeclFacet const& facet) const {
+    std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
         auto token = cast<TerminalFacet const&>(*facet.name()).token();
         PRISM_ASSERT(token.kind == TokenKind::Identifier);
         return std::string(sourceContext->getTokenStr(token));
