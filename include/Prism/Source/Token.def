@@ -56,6 +56,8 @@ OPERATOR_TOKEN_KIND(MinusEq, "-=")
 OPERATOR_TOKEN_KIND(StarEq, "*=")
 OPERATOR_TOKEN_KIND(SlashEq, "/=")
 OPERATOR_TOKEN_KIND(PercentEq, "%=")
+OPERATOR_TOKEN_KIND(DoubleLeftAngleEq, "<<=")
+OPERATOR_TOKEN_KIND(DoubleRightAngleEq, ">>=")
 OPERATOR_TOKEN_KIND(AmpersandEq, "&=")
 OPERATOR_TOKEN_KIND(VertBarEq, "|=")
 OPERATOR_TOKEN_KIND(CircumflexEq, "^=")
@@ -72,42 +74,77 @@ OPERATOR_TOKEN_KIND(Arrow, "->")
 #define KEYWORD_TOKEN_KIND(Kind, Spelling) TOKEN_KIND(Kind)
 #endif
 
-KEYWORD_TOKEN_KIND(Var, "var")
-KEYWORD_TOKEN_KIND(Let, "let")
-KEYWORD_TOKEN_KIND(Fn, "fn")
-KEYWORD_TOKEN_KIND(Struct, "struct")
-KEYWORD_TOKEN_KIND(Trait, "trait")
+#ifndef DECLARATOR_TOKEN_KIND
+#define DECLARATOR_TOKEN_KIND(Kind, Spelling) KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
 
-KEYWORD_TOKEN_KIND(Return, "return")
-KEYWORD_TOKEN_KIND(If, "if")
-KEYWORD_TOKEN_KIND(Else, "else")
-KEYWORD_TOKEN_KIND(For, "for")
-KEYWORD_TOKEN_KIND(Do, "do")
-KEYWORD_TOKEN_KIND(While, "while")
+DECLARATOR_TOKEN_KIND(Var, "var")
+DECLARATOR_TOKEN_KIND(Let, "let")
+DECLARATOR_TOKEN_KIND(Fn, "fn")
+DECLARATOR_TOKEN_KIND(Struct, "struct")
+DECLARATOR_TOKEN_KIND(Trait, "trait")
+DECLARATOR_TOKEN_KIND(Impl, "impl")
 
-KEYWORD_TOKEN_KIND(As, "as")
-KEYWORD_TOKEN_KIND(Mut, "mut")
-KEYWORD_TOKEN_KIND(Dyn, "dyn")
-KEYWORD_TOKEN_KIND(New, "new")
-KEYWORD_TOKEN_KIND(Move, "move")
+#undef DECLARATOR_TOKEN_KIND
 
-KEYWORD_TOKEN_KIND(True, "true")
-KEYWORD_TOKEN_KIND(False, "false")
-KEYWORD_TOKEN_KIND(This, "this")
+#ifndef CONTROL_FLOW_TOKEN_KIND
+#define CONTROL_FLOW_TOKEN_KIND(Kind, Spelling)                                \
+    KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
 
-KEYWORD_TOKEN_KIND(Void, "void")
-KEYWORD_TOKEN_KIND(Int, "int")
-KEYWORD_TOKEN_KIND(Double, "double")
+CONTROL_FLOW_TOKEN_KIND(Return, "return")
+CONTROL_FLOW_TOKEN_KIND(If, "if")
+CONTROL_FLOW_TOKEN_KIND(Else, "else")
+CONTROL_FLOW_TOKEN_KIND(For, "for")
+CONTROL_FLOW_TOKEN_KIND(Do, "do")
+CONTROL_FLOW_TOKEN_KIND(While, "while")
+
+#undef CONTROL_FLOW_TOKEN_KIND
+
+#ifndef ID_OPERATOR_TOKEN_KIND
+#define ID_OPERATOR_TOKEN_KIND(Kind, Spelling)                                 \
+    KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
+
+ID_OPERATOR_TOKEN_KIND(As, "as")
+ID_OPERATOR_TOKEN_KIND(Mut, "mut")
+ID_OPERATOR_TOKEN_KIND(Dyn, "dyn")
+ID_OPERATOR_TOKEN_KIND(New, "new")
+ID_OPERATOR_TOKEN_KIND(Move, "move")
+
+#undef ID_OPERATOR_TOKEN_KIND
+
+#ifndef PRIMARY_TOKEN_KIND
+#define PRIMARY_TOKEN_KIND(Kind, Spelling) KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
+
+PRIMARY_TOKEN_KIND(True, "true")
+PRIMARY_TOKEN_KIND(False, "false")
+PRIMARY_TOKEN_KIND(This, "this")
+PRIMARY_TOKEN_KIND(Type, "type")
+PRIMARY_TOKEN_KIND(Void, "void")
+PRIMARY_TOKEN_KIND(Byte, "byte")
+PRIMARY_TOKEN_KIND(Int, "int")
+PRIMARY_TOKEN_KIND(Double, "double")
+
+#undef PRIMARY_TOKEN_KIND
 
 #undef KEYWORD_TOKEN_KIND
 
 // Other tokens
 
-TOKEN_KIND(StringLiteral)
-TOKEN_KIND(CharLiteral)
-TOKEN_KIND(IntLiteralBin)
-TOKEN_KIND(IntLiteralDec)
-TOKEN_KIND(IntLiteralHex)
+#ifndef LITERAL_TOKEN_KIND
+#define LITERAL_TOKEN_KIND(Kind) TOKEN_KIND(Kind)
+#endif
+
+LITERAL_TOKEN_KIND(StringLiteral)
+LITERAL_TOKEN_KIND(CharLiteral)
+LITERAL_TOKEN_KIND(IntLiteralBin)
+LITERAL_TOKEN_KIND(IntLiteralDec)
+LITERAL_TOKEN_KIND(IntLiteralHex)
+
+#undef LITERAL_TOKEN_KIND
+
 TOKEN_KIND(Identifier)
 TOKEN_KIND(AutoArgIntro)
 TOKEN_KIND(End)

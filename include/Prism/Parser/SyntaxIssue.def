@@ -45,6 +45,12 @@ SYNTAX_ISSUE_DEF(ExpectedCompoundFacet, SyntaxIssue, ((Token, tok)), ({
                      });
                  }))
 
+SYNTAX_ISSUE_DEF(ExpectedFuncBody, SyntaxIssue, ((Token, tok)), ({
+                     message(Primary, [this](std::ostream& str) {
+                         str << "Expected function body";
+                     });
+                 }))
+
 SYNTAX_ISSUE_DEF(ExpectedParamList, SyntaxIssue, ((Token, tok)), ({
                      message(Primary, [this](std::ostream& str) {
                          str << "Expected parameter list";

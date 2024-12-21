@@ -76,7 +76,7 @@ facets:
       - name: retType
         type: Facet
       - name: body
-        type: CompoundFacet
+        type: Facet
 
   - name: BaseDeclFacet
     base: DeclFacet

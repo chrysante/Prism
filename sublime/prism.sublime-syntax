@@ -11,6 +11,7 @@ scope: source.prism
 variables:
   ident: '[A-Za-z_][A-Za-z_0-9]*'
 
+
 contexts:
   main:
     # Comments begin with a '//' and finish at the end of the line
@@ -36,7 +37,7 @@ contexts:
       scope: keyword.control
 
     # Builtins
-    - match: \b(fn|var|let|struct|trait|public|internal|private|mut|dyn|new|delete|move|unique|shared|import|extern|reinterpret|as)\b
+    - match: \b(fn|var|let|struct|trait|impl|public|internal|private|mut|dyn|new|delete|move|unique|shared|import|extern|reinterpret|as)\b
       scope: punctuation.definition.keyword
 
     - match: \b(void|bool|byte|int|float|double|str|true|false|this|nil)\b

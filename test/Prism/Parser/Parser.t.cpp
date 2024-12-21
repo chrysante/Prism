@@ -179,8 +179,8 @@ TEST_CASE("Function types", "[parser]") {
             FnTypeFacet >> Tree{
                 Fn,
                 ParamListFacet >> Tree{
-                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
-                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
+                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
+                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int }
                 },
                 Arrow,
                 Int
@@ -209,7 +209,7 @@ TEST_CASE("Function types", "[parser]") {
                 FnTypeFacet >> Tree{
                     Fn,
                     ParamListFacet >> Tree{
-                        ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
+                        ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
                     },
                     Arrow,
                     Int
@@ -243,8 +243,8 @@ TEST_CASE("Currying", "[parser]") {
             ClosureFacet >> Tree {
                 Fn,
                 ParamListFacet >> Tree{
-                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int },
-                    ParamDeclFacet >> Tree{ Error, Identifier, Colon, Int }
+                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int },
+                    ParamDeclFacet >> Tree{ NullNode, Identifier, Colon, Int }
                 },
                 NullNode,
                 NullNode,
