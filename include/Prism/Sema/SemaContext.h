@@ -24,10 +24,16 @@ public:
         return cast<Sym*>(
             addSymbol(csp::make_unique<Sym>(std::forward<Args>(args)...)));
     }
+    
+    template <std::derived_from<Symbol> Sym, typename... Args>
+        requires std::constructible_from<Sym, SemaContext&, Args...>
+    Sym* make(Args&&... args) {
+        return make(*this, std::forward<Args>(args)...);
+    }
 
     template <std::same_as<Scope> S>
-    Scope* make() {
-        scopeBag.push_back(std::make_unique<S>());
+    Scope* make(Scope* parent) {
+        scopeBag.push_back(std::make_unique<S>(parent));
         return scopeBag.back().get();
     }
 

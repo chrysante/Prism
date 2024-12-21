@@ -1,15 +1,18 @@
 
+// Functions
+//
 // Defined by compiler
+//
 // module std {
 //
 // trait [... each Arg: type] function {
-//     let R: type;
-//     fn call(&this, ... each Arg) -> R;
+//     let output: type;
+//     fn call(&this, ... each Arg) -> output;
 // }
 //
 // trait [... each Arg: type] mut_function {
-//     let R: type;
-//     fn call(&this, ... each Arg) -> R;
+//     let output: type;
+//     fn call(&this, ... each Arg) -> output;
 // }
 //
 // }
@@ -55,7 +58,9 @@ impl fn MyTrait.myTraitFn(&this, n: int) -> double for MyType {
 
 fn main() {
     let t = MyType{ 666 };
-    print(MyFunction{ 42 }(t));
+    let myFunction = MyFunction{ 42 };
+    // We can call 'myFunction' with 't' since 't' conforms to 'MyTrait' and 'MyFunction' conforms to 'std.function(T)' where 'T: MyTrait'
+    myFunction(t);
 }
 
 struct [T: type] MyGenericType {
@@ -65,3 +70,80 @@ struct [T: type] MyGenericType {
 fn factory(T: type) -> MyGenericType(T) { T{} }
 
 fn [T: type] deduced(arg: T) -> MyGenericType(T) { arg as R }
+
+// Arithmetic
+//
+// Defined by compiler
+//
+
+// A "term" as in operands of additive expressions
+trait term {
+    let result: term;
+    
+    fn add(&this, other: &this type) -> result;
+    
+    fn sub(&this, other: &this type) -> result;
+}
+
+// A left factor, as in 'right_factor * left_factor'
+trait [rhs_type: type] std.left_factor {
+    let result: type;
+    
+    fn left_mul(&this, rhs: &rhs_type) -> result;
+}
+
+// A right factor, as in 'right_factor * left_factor'
+trait [lhs_type: type] std.right_factor {
+    let result: type;
+    
+    fn right_mul(&this, lhs: &lhs_type) -> result;
+}
+
+// A factor for a commutative multiplication. We make this differentiation here
+// because, unlike addition, multiplication can by mathematical convention be
+// non-commutative
+trait std.factor: left_factor(this type), right_factor(this type) {
+    let result: type;
+    let left_factor.result = result;
+    let right_factor.result = result;
+
+    fn mul(&this, other: &this type) -> result;
+
+    fn left_factor.left_mul(&this, rhs: &this type) -> result { mul(this, other) }
+    fn right_factor.right_mul(&this, lhs: &this type) -> result { mul(other, this) }
+    
+}
+
+// A denumerator and in 'numerator / denumerator'
+trait [numerator_type: type] denumerator {
+    let result: type;
+    
+    fn div(self: &this type, numerator: &numerator_type) -> result;
+}
+
+trait std.arithmetic: std.term, std.factor(this type), std.quotient(this type) {}
+
+// User code
+
+struct [T: std.arithmetic & std.copyable] Vec3: std.copyable {
+    var x: T;
+    var y: T;
+    var z: T;
+}
+
+impl [T: std.arithmetic & std.copyable] std.term for Vec3(T) {
+    fn add(&this, other: &Vec3(T)) -> Vec3() {
+        // We can add objects of type 'T' since T transitively conforms to 'std.term'
+        Vec3{ this.x + other.x, this.y + other.y, this.z + other.z }
+    }
+    
+    fn sub(&this, other: &Vec3(T)) -> Vec3() {
+        Vec3{ this.x - other.x, this.y - other.y, this.z - other.z }
+    }
+}
+
+fn [T: std.arithmetic & std.copyable] use_vec(arg: Vec3(T)) -> Vec3(T) {
+    // We can add objects of type 'Vec3(T)' since Vec3(T) directly conforms to
+    // 'std.term'
+    arg + Vec3(T){ 1, 2, 3 }
+}

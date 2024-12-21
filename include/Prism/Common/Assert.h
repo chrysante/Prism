@@ -10,4 +10,6 @@
 #define PRISM_ASSERT_IMPL_1(condition, message) assert(condition)
 #define PRISM_ASSERT_IMPL_2(condition, message) assert(condition)
 
+#define PRISM_UNREACHABLE() PRISM_ASSERT(false)
+
 #endif // PRISM_COMMON_ASSERT_H

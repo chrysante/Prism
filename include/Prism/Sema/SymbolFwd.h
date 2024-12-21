@@ -13,6 +13,10 @@ static constexpr ValueCat RValue = ValueCat::RValue;
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ValueCat)
 
+enum class Mutability { Mut, Const };
+
+PRISM_DEFINE_ENUM_FUNCTIONS(Mutability)
+
 enum class ArithmeticOperation { Add, Sub, Div, Mul, Rem };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)

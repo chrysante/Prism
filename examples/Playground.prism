@@ -1,31 +1,15 @@
 
-trait term {
-    let rhs: type;
-    let result: type;
-    fn add(&this, rhs: &rhs) -> result;
-    fn sub(&this, rhs: &rhs) -> result;
+
+fn foo(s: S) -> S {}
+
+struct S {
+    fn mem(s: S) -> S {}
 }
 
-trait factor {
-    let rhs: type;
-    let result: type;
-    fn mul(&this, rhs: &rhs) -> result;
+trait T {
+    fn mem(&this);
 }
 
-trait quotient {
-    let num: type;
-    let result: type;
-    fn div(num: &num, self: &this type) -> result;
-}
-
-trait std.arithmetic: std.term, std.factor, std.quotient {}
-
-struct [T: std.arithmetic & std.copyable] Vec3: std.copyable {
-    var x: T;
-    var y: T;
-    var z: T;
-}
-
-fn [T: std.arithmetic & std.copyable] use_vec(arg: Vec3(T)) -> Vec3(T) {
-    Vec3{ arg.x + 1, arg.y + 1, arg.z + 1  }
+impl T for S {
+    fn mem(&this) {}
 }

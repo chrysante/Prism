@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 #include <span>
+#include <string>
 
 #include <utl/vector.hpp>
 
@@ -17,6 +18,7 @@ namespace prism {
 
 class Facet;
 class SourceContext;
+class SemaContext;
 
 class Symbol {
 public:
@@ -36,11 +38,9 @@ public:
 
 protected:
     Symbol(SymbolType type, std::string name, Facet const* facet,
-           Scope* parent):
-        _symType(type),
-        _name(std::move(name)),
-        _facet(facet),
-        _parent(parent) {}
+           Scope* parent);
+
+    void setSymbolType(SymbolType type) { _symType = type; }
 
 private:
     friend SymbolType get_rtti(Symbol const& sym) { return sym._symType; }
@@ -78,38 +78,32 @@ public:
     using AssocScope::associatedScope;
 
 protected:
-    Module(SymbolType type, std::string name, Scope* scope):
-        Symbol(type, std::move(name), nullptr, nullptr),
-        AssocScope(scope, this) {}
+    Module(SymbolType type, SemaContext& ctx, std::string name);
 };
 
 class Target: public Module {
 public:
-    explicit Target(std::string name, Scope* scope):
-        Module(SymbolType::Target, std::move(name), scope) {}
+    explicit Target(SemaContext& ctx, std::string name):
+        Module(SymbolType::Target, ctx, std::move(name)) {}
 };
 
 class Library: public Module {
 public:
-    explicit Library(std::string name, Scope* scope):
-        Module(SymbolType::Library, std::move(name), scope) {}
+    explicit Library(SemaContext& ctx, std::string name):
+        Module(SymbolType::Library, ctx, std::move(name)) {}
 };
 
 class SourceFile: public Symbol, public detail::AssocScope {
 public:
-    explicit SourceFile(std::string name, Facet const* facet,
-                        SourceContext const& ctx, Target* target, Scope* scope):
-        Symbol(SymbolType::SourceFile, std::move(name), facet,
-               target->associatedScope()),
-        AssocScope(scope, this),
-        ctx(ctx) {}
+    explicit SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
+                        Scope* parent, SourceContext const& sourceCtx);
 
-    SourceContext const& sourceContext() const { return ctx; }
+    SourceContext const& sourceContext() const { return sourceCtx; }
 
     using AssocScope::associatedScope;
 
 private:
-    SourceContext const& ctx;
+    SourceContext const& sourceCtx;
 };
 
 class Type: public Symbol {
@@ -127,19 +121,19 @@ public:
     using AssocScope::associatedScope;
 
 protected:
-    CompositeType(SymbolType symType, std::string name, Facet const* facet,
-                  Scope* parent, Scope* scope):
-        ValueType(symType, std::move(name), facet, parent),
-        AssocScope(scope, this) {}
+    CompositeType(SymbolType symType, SemaContext& ctx, std::string name,
+                  Facet const* facet, Scope* parent);
 };
 
 class StructType: public CompositeType {
 public:
-    explicit StructType(std::string name, Facet const* facet, Scope* parent,
-                        Scope* scope):
-        CompositeType(SymbolType::StructType, std::move(name), facet, parent,
-                      scope) {}
+    explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
+                        Scope* parent):
+        CompositeType(SymbolType::StructType, ctx, std::move(name), facet,
+                      parent) {}
 };
+
+class GenStructTypeInst: public CompositeType {};
 
 class FunctionType: public ValueType {
 public:
@@ -165,6 +159,38 @@ class RawPointerType: public PointerType {};
 
 class ReferenceType: public Type {};
 
+class Trait: public Symbol, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    explicit Trait(SemaContext& ctx, std::string name, Facet const* facet,
+                   Scope* parent);
+};
+
+class TraitImpl: public Symbol, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
+                       Trait* trait, CompositeType* conforming);
+
+    Trait* trait() { return _trait; }
+
+    /// \overload
+    Trait const* trait() const { return _trait; }
+
+    CompositeType* conformingType() { return conf; }
+
+    /// \overload
+    CompositeType const* conformingType() const { return conf; }
+
+private:
+    Trait* _trait;
+    CompositeType* conf;
+};
+
+class GenericSymbol: public Symbol {};
+
 class Value: public Symbol {
 public:
     ValueType const* type() const { return _type; }
@@ -183,19 +209,48 @@ private:
     ValueCat _valueCat;
 };
 
-class Function: public Value {
-public:
-    Function(std::string name, Facet const* facet, Scope* parent,
-             FunctionType const* type):
-        Value(SymbolType::Function, std::move(name), facet, parent, type,
-              LValue) {}
-
-    OVERRIDE_TYPE(FunctionType)
+struct FunctionParameter {
+    Facet const* facet;
+    std::string name;
+    Symbol* typeOrConstraint;
 };
 
-class Argument: public Value {
+class Function: public Symbol {
 public:
+    explicit Function(std::string name, Facet const* facet, Scope* parent,
+                      utl::small_vector<FunctionParameter>&& params,
+                      Type const* retType);
+
+    std::span<FunctionParameter const> params() const { return _params; }
+
+    Type const* retType() const { return _retType; }
+
+private:
+    utl::small_vector<FunctionParameter> _params;
+    Type const* _retType;
 };
+
+class FunctionImpl: public Function, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    explicit FunctionImpl(SemaContext& ctx, std::string name,
+                          Facet const* facet, Scope* parent,
+                          utl::small_vector<FunctionParameter>&& params,
+                          Type const* retType);
+};
+
+class FuncArg: public Value {
+public:
+    explicit FuncArg(std::string name, Facet const* facet, Scope* parent,
+                     ValueType const* type, ValueCat valueCat):
+        Value(SymbolType::FuncArg, std::move(name), facet, parent, type,
+              valueCat) {}
+};
+
+class GenericValueArg: public Value {};
+
+class GenericTypeArg: public ValueType {};
 
 class Variable: public Value {
 public:

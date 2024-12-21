@@ -64,6 +64,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/IssueHandler.h
     include/Prism/Common/MacroUtils.h
     include/Prism/Common/MacroUtilsUndef.h
+    include/Prism/Common/Ranges.h
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
 
@@ -197,6 +198,7 @@ target_sources(Playground
   PRIVATE  
     src/Playground/Main.cpp
     src/Playground/ParserPlayground.cpp
+    src/Playground/SemaPlayground.cpp
     src/Playground/FuzzParser.cpp
     examples/Playground.prism
 )

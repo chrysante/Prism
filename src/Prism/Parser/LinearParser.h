@@ -1,3 +1,6 @@
+#ifndef PRISM_PARSER_LINEARPARSER_H
+#define PRISM_PARSER_LINEARPARSER_H
+
 #include "Prism/Parser/ParserBase.h"
 
 #include <functional>
@@ -84,9 +87,6 @@ void unpackResult(std::span<Facet const* const> packed,
     size_t offset = 0;
     (f(f, offset, packed, result, Forest{}), ...);
 }
-
-template <auto...>
-struct PrintVal;
 
 struct LinearParser: public ParserBase {
     using ParserBase::ParserBase;
@@ -188,3 +188,5 @@ private:
 };
 
 } // namespace prism
+
+#endif // PRISM_PARSER_LINEARPARSER_H

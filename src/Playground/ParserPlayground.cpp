@@ -14,9 +14,6 @@
 #include <Prism/Facet/Facet.h>
 #include <Prism/Lexer/Lexer.h>
 #include <Prism/Parser/Parser.h>
-#include <Prism/Sema/Construction.h>
-#include <Prism/Sema/SemaContext.h>
-#include <Prism/Sema/Symbol.h>
 #include <Prism/Source/SourceContext.h>
 
 using namespace prism;
@@ -62,27 +59,6 @@ static void printTokenStream(std::string_view source) {
     }
 }
 
-static void header(std::ostream& str, std::string_view title) {
-    utl::streammanip repeat = [](std::ostream& str, int n, std::string_view c) {
-        for (int i = 0; i < n; ++i)
-            str << c;
-    };
-    size_t numCols = tfmt::getWidth(str).value_or(80);
-    size_t innerWidth = std::max(numCols - 2, size_t{});
-    title = title.substr(0, std::max(innerWidth - 2, size_t{}));
-    size_t remainingSpace = innerWidth - title.size();
-    size_t leftSpace = remainingSpace / 7;
-    size_t rightSpace = remainingSpace - leftSpace;
-    using namespace tfmt::modifiers;
-    auto mod = BrightMagenta | Bold;
-    str << tfmt::format(mod, "╦", repeat(numCols - 2, "═"), "╦") << "\n";
-    str << tfmt::format(mod, "║", repeat(leftSpace, " "),
-                        tfmt::format(Reset | Bold, title),
-                        repeat(rightSpace, " "), "║")
-        << "\n";
-    str << tfmt::format(mod, "╩", repeat(numCols - 2, "═"), "╩") << "\n";
-}
-
 static int parserPlaygroundMain(Options options) {
 
     std::filesystem::path filepath = "examples/Playground.prism";
@@ -108,7 +84,6 @@ static int parserPlaygroundMain(Options options) {
         }
     }();
     TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
-    header(std::cout, "Parse Tree");
     print(tree, fmt, { &sourceContext });
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);

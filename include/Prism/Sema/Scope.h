@@ -3,7 +3,7 @@
 
 #include <span>
 
-#include <utl/vector.hpp>
+#include <utl/hashtable.hpp>
 
 namespace prism {
 
@@ -13,23 +13,38 @@ namespace detail {
 class AssocScope;
 }
 
+///
 class Scope {
 public:
+    explicit Scope(Scope* parent): _parentScope(parent) {}
+
+    /// \Returns the parent scope
+    Scope* parent() { return _parentScope; }
+    
+    /// \overload
+    Scope const* parent() const { return _parentScope; }
+    
+    /// \Returns the symbol associated with this scope, like a `FunctionImpl` for a function scope
     Symbol* assocSymbol() { return _assocSymbol; }
 
+    /// \overload
     Symbol const* assocSymbol() const { return _assocSymbol; }
 
-    std::span<Symbol* const> symbols() { return _symbols; }
+    /// \Returns a list of all symbols in this scope
+    std::span<Symbol* const> symbols() { return _symbols.values(); }
 
-    std::span<Symbol const* const> symbols() const { return _symbols; }
-
-    void addSymbol(Symbol* symbol) { _symbols.push_back(symbol); }
-
+    /// \overload
+    std::span<Symbol const* const> symbols() const { return _symbols.values(); }
+    
 private:
+    friend class Symbol;
     friend class detail::AssocScope;
 
+    void addSymbol(Symbol* symbol);
+
+    Scope* _parentScope = nullptr;
     Symbol* _assocSymbol = nullptr;
-    utl::small_vector<Symbol*> _symbols;
+    utl::hashset<Symbol*> _symbols;
 };
 
 } // namespace prism
