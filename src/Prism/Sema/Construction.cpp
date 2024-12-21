@@ -42,9 +42,9 @@ struct GloablDeclDeclare {
     void declareFile(SourceFileFacet const& facet,
                      SourceContext const& sourceContext) {
         this->sourceContext = &sourceContext;
-        auto* file =
-            ctx.make<SourceFile>(ctx, sourceContext.filepath().string(), &facet,
-                                 target->associatedScope(), sourceContext);
+        auto* file = ctx.make<SourceFile>(sourceContext.filepath().string(),
+                                          &facet, target->associatedScope(),
+                                          sourceContext);
         declareChildren(file->associatedScope(), facet.decls());
     }
 
@@ -80,7 +80,7 @@ struct GloablDeclDeclare {
     void declareImpl(Scope* parent, FuncDefFacet const& facet) {
         auto params = facet.params()->elems() | transform(FN(makeFuncParam));
         if (facet.body() && isa<CompoundFacet>(facet.body()))
-            ctx.make<FunctionImpl>(ctx, getName(facet), &facet, parent,
+            ctx.make<FunctionImpl>(getName(facet), &facet, parent,
                                    params | ToSmallVector<>, nullptr);
         else
             ctx.make<Function>(getName(facet), &facet, parent,
@@ -91,10 +91,9 @@ struct GloablDeclDeclare {
         auto* type = [&]() -> Symbol* {
             switch (facet.declarator().kind) {
             case TokenKind::Struct:
-                return ctx.make<StructType>(ctx, getName(facet), &facet,
-                                            parent);
+                return ctx.make<StructType>(getName(facet), &facet, parent);
             case TokenKind::Trait:
-                return ctx.make<Trait>(ctx, getName(facet), &facet, parent);
+                return ctx.make<Trait>(getName(facet), &facet, parent);
             default:
                 PRISM_UNREACHABLE();
             }
@@ -103,7 +102,7 @@ struct GloablDeclDeclare {
     }
 
     void declareImpl(Scope* parent, TraitImplFacet const& facet) {
-        auto* impl = ctx.make<TraitImpl>(ctx, &facet, parent, nullptr, nullptr);
+        auto* impl = ctx.make<TraitImpl>(&facet, parent, nullptr, nullptr);
         declareChildren(impl->associatedScope(),
                         cast<TraitTypeDeclFacet const*>(facet.declaration())
                             ->body()

@@ -28,13 +28,7 @@ public:
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, SemaContext&, Args...>
     Sym* make(Args&&... args) {
-        return make(*this, std::forward<Args>(args)...);
-    }
-
-    template <std::derived_from<Symbol> Sym, typename... Args>
-        requires std::constructible_from<Sym, SemaContext&, Args...>
-    Sym* make(Args&&... args) {
-        return make(*this, std::forward<Args>(args)...);
+        return make<Sym>(*this, std::forward<Args>(args)...);
     }
 
     template <std::same_as<Scope> S>
