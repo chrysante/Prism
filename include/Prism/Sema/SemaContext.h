@@ -24,7 +24,7 @@ public:
         return cast<Sym*>(
             addSymbol(csp::make_unique<Sym>(std::forward<Args>(args)...)));
     }
-    
+
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, SemaContext&, Args...>
     Sym* make(Args&&... args) {

@@ -10,6 +10,7 @@
 #include "Prism/Common/Allocator.h"
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
@@ -20,11 +21,6 @@ using namespace prism;
 using ranges::views::transform;
 
 static void declareBuiltins(SemaContext& ctx, Target* target) {}
-
-#define fn(name, ...)                                                          \
-    [this]<typename... Args>(Args&&... args) -> decltype(auto) {               \
-        return name(__VA_ARGS__ __VA_OPT__(, ) std::forward<Args>(args)...);   \
-    }
 
 namespace {
 
@@ -82,7 +78,7 @@ struct GloablDeclDeclare {
     }
 
     void declareImpl(Scope* parent, FuncDefFacet const& facet) {
-        auto params = facet.params()->elems() | transform(fn(makeFuncParam));
+        auto params = facet.params()->elems() | transform(FN(makeFuncParam));
         if (facet.body() && isa<CompoundFacet>(facet.body()))
             ctx.make<FunctionImpl>(ctx, getName(facet), &facet, parent,
                                    params | ToSmallVector<>, nullptr);

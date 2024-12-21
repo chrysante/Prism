@@ -20,11 +20,12 @@ public:
 
     /// \Returns the parent scope
     Scope* parent() { return _parentScope; }
-    
+
     /// \overload
     Scope const* parent() const { return _parentScope; }
-    
-    /// \Returns the symbol associated with this scope, like a `FunctionImpl` for a function scope
+
+    /// \Returns the symbol associated with this scope, like a `FunctionImpl`
+    /// for a function scope
     Symbol* assocSymbol() { return _assocSymbol; }
 
     /// \overload
@@ -35,7 +36,7 @@ public:
 
     /// \overload
     std::span<Symbol const* const> symbols() const { return _symbols.values(); }
-    
+
 private:
     friend class Symbol;
     friend class detail::AssocScope;
