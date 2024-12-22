@@ -4,29 +4,40 @@
 #endif
 
 SEMA_SYMBOL(Symbol, detail::NoParent, Abstract)
+
 SEMA_SYMBOL(Module, Symbol, Abstract)
 SEMA_SYMBOL(Target, Module, Concrete)
 SEMA_SYMBOL(Library, Module, Concrete)
 SEMA_SYMBOL(SourceFile, Symbol, Concrete)
+
 SEMA_SYMBOL(Function, Symbol, Concrete)
 SEMA_SYMBOL(FunctionImpl, Function, Concrete)
+
 SEMA_SYMBOL(Type, Symbol, Abstract)
 SEMA_SYMBOL(ValueType, Type, Abstract)
 SEMA_SYMBOL(CompositeType, ValueType, Abstract)
-SEMA_SYMBOL(StructType, CompositeType, Concrete)
-SEMA_SYMBOL(GenStructTypeInst, CompositeType, Concrete)
+SEMA_SYMBOL(UserType, CompositeType, Abstract)
+SEMA_SYMBOL(StructType, UserType, Concrete)
+SEMA_SYMBOL(GenStructTypeInst, UserType, Concrete)
 SEMA_SYMBOL(FunctionType, ValueType, Concrete)
+SEMA_SYMBOL(BuiltinType, CompositeType, Abstract)
+SEMA_SYMBOL(ByteType, BuiltinType, Concrete)
+SEMA_SYMBOL(ArithmeticType, BuiltinType, Abstract)
+SEMA_SYMBOL(IntType, ArithmeticType, Concrete)
+SEMA_SYMBOL(FloatType, ArithmeticType, Concrete)
 SEMA_SYMBOL(PointerType, ValueType, Abstract)
 SEMA_SYMBOL(RawPointerType, ValueType, Abstract)
 SEMA_SYMBOL(ReferenceType, Type, Concrete)
+
 SEMA_SYMBOL(Trait, Symbol, Concrete)
 SEMA_SYMBOL(TraitImpl, Symbol, Concrete)
+SEMA_SYMBOL(GenericSymbol, Symbol, Abstract)
+
 SEMA_SYMBOL(Value, Symbol, Abstract)
 SEMA_SYMBOL(FuncArg, Value, Concrete)
 SEMA_SYMBOL(Variable, Value, Concrete)
 SEMA_SYMBOL(ValueAlias, Value, Concrete)
 SEMA_SYMBOL(Computation, Value, Abstract)
 SEMA_SYMBOL(ArithmeticComputation, Value, Concrete)
-SEMA_SYMBOL(GenericSymbol, Symbol, Abstract)
 
 #undef SEMA_SYMBOL

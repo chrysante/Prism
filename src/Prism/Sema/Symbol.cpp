@@ -53,7 +53,7 @@ Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
     AssocScope(ctx.make<Scope>(parent), this) {}
 
 TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                     Trait* trait, CompositeType* conforming):
+                     Trait* trait, UserType* conforming):
     Symbol(SymbolType::TraitImpl, "", facet, parent),
     AssocScope(ctx.make<Scope>(parent), this),
     _trait(trait),
@@ -100,6 +100,11 @@ static constexpr utl::streammanip Keyword = [](std::ostream& str,
     str << tfmt::format(Bold | BrightMagenta, args...);
 };
 
+static constexpr utl::streammanip Username = [](std::ostream& str,
+                                                auto const&... args) {
+    str << tfmt::format(BrightGreen, args...);
+};
+
 static constexpr utl::streammanip Comment = [](std::ostream& str,
                                                auto const&... args) {
     str << tfmt::format(BrightGrey, "// ", args...);
@@ -134,38 +139,45 @@ struct SymbolPrinter {
     }
 
     auto printName(Symbol const* symbol) {
-        return utl::streammanip([=, this](std::ostream& str) {
+        return utl::streammanip([=, this](std::ostream& str) -> auto& {
             PRISM_ASSERT(&this->str == &str);
-            if (!symbol)
-                str << Null;
-            else if (!symbol->name().empty())
-                str << symbol->name();
-            else
-                str << tfmt::format(BrightGrey, "<anon: ", get_rtti(*symbol),
-                                    ">");
+            if (!symbol) return str << Null;
+            std::string_view name = symbol->name();
+            if (name.empty())
+                return str << tfmt::format(BrightGrey,
+                                           "<anon: ", get_rtti(*symbol), ">");
+            if (isa<BuiltinType>(symbol)) return str << Keyword(name);
+            if (isa<UserType>(symbol)) return str << Username(name);
+            return str << name;
         });
     }
 
     struct PrintChildrenOptions {
-        std::string_view separator;
-        bool separatorAfterLast = true;
+        std::string_view separator, separatorAfterLast;
     };
 
     static constexpr PrintChildrenOptions StmtOpt = {
-        .separator = "\n", .separatorAfterLast = true
+        .separator = "\n", .separatorAfterLast = "\n"
     };
 
     static constexpr PrintChildrenOptions DeclOpt = {
-        .separator = "\n\n", .separatorAfterLast = false
+        .separator = "\n\n", .separatorAfterLast = "\n"
     };
+
+    void printChildren(std::span<Symbol const* const> symbols,
+                       PrintChildrenOptions opt) {
+        for (auto [index, sym]: symbols | enumerate) {
+            print(sym);
+            if (index < symbols.size() - 1)
+                str << opt.separator;
+            else
+                str << opt.separatorAfterLast;
+        }
+    }
 
     void printChildren(Scope const* scope, PrintChildrenOptions opt) {
         if (!scope) return;
-        for (auto [index, sym]: scope->symbols() | enumerate) {
-            print(sym);
-            if (opt.separatorAfterLast || index < scope->symbols().size() - 1)
-                str << opt.separator;
-        }
+        printChildren(scope->symbols(), opt);
     }
 
     void printBraced(Scope const* scope) {
@@ -182,10 +194,16 @@ struct SymbolPrinter {
         }
     }
 
-    void printImpl(Symbol const&) {}
+    void printImpl(Symbol const& symbol) { str << printName(&symbol); }
 
     void printImpl(Target const& target) {
-        printChildren(target.associatedScope(), StmtOpt);
+        auto* scope = target.associatedScope();
+        utl::small_vector<Symbol const*> builtins, userDefined;
+        for (auto* sym: scope->symbols()) {
+            (isa<BuiltinType>(sym) ? builtins : userDefined).push_back(sym);
+        }
+        printChildren(builtins, { "\n", "\n\n" });
+        printChildren(userDefined, DeclOpt);
     }
 
     void printImpl(SourceFile const& file) {
@@ -213,21 +231,23 @@ struct SymbolPrinter {
         if (isa<FunctionImpl>(func)) printBraced(func.associatedScope());
     }
 
-    void printCompTypeOrTrait(std::string_view decl, auto const& sym) {
+    void printUserTypeOrTrait(std::string_view decl, auto const& sym) {
         str << Keyword(decl) << " " << sym.name() << " ";
         printBraced(sym.associatedScope());
     }
 
-    void printImpl(CompositeType const& type) {
+    void printImpl(BuiltinType const& type) { str << printName(&type); }
+
+    void printImpl(UserType const& type) {
         // clang-format off
         auto decl = visit(type, csp::overload {
             [](StructType const&) { return "struct"; },
             [](GenStructTypeInst const&) { return "inst struct"; }
         }); // clang-format on
-        printCompTypeOrTrait(decl, type);
+        printUserTypeOrTrait(decl, type);
     }
 
-    void printImpl(Trait const& trait) { printCompTypeOrTrait("trait", trait); }
+    void printImpl(Trait const& trait) { printUserTypeOrTrait("trait", trait); }
 
     void printImpl(TraitImpl const& impl) {
         str << Keyword("impl") << " " << printName(impl.trait())

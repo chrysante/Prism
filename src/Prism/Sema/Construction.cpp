@@ -20,13 +20,26 @@
 using namespace prism;
 using ranges::views::transform;
 
-static void declareBuiltins(SemaContext& ctx, Target* target) {}
+static void declareBuiltins(SemaContext& ctx, Scope* scope) {
+    ctx.make<ByteType>("byte", scope);
+    using enum Signedness;
+    ctx.make<IntType>("i8", scope, 8, Signed);
+    ctx.make<IntType>("i16", scope, 16, Signed);
+    ctx.make<IntType>("i32", scope, 32, Signed);
+    ctx.make<IntType>("i64", scope, 64, Signed);
+    ctx.make<IntType>("u8", scope, 8, Unsigned);
+    ctx.make<IntType>("u16", scope, 16, Unsigned);
+    ctx.make<IntType>("u32", scope, 32, Unsigned);
+    ctx.make<IntType>("u64", scope, 64, Unsigned);
+    ctx.make<FloatType>("f32", scope, 32);
+    ctx.make<FloatType>("f64", scope, 64);
+}
 
 namespace {
 
 struct GloablDeclDeclare {
     SemaContext& ctx;
-    Target* target;
+    Scope* globalScope;
     SourceContext const* sourceContext = nullptr;
 
     void run(std::span<SourceFilePair const> input) {
@@ -43,8 +56,7 @@ struct GloablDeclDeclare {
                      SourceContext const& sourceContext) {
         this->sourceContext = &sourceContext;
         auto* file = ctx.make<SourceFile>(sourceContext.filepath().string(),
-                                          &facet, target->associatedScope(),
-                                          sourceContext);
+                                          &facet, globalScope, sourceContext);
         declareChildren(file->associatedScope(), facet.decls());
     }
 
@@ -112,9 +124,9 @@ struct GloablDeclDeclare {
 
 } // namespace
 
-static void declareGlobals(SemaContext& ctx, Target* target,
+static void declareGlobals(SemaContext& ctx, Scope* globalScope,
                            std::span<SourceFilePair const> input) {
-    GloablDeclDeclare{ ctx, target }.run(input);
+    GloablDeclDeclare{ ctx, globalScope }.run(input);
 }
 
 namespace {
@@ -133,7 +145,7 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
 Target* prism::constructTarget(SemaContext& ctx,
                                std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
-    declareBuiltins(ctx, target);
-    declareGlobals(ctx, target, input);
+    declareBuiltins(ctx, target->associatedScope());
+    declareGlobals(ctx, target->associatedScope(), input);
     return target;
 }

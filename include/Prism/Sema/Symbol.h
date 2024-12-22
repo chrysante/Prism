@@ -111,11 +111,14 @@ protected:
     using Symbol::Symbol;
 };
 
+/// Base class of types that contain "values" as opposed to references and
+/// functions
 class ValueType: public Type {
 protected:
     using Type::Type;
 };
 
+/// Base class of all types with a scope
 class CompositeType: public ValueType, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
@@ -125,16 +128,24 @@ protected:
                   Facet const* facet, Scope* parent);
 };
 
-class StructType: public CompositeType {
+/// Base class of all user defined types
+class UserType: public CompositeType {
+    using CompositeType::CompositeType;
+};
+
+/// User defined product type
+class StructType: public UserType {
 public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
                         Scope* parent):
-        CompositeType(SymbolType::StructType, ctx, std::move(name), facet,
-                      parent) {}
+        UserType(SymbolType::StructType, ctx, std::move(name), facet, parent) {}
 };
 
-class GenStructTypeInst: public CompositeType {};
+/// Instantiation of a struct type
+class GenStructTypeInst: public UserType {};
 
+/// Not really sure about this. Do we even need it? And should it be a value
+/// type?
 class FunctionType: public ValueType {
 public:
     explicit FunctionType(Facet const* facet, Scope* parent,
@@ -153,8 +164,69 @@ private:
     utl::small_vector<Type const*> _params;
 };
 
+/// Base class of all compiler defined types
+class BuiltinType: public CompositeType {
+    using CompositeType::CompositeType;
+};
+
+///
+class ByteType: public BuiltinType {
+public:
+    ByteType(SemaContext& ctx, std::string name, Scope* parent):
+        BuiltinType(SymbolType::ByteType, ctx, std::move(name), nullptr,
+                    parent) {}
+};
+
+/// Common base class of `IntType` and `FloatType`
+class ArithmeticType: public BuiltinType {
+public:
+    size_t bitwidth() const { return _bitwidth; }
+
+protected:
+    ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
+                   Scope* parent, size_t bitwidth):
+        BuiltinType(symType, ctx, std::move(name), nullptr, parent) {}
+
+private:
+    size_t _bitwidth;
+};
+
+///
+enum class Signedness { Signed, Unsigned };
+
+///
+class IntType: public ArithmeticType {
+public:
+    IntType(SemaContext& ctx, std::string name, Scope* parent, size_t bitwidth,
+            Signedness sign):
+        ArithmeticType(SymbolType::IntType, ctx, std::move(name), parent,
+                       bitwidth) {}
+
+    ///
+    Signedness signedness() const { return sign; }
+
+    ///
+    bool isSigned() const { return sign == Signedness::Signed; }
+
+    bool isUnsigned() const { return !isSigned(); }
+
+private:
+    Signedness sign;
+};
+
+///
+class FloatType: public ArithmeticType {
+public:
+    FloatType(SemaContext& ctx, std::string name, Scope* parent,
+              size_t bitwidth):
+        ArithmeticType(SymbolType::FloatType, ctx, std::move(name), parent,
+                       bitwidth) {}
+};
+
+/// Base class of all pointer types
 class PointerType: public ValueType {};
 
+///
 class RawPointerType: public PointerType {};
 
 class ReferenceType: public Type {};
@@ -172,21 +244,21 @@ public:
     using AssocScope::associatedScope;
 
     explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                       Trait* trait, CompositeType* conforming);
+                       Trait* trait, UserType* conforming);
 
     Trait* trait() { return _trait; }
 
     /// \overload
     Trait const* trait() const { return _trait; }
 
-    CompositeType* conformingType() { return conf; }
+    UserType* conformingType() { return conf; }
 
     /// \overload
-    CompositeType const* conformingType() const { return conf; }
+    UserType const* conformingType() const { return conf; }
 
 private:
     Trait* _trait;
-    CompositeType* conf;
+    UserType* conf;
 };
 
 class GenericSymbol: public Symbol {};
