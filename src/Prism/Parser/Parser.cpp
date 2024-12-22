@@ -40,9 +40,9 @@ struct Parser: LinearParser {
     DeclFacet const* parseCompTypeMemberDecl();
     MemberListFacet const* parseMemberList();
     TraitImplFacet const* parseTraitImpl();
-    TraitImplDeclFacet const* parseTraitDecl();
-    TraitTypeDeclFacet const* parseTraitTypeDecl();
-    TraitFuncDeclFacet const* parseTraitFuncDecl();
+    TraitImplDefFacet const* parseTraitDecl();
+    TraitImplTypeFacet const* parseTraitTypeDecl();
+    TraitImplFuncFacet const* parseTraitFuncDecl();
     VarDeclFacet const* parseVarDecl();
     StmtFacet const* parseStmt();
     DeclFacet const* parseLocalDecl();
@@ -265,13 +265,13 @@ TraitImplFacet const* Parser::parseTraitImpl() {
     return allocate<TraitImplFacet>(declarator, genParams, decl);
 }
 
-TraitImplDeclFacet const* Parser::parseTraitDecl() {
+TraitImplDefFacet const* Parser::parseTraitDecl() {
     if (auto* func = parseTraitFuncDecl()) return func;
     if (auto* type = parseTraitTypeDecl()) return type;
     return nullptr;
 }
 
-TraitTypeDeclFacet const* Parser::parseTraitTypeDecl() {
+TraitImplTypeFacet const* Parser::parseTraitTypeDecl() {
     auto [trait, forTok, conforming, openbrace, body, closebrace] =
         makeParser()
             .fastFail(FN(parseTypeSpec))
@@ -282,11 +282,11 @@ TraitTypeDeclFacet const* Parser::parseTraitTypeDecl() {
             .rule(MatchExpect(CloseBrace))
             .eval();
     if (!trait) return nullptr;
-    return allocate<TraitTypeDeclFacet>(trait, forTok, conforming, openbrace,
+    return allocate<TraitImplTypeFacet>(trait, forTok, conforming, openbrace,
                                         body, closebrace);
 }
 
-TraitFuncDeclFacet const* Parser::parseTraitFuncDecl() {
+TraitImplFuncFacet const* Parser::parseTraitFuncDecl() {
     auto [func, forTok, conforming, body] =
         makeParser()
             .fastFail(FN(parseFuncDecl))
@@ -295,7 +295,7 @@ TraitFuncDeclFacet const* Parser::parseTraitFuncDecl() {
             .rule({ FN(parseFuncBody), Raise<ExpectedFuncBody>() })
             .eval();
     if (!func) return nullptr;
-    return allocate<TraitFuncDeclFacet>(func, forTok, conforming, body);
+    return allocate<TraitImplFuncFacet>(func, forTok, conforming, body);
 }
 
 VarDeclFacet const* Parser::parseVarDecl() {

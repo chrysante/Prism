@@ -363,7 +363,7 @@ impl [R: type, M: MyTrait] std.function for MyFunction {}
                 GenParamDeclFacet >> Tree{ Identifier, Colon, Type },
                 GenParamDeclFacet >> Tree{ Identifier, Colon, Identifier }
             },
-            TraitTypeDeclFacet >> Tree{
+            TraitImplTypeFacet >> Tree{
                 BinaryFacet >> Tree{ Identifier, Period, Identifier },
                 For,
                 Identifier,
@@ -381,7 +381,7 @@ impl fn std.function.call(&this, n: int, m: int) -> int for MyFunction {}
         TraitImplFacet >> Tree{
             Impl,
             NullNode,
-            TraitFuncDeclFacet >> Tree{
+            TraitImplFuncFacet >> Tree{
                 FuncDeclFacet,
                 For,
                 Identifier,

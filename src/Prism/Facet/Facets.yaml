@@ -153,14 +153,16 @@ facets:
       - name: closeBrace
         type: TerminalFacet
 
-  - name: TraitImplDeclFacet
+  - name: TraitImplDefFacet
     base: NonTerminalFacet
+    comment: 'Body of a trait implementation'
     abstract: true
 
-  - name: TraitTypeDeclFacet
-    base: TraitImplDeclFacet
+  - name: TraitImplTypeFacet
+    base: TraitImplDefFacet
+    comment: 'Body of a complete trait type implementation'
     members:
-      - name: traitName
+      - name: traitDeclRef
         type: Facet
       - name: forToken
         type: TerminalFacet
@@ -173,10 +175,11 @@ facets:
       - name: closeBrace
         type: TerminalFacet
 
-  - name: TraitFuncDeclFacet
-    base: TraitImplDeclFacet
+  - name: TraitImplFuncFacet
+    base: TraitImplDefFacet
+    comment: 'Body of a trait implementation as a single function'
     members:
-      - name: funcDecl
+      - name: funcDeclRef
         type: FuncDeclFacet
       - name: forToken
         type: TerminalFacet
@@ -187,13 +190,14 @@ facets:
 
   - name: TraitImplFacet
     base: DeclFacet
+    comment: 'Complete trait implementation'
     members:
       - name: declarator
         type: TerminalFacet
       - name: genParams
         type: GenParamListFacet
-      - name: declaration
-        type: TraitImplDeclFacet
+      - name: definition
+        type: TraitImplDefFacet
 
   - name: SourceFileFacet
     base: NonTerminalFacet

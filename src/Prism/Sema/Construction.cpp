@@ -117,7 +117,7 @@ struct GloablDeclDeclare {
     void declareImpl(Scope* parent, TraitImplFacet const& facet) {
         auto* impl = ctx.make<TraitImpl>(&facet, parent, nullptr, nullptr);
         declareChildren(impl->associatedScope(),
-                        cast<TraitTypeDeclFacet const*>(facet.declaration())
+                        cast<TraitImplTypeFacet const*>(facet.definition())
                             ->body()
                             ->elems());
     }
@@ -149,10 +149,9 @@ struct GlobalNameResolver {
     }
 
     void resolveImpl(TraitImpl& impl) {
-        auto* decl =
-            cast<TraitTypeDeclFacet const*>(impl.facet()->declaration());
-        auto* trait = lookup(decl->traitName(), impl.parentScope());
-        auto* conf = lookup(decl->conformingTypename(), impl.parentScope());
+        auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
+        auto* trait = lookup(def->traitDeclRef(), impl.parentScope());
+        auto* conf = lookup(def->conformingTypename(), impl.parentScope());
         impl._trait = cast<Trait*>(trait);
         impl._conf = cast<UserType*>(conf);
     }
