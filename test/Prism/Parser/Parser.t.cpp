@@ -6,7 +6,7 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Parser/ParserTestUtils.h"
-#include "Prism/Parser/SyntaxIssue.h"
+#include "Prism/Parser/SyntaxError.h"
 
 using enum prism::FacetType;
 using enum prism::TokenKind;

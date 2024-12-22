@@ -1,6 +1,6 @@
 #define PRISM_IMPL
 
-#include "Prism/Parser/SyntaxIssue.h"
+#include "Prism/Parser/SyntaxError.h"
 
 #include <ostream>
 
@@ -16,7 +16,6 @@ static constexpr utl::streammanip lowercase =
                               PRISM_REMOVE_PARENS CtorArgs)):                  \
         Base(PRISM_FOR_EACH(PRISM_PARAM_ID, PRISM_COMMA,                       \
                             PRISM_REMOVE_PARENS CtorArgs)) {                   \
-        using enum MessageKind;                                                \
         PRISM_REMOVE_PARENS CtorImpl                                           \
     }
-#include <Prism/Parser/SyntaxIssue.def>
+#include <Prism/Parser/SyntaxError.def>

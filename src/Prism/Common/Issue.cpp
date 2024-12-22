@@ -21,16 +21,14 @@ struct FmtImpl {
 } // namespace prism
 
 void Issue::format(std::ostream& str, SourceContext const& ctx) const {
-    for (auto& msg: messages) {
-        FmtImpl::formatMessage(msg, str, ctx);
-    }
+    FmtImpl::formatMessage(msg, str, ctx);
 }
 
-void Issue::message(MessageKind kind, std::function<void(std::ostream&)> fmt) {
-    message(kind, index, std::move(fmt));
+void Issue::message(std::function<void(std::ostream&)> fmt) {
+    message(index, std::move(fmt));
 }
 
-void Issue::message(MessageKind kind, uint32_t sourceIndex,
+void Issue::message(uint32_t sourceIndex,
                     std::function<void(std::ostream&)> fmt) {
-    messages.emplace_back(kind, sourceIndex, std::move(fmt));
+    msg = { sourceIndex, std::move(fmt) };
 }

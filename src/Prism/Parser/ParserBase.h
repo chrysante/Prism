@@ -19,7 +19,7 @@
 #include "Prism/Common/IssueHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
-#include "Prism/Parser/SyntaxIssue.h"
+#include "Prism/Parser/SyntaxError.h"
 #include "Prism/Source/SourceContext.h"
 
 namespace prism {

@@ -67,6 +67,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/Ranges.h
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
+    include/Prism/Common/Typename.h
 
     include/Prism/Facet/Facet.h
 
@@ -74,13 +75,15 @@ set(PRISM_HEADER_FILES
     include/Prism/Lexer/LexicalIssue.h
     
     include/Prism/Parser/Parser.h
-    include/Prism/Parser/SyntaxIssue.h
-    include/Prism/Parser/SyntaxIssue.def
+    include/Prism/Parser/SyntaxError.h
+    include/Prism/Parser/SyntaxError.def
 
     include/Prism/Sema/Construction.h
+    include/Prism/Sema/ExprAnalysis.h
     include/Prism/Sema/NameLookup.h
     include/Prism/Sema/Scope.h
     include/Prism/Sema/SemaContext.h
+    include/Prism/Sema/SemaIssue.h
     include/Prism/Sema/Symbol.h
     include/Prism/Sema/Symbol.def
     include/Prism/Sema/SymbolFwd.h
@@ -98,6 +101,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/IssueHandler.cpp
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
+    src/Prism/Common/Typename.cpp
 
     src/Prism/Facet/Facet.cpp
 
@@ -110,11 +114,13 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/Parser.cpp
     src/Prism/Parser/ParserBase.h
     src/Prism/Parser/ParserBase.cpp
-    src/Prism/Parser/SyntaxIssue.cpp
+    src/Prism/Parser/SyntaxError.cpp
 
     src/Prism/Sema/Construction.cpp
+    src/Prism/Sema/ExprAnalysis.cpp
     src/Prism/Sema/NameLookup.cpp
     src/Prism/Sema/SemaContext.cpp
+    src/Prism/Sema/SemaIssue.cpp
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
 

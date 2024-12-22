@@ -8,15 +8,18 @@
 
 namespace prism {
 
+#define LEXICAL_ISSUE_REASON(X)                                                \
+    X(InvalidCharacterSequence, Error)                                         \
+    X(UnterminatedStringLiteral, Error)                                        \
+    X(InvalidNumericLiteral, Error)
+
 class LexicalIssue: public Issue {
 public:
     enum Reason {
-        InvalidCharacterSequence,
-        UnterminatedStringLiteral,
-        InvalidNumericLiteral
+#define X(Name, ...) Name,
+        LEXICAL_ISSUE_REASON(X)
+#undef X
     };
-
-    static std::string_view StaticName() { return "LexicalIssue"; }
 
     explicit LexicalIssue(Reason reason, Token tok);
 

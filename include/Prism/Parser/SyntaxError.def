@@ -1,0 +1,85 @@
+
+#ifndef SYNTAX_ISSUE_DEF
+#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)
+#endif
+
+SYNTAX_ISSUE_DEF(ExpectedExpr, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected expression";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedId, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected identifier";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedTypeSpec, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected type specifier";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedDecl, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedBaseDecl, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected base declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedParamDecl, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected parameter declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedDeclName, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected name of declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedCompoundFacet, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected compound facet";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedFuncBody, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected function body";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedParamList, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected parameter list";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedTraitDecl, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Expected trait declaration";
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(ExpectedToken, SyntaxError,
+                 ((Token, have), (TokenKind, expected)), ({
+                     message([=, this](std::ostream& str) {
+                         str << "Expected " << lowercase(expected);
+                     });
+                 }))
+
+SYNTAX_ISSUE_DEF(UnexpectedToken, SyntaxError, ((Token, tok)), ({
+                     message([this](std::ostream& str) {
+                         str << "Unexpected " << lowercase(token().kind);
+                     });
+                 }))
+
+#undef SYNTAX_ISSUE_DEF

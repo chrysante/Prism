@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <Prism/Common/Allocator.h>
+#include <Prism/Common/Typename.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Source/Token.h>
 
@@ -62,7 +63,7 @@ public:
     void format(std::ostream& str) const override {
         str << "L: " << line << " ";
         if (column) str << "C: " << *column << " ";
-        str << IssueType::StaticName();
+        str << getDemangledName<IssueType>();
     }
 };
 

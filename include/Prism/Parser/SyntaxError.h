@@ -1,7 +1,5 @@
-#ifndef PRISM_PARSER_SYNTAXISSUE_H
-#define PRISM_PARSER_SYNTAXISSUE_H
-
-#include <string_view>
+#ifndef PRISM_PARSER_SYNTAXERROR_H
+#define PRISM_PARSER_SYNTAXERROR_H
 
 #include <Prism/Common/Issue.h>
 #include <Prism/Source/SourceLocation.h>
@@ -12,12 +10,13 @@
 namespace prism {
 
 /// Base class of all syntax issues
-class SyntaxIssue: public Issue {
+class SyntaxError: public Issue {
 public:
     Token token() const { return tok; }
 
 protected:
-    explicit SyntaxIssue(Token tok, auto&&...): Issue(tok.index), tok(tok) {}
+    explicit SyntaxError(Token tok, auto&&...):
+        Issue(Issue::Error, tok.index), tok(tok) {}
 
 private:
     Token tok;
@@ -26,7 +25,7 @@ private:
 } // namespace prism
 
 // Definition of all derived syntax issue classes. The classes are defined in a
-// concise manner in SyntaxIssue.def
+// concise manner in SyntaxError.def
 
 #define PRISM_PARAM_DECLARE(...)             PRISM_PARAM_DECLARE_IMPL __VA_ARGS__
 #define PRISM_PARAM_DECLARE_IMPL(type, name) type name
@@ -39,12 +38,10 @@ namespace prism {
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
     class Name: public Base {                                                  \
     public:                                                                    \
-        static std::string_view StaticName() { return #Name; }                 \
-                                                                               \
         explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
                                      PRISM_REMOVE_PARENS CtorArgs));           \
     };
-#include <Prism/Parser/SyntaxIssue.def>
+#include <Prism/Parser/SyntaxError.def>
 
 } // namespace prism
 
@@ -58,4 +55,4 @@ namespace prism {
 
 #endif // PRISM_IMPL
 
-#endif // PRISM_PARSER_SYNTAXISSUE_H
+#endif // PRISM_PARSER_SYNTAXERROR_H
