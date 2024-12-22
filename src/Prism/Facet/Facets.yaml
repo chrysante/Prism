@@ -160,11 +160,11 @@ facets:
   - name: TraitTypeDeclFacet
     base: TraitImplDeclFacet
     members:
-      - name: trait
+      - name: traitName
         type: Facet
       - name: forToken
         type: TerminalFacet
-      - name: conformingType
+      - name: conformingTypename
         type: Facet
       - name: openBrace
         type: TerminalFacet

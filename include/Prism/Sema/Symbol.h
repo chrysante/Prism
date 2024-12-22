@@ -8,15 +8,18 @@
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Assert.h>
+#include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema/Scope.h>
 #include <Prism/Sema/SymbolFwd.h>
 
-#define OVERRIDE_TYPE(T)                                                       \
-    T const* type() const { return cast<T const*>(Value::type()); }
+#define FACET_TYPE(Type)                                                       \
+    template <typename T = Type>                                               \
+    T const* facet() const {                                                   \
+        return cast<T const*>(Symbol::facet());                                \
+    }
 
 namespace prism {
 
-class Facet;
 class SourceContext;
 class SemaContext;
 
@@ -98,6 +101,8 @@ public:
     explicit SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
                         Scope* parent, SourceContext const& sourceCtx);
 
+    FACET_TYPE(SourceFileFacet)
+
     SourceContext const& sourceContext() const { return sourceCtx; }
 
     using AssocScope::associatedScope;
@@ -139,6 +144,8 @@ public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
                         Scope* parent):
         UserType(SymbolType::StructType, ctx, std::move(name), facet, parent) {}
+
+    FACET_TYPE(CompTypeDeclFacet)
 };
 
 /// Instantiation of a struct type
@@ -246,19 +253,23 @@ public:
     explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
                        Trait* trait, UserType* conforming);
 
+    FACET_TYPE(TraitImplFacet)
+
     Trait* trait() { return _trait; }
 
     /// \overload
     Trait const* trait() const { return _trait; }
 
-    UserType* conformingType() { return conf; }
+    UserType* conformingType() { return _conf; }
 
     /// \overload
-    UserType const* conformingType() const { return conf; }
+    UserType const* conformingType() const { return _conf; }
 
 private:
+    friend struct GlobalNameResolver;
+
     Trait* _trait;
-    UserType* conf;
+    UserType* _conf;
 };
 
 class GenericSymbol: public Symbol {};
@@ -293,6 +304,8 @@ public:
                       utl::small_vector<FunctionParameter>&& params,
                       Type const* retType);
 
+    FACET_TYPE(FuncDeclBaseFacet)
+
     std::span<FunctionParameter const> params() const { return _params; }
 
     Type const* retType() const { return _retType; }
@@ -310,6 +323,8 @@ public:
                           Facet const* facet, Scope* parent,
                           utl::small_vector<FunctionParameter>&& params,
                           Type const* retType);
+
+    FACET_TYPE(FuncDefFacet)
 };
 
 class FuncArg: public Value {
@@ -318,6 +333,8 @@ public:
                      ValueType const* type, ValueCat valueCat):
         Value(SymbolType::FuncArg, std::move(name), facet, parent, type,
               valueCat) {}
+
+    FACET_TYPE(ParamDeclFacet)
 };
 
 class GenericValueArg: public Value {};
@@ -330,6 +347,8 @@ public:
                       ValueType const* type):
         Value(SymbolType::Variable, std::move(name), facet, parent, type,
               LValue) {}
+
+    FACET_TYPE(VarDeclFacet)
 };
 
 class ValueAlias: public Value {

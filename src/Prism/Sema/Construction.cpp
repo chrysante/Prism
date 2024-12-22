@@ -12,6 +12,7 @@
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
+#include "Prism/Sema/NameLookup.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/Symbol.h"
@@ -129,6 +130,64 @@ static void declareGlobals(SemaContext& ctx, Scope* globalScope,
     GloablDeclDeclare{ ctx, globalScope }.run(input);
 }
 
+namespace prism {
+
+struct GlobalNameResolver {
+    SemaContext& ctx;
+    SourceContext const* src;
+
+    void resolve(Symbol* symbol) {
+        if (!symbol) return;
+        visit(*symbol, [this](auto& symbol) { resolveImpl(symbol); });
+    }
+
+    void resolveImpl(Symbol&) {}
+
+    void resolveImpl(SourceFile& sourceFile) {
+        src = &sourceFile.sourceContext();
+        resolveChildren(sourceFile);
+    }
+
+    void resolveImpl(TraitImpl& impl) {
+        auto* decl =
+            cast<TraitTypeDeclFacet const*>(impl.facet()->declaration());
+        auto* trait = lookup(decl->traitName(), impl.parentScope());
+        auto* conf = lookup(decl->conformingTypename(), impl.parentScope());
+        impl._trait = cast<Trait*>(trait);
+        impl._conf = cast<UserType*>(conf);
+    }
+
+    void resolveImpl(Function& func) {}
+
+    void resolveChildren(std::span<Symbol* const> symbols) {
+        for (auto* symbol: symbols)
+            resolve(symbol);
+    }
+
+    void resolveChildren(auto& symbol) {
+        resolveChildren(symbol.associatedScope()->symbols());
+    }
+
+    Symbol* lookup(Facet const* nameFacet, Scope* scope) {
+        if (auto* term = dyncast<TerminalFacet const*>(nameFacet)) {
+            PRISM_ASSERT(term->token().kind == TokenKind::Identifier);
+            auto name = src->getTokenStr(term->token());
+            auto symbols = unqualifiedLookup(scope, name);
+            if (!symbols.isSingleSymbol()) {
+                PRISM_UNIMPLEMENTED();
+            }
+            return symbols.singleSymbol();
+        }
+        PRISM_UNIMPLEMENTED();
+    }
+};
+
+} // namespace prism
+
+static void resolveGlobalNames(SemaContext& ctx, Scope* globalScope) {
+    GlobalNameResolver{ ctx }.resolveChildren(globalScope->symbols());
+}
+
 namespace {
 
 struct DependencyNode {
@@ -147,5 +206,6 @@ Target* prism::constructTarget(SemaContext& ctx,
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx, target->associatedScope());
     declareGlobals(ctx, target->associatedScope(), input);
+    resolveGlobalNames(ctx, target->associatedScope());
     return target;
 }

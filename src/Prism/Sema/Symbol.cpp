@@ -57,7 +57,7 @@ TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
     Symbol(SymbolType::TraitImpl, "", facet, parent),
     AssocScope(ctx.make<Scope>(parent), this),
     _trait(trait),
-    conf(conforming) {}
+    _conf(conforming) {}
 
 Function::Function(std::string name, Facet const* facet, Scope* parent,
                    utl::small_vector<FunctionParameter>&& params,
