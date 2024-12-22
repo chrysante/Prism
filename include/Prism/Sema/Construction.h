@@ -10,13 +10,14 @@ class SemaContext;
 class SourceContext;
 class Target;
 class SourceFileFacet;
+class IssueHandler;
 
 struct SourceFilePair {
     SourceFileFacet const* facet;
     SourceContext const& context;
 };
 
-Target* constructTarget(SemaContext& ctx,
+Target* constructTarget(SemaContext& ctx, IssueHandler& issueHandler,
                         std::span<SourceFilePair const> input);
 
 } // namespace prism

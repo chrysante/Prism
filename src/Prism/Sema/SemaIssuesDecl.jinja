@@ -1,0 +1,25 @@
+
+{% macro define_issue_class(issue) %}
+
+class {{ issue.name }}: public {{ issue.base }} {
+{% if not issue.abstract %}
+public:
+    explicit {{ issue.name }}(SourceContext const& ctx, Facet const* facet): SemaIssue(Issue::{{ issue.kind }}, ctx, facet) {}
+
+private:
+    void doFormat(std::ostream& str, SourceContext const& ctx) const override;
+
+{% endif %}
+};
+    
+{% endmacro %}
+
+namespace prism {
+    
+    {% for issue in issues %}
+    {% if not issue.decl_only %}
+    {{ define_issue_class(issue) }}
+    {% endif %}
+    {% endfor %}
+    
+}

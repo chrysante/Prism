@@ -14,6 +14,8 @@ static Issue::Kind toSeverity(LexicalIssue::Reason reason) {
 }
 
 LexicalIssue::LexicalIssue(Reason reason, Token tok):
-    Issue(toSeverity(reason), tok.index), _reason(reason), tok(tok) {
-    message([](std::ostream& str) { str << "lexical issue"; });
+    Issue(toSeverity(reason), tok.index), _reason(reason), tok(tok) {}
+
+void LexicalIssue::doFormat(std::ostream& str, SourceContext const& ctx) const {
+    str << "lexical issue";
 }

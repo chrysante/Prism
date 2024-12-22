@@ -28,6 +28,8 @@ public:
     Token token() const { return tok; }
 
 private:
+    void doFormat(std::ostream& os, SourceContext const& ctx) const override;
+
     Reason _reason;
     Token tok;
 };

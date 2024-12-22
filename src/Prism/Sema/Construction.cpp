@@ -9,12 +9,14 @@
 
 #include "Prism/Common/Allocator.h"
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/IssueHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/NameLookup.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
+#include "Prism/Sema/SemaIssue.h"
 #include "Prism/Sema/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -134,7 +136,8 @@ namespace prism {
 
 struct GlobalNameResolver {
     SemaContext& ctx;
-    SourceContext const* src;
+    IssueHandler& iss;
+    SourceContext const* src = nullptr;
 
     void resolve(Symbol* symbol) {
         if (!symbol) return;
@@ -172,6 +175,10 @@ struct GlobalNameResolver {
             PRISM_ASSERT(term->token().kind == TokenKind::Identifier);
             auto name = src->getTokenStr(term->token());
             auto symbols = unqualifiedLookup(scope, name);
+            if (symbols.isNone()) {
+                iss.push<UndeclaredID>(*src, nameFacet);
+                return nullptr;
+            }
             if (!symbols.isSingleSymbol()) {
                 PRISM_UNIMPLEMENTED();
             }
@@ -183,8 +190,9 @@ struct GlobalNameResolver {
 
 } // namespace prism
 
-static void resolveGlobalNames(SemaContext& ctx, Scope* globalScope) {
-    GlobalNameResolver{ ctx }.resolveChildren(globalScope->symbols());
+static void resolveGlobalNames(SemaContext& ctx, IssueHandler& iss,
+                               Scope* globalScope) {
+    GlobalNameResolver{ ctx, iss }.resolveChildren(globalScope->symbols());
 }
 
 namespace {
@@ -200,11 +208,11 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
     return nullptr;
 }
 
-Target* prism::constructTarget(SemaContext& ctx,
+Target* prism::constructTarget(SemaContext& ctx, IssueHandler& iss,
                                std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx, target->associatedScope());
     declareGlobals(ctx, target->associatedScope(), input);
-    resolveGlobalNames(ctx, target->associatedScope());
+    resolveGlobalNames(ctx, iss, target->associatedScope());
     return target;
 }

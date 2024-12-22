@@ -407,4 +407,6 @@ private:
 
 } // namespace prism
 
+#undef FACET_TYPE
+
 #endif // PRISM_SEMA_SYMBOL_H

@@ -158,6 +158,18 @@ add_code_generator(Prism
                    src/Prism/Facet/FacetMemberNames.inl
                    src/Prism/Facet/FacetFilters.py)
 
+add_code_generator(Prism
+                   src/Prism/Sema/SemaIssues.yaml
+                   src/Prism/Sema/SemaIssuesDecl.jinja
+                   include/Prism/Sema/SemaIssues.inl
+                   src/Prism/Sema/SemaIssueFilters.py)
+
+add_code_generator(Prism
+                  src/Prism/Sema/SemaIssues.yaml
+                  src/Prism/Sema/SemaIssuesDef.jinja
+                  src/Prism/Sema/SemaIssuesDef.inl
+                  src/Prism/Sema/SemaIssueFilters.py)
+
 target_sources(Prism 
   PRIVATE 
     ${PRISM_HEADER_FILES}

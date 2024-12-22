@@ -1,0 +1,15 @@
+
+{% macro define_issue_class(issue) %}
+    {% if not issue.abstract %}
+void {{ issue.name }}::doFormat(std::ostream& str, SourceContext const& ctx) const {
+    {{ issue.message }}
+}
+    {% endif %}
+{% endmacro %}
+
+
+{% for issue in issues %}
+{% if not issue.decl_only %}
+{{ define_issue_class(issue) }}
+{% endif %}
+{% endfor %}

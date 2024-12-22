@@ -11,11 +11,8 @@ using namespace prism;
 static constexpr utl::streammanip lowercase =
     [](std::ostream& str, auto const&... args) { ((str << args), ...); };
 
-#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
-    Name::Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,                \
-                              PRISM_REMOVE_PARENS CtorArgs)):                  \
-        Base(PRISM_FOR_EACH(PRISM_PARAM_ID, PRISM_COMMA,                       \
-                            PRISM_REMOVE_PARENS CtorArgs)) {                   \
-        PRISM_REMOVE_PARENS CtorImpl                                           \
+#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, FmtImpl)                        \
+    void Name::doFormat(std::ostream& str, SourceContext const& ctx) const {   \
+        PRISM_REMOVE_PARENS FmtImpl                                            \
     }
 #include <Prism/Parser/SyntaxError.def>

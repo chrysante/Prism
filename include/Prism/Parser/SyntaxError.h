@@ -11,15 +11,8 @@ namespace prism {
 
 /// Base class of all syntax issues
 class SyntaxError: public Issue {
-public:
-    Token token() const { return tok; }
-
 protected:
-    explicit SyntaxError(Token tok, auto&&...):
-        Issue(Issue::Error, tok.index), tok(tok) {}
-
-private:
-    Token tok;
+    explicit SyntaxError(Token tok): Issue(Issue::Error, tok.index) {}
 };
 
 } // namespace prism
@@ -30,16 +23,28 @@ private:
 #define PRISM_PARAM_DECLARE(...)             PRISM_PARAM_DECLARE_IMPL __VA_ARGS__
 #define PRISM_PARAM_DECLARE_IMPL(type, name) type name
 
-#define PRISM_PARAM_ID(...)             PRISM_PARAM_ID_IMPL __VA_ARGS__
-#define PRISM_PARAM_ID_IMPL(type, name) name
+#define PRISM_PARAM_INIT(...)             PRISM_PARAM_INIT_IMPL __VA_ARGS__
+#define PRISM_PARAM_INIT_IMPL(type, name) , name(name)
+
+#define PRISM_MEMBER_DECLARE(...)             PRISM_MEMBER_DECLARE_IMPL __VA_ARGS__
+#define PRISM_MEMBER_DECLARE_IMPL(type, name) type name;
 
 namespace prism {
 
-#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, CtorImpl)                       \
+#define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, FmtImpl)                        \
     class Name: public Base {                                                  \
     public:                                                                    \
         explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
-                                     PRISM_REMOVE_PARENS CtorArgs));           \
+                                     PRISM_REMOVE_PARENS CtorArgs)):           \
+            Base(tok) PRISM_FOR_EACH(PRISM_PARAM_INIT, PRISM_NONE,             \
+                                     PRISM_REMOVE_PARENS CtorArgs) {}          \
+                                                                               \
+    private:                                                                   \
+        void doFormat(std::ostream& os,                                        \
+                      SourceContext const& ctx) const override;                \
+                                                                               \
+        PRISM_FOR_EACH(PRISM_MEMBER_DECLARE, PRISM_NONE,                       \
+                       PRISM_REMOVE_PARENS CtorArgs)                           \
     };
 #include <Prism/Parser/SyntaxError.def>
 
@@ -49,8 +54,10 @@ namespace prism {
 
 #undef PRISM_PARAM_DECLARE
 #undef PRISM_PARAM_DECLARE_IMPL
-#undef PRISM_PARAM_ID
-#undef PRISM_PARAM_ID_IMPL
+#undef PRISM_PARAM_INIT
+#undef PRISM_PARAM_INIT_IMPL
+#undef PRISM_MEMBER_DECLARE
+#undef PRISM_MEMBER_DECLARE_IMPL
 #include <Prism/Common/MacroUtilsUndef.h>
 
 #endif // PRISM_IMPL
