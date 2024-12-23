@@ -17,6 +17,10 @@ enum class Mutability { Mut, Const };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(Mutability)
 
+enum class BindMode { Static, Dyn };
+
+PRISM_DEFINE_ENUM_FUNCTIONS(BindMode)
+
 enum class ArithmeticOperation { Add, Sub, Div, Mul, Rem };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)
@@ -43,5 +47,17 @@ using NoParent = void;
     PRISM_DEFINE_RTTI(prism::Name, prism::SymbolType::Name, prism::Parent,     \
                       Corpo)
 #include <Prism/Sema/Symbol.def>
+
+namespace prism {
+
+/// List of all builtins
+enum class BuiltinSymbol {
+#define SEMA_BUILTIN_TYPE(Name, ...) Name,
+#include <Prism/Sema/Builtins.def>
+};
+
+PRISM_DEFINE_ENUM_FUNCTIONS(BuiltinSymbol)
+
+} // namespace prism
 
 #endif // PRISM_SEMA_SYMBOLFWD_H

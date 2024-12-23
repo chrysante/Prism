@@ -2,6 +2,7 @@
 #define PRISM_SEMA_SYMBOL_H
 
 #include <iosfwd>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -9,6 +10,7 @@
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Facet/FacetFwd.h>
+#include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
 #include <Prism/Sema/SymbolFwd.h>
 
@@ -171,28 +173,23 @@ private:
     utl::small_vector<Type const*> _params;
 };
 
-/// Base class of all compiler defined types
-class BuiltinType: public CompositeType {
-    using CompositeType::CompositeType;
-};
-
 ///
-class ByteType: public BuiltinType {
+class ByteType: public CompositeType {
 public:
     ByteType(SemaContext& ctx, std::string name, Scope* parent):
-        BuiltinType(SymbolType::ByteType, ctx, std::move(name), nullptr,
-                    parent) {}
+        CompositeType(SymbolType::ByteType, ctx, std::move(name), nullptr,
+                      parent) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
-class ArithmeticType: public BuiltinType {
+class ArithmeticType: public CompositeType {
 public:
     size_t bitwidth() const { return _bitwidth; }
 
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        BuiltinType(symType, ctx, std::move(name), nullptr, parent) {}
+        CompositeType(symType, ctx, std::move(name), nullptr, parent) {}
 
 private:
     size_t _bitwidth;
@@ -236,7 +233,27 @@ class PointerType: public ValueType {};
 ///
 class RawPointerType: public PointerType {};
 
-class ReferenceType: public Type {};
+///
+class ReferenceType: public Type {
+public:
+    explicit ReferenceType(QualType referred):
+        Type(SymbolType::ReferenceType, /* name: */ {}, /* facet: */ nullptr,
+             /* scope: */ nullptr),
+        ref(referred) {}
+
+    /// \Return the referred-to qual type, e.g., `mut i32` for a `&mut i32`
+    QualType referred() const { return ref; }
+
+private:
+    QualType ref;
+};
+
+///
+class VoidType: public Type {
+public:
+    explicit VoidType(std::string name, Scope* parent):
+        Type(SymbolType::VoidType, std::move(name), nullptr, parent) {}
+};
 
 class Trait: public Symbol, public detail::AssocScope {
 public:
@@ -276,52 +293,80 @@ class GenericSymbol: public Symbol {};
 
 class Value: public Symbol {
 public:
-    ValueType const* type() const { return _type; }
+    QualType type() const { return _type; }
 
     ValueCat cat() const { return _valueCat; }
 
 protected:
     Value(SymbolType symType, std::string name, Facet const* facet,
-          Scope* parent, ValueType const* type, ValueCat valueCat):
+          Scope* parent, QualType type, ValueCat valueCat):
         Symbol(symType, std::move(name), facet, parent),
         _type(type),
         _valueCat(valueCat) {}
 
 private:
-    ValueType const* _type;
+    friend struct GlobalNameResolver;
+
+    QualType _type;
     ValueCat _valueCat;
 };
 
-struct FunctionParameter {
-    Facet const* facet;
-    std::string name;
-    Symbol* typeOrConstraint;
+/// Function parameter declaration. This differs from `FuncArg`, because this is
+/// not a value and has no scope. It's type is not a `QualType` but a `Type
+/// const*`
+class FuncParam: public Symbol {
+public:
+    explicit FuncParam(std::string name, Facet const* facet, Type const* type,
+                       bool hasMut):
+        Symbol(SymbolType::FuncParam, std::move(name), facet,
+               /* scope: */ nullptr),
+        _type(type),
+        _hasMut(hasMut) {}
+
+    ///
+    Type const* type() const { return _type; }
+
+    /// \Warning This only applies of `type()` is a value type
+    bool hasMut() const { return _hasMut; }
+
+private:
+    Type const* _type;
+    bool _hasMut;
 };
 
+/// Function declaration
 class Function: public Symbol {
 public:
     explicit Function(std::string name, Facet const* facet, Scope* parent,
-                      utl::small_vector<FunctionParameter>&& params,
+                      utl::small_vector<FuncParam*>&& params,
                       Type const* retType);
 
     FACET_TYPE(FuncDeclBaseFacet)
 
-    std::span<FunctionParameter const> params() const { return _params; }
+    /// \Returns the parameters of this function
+    std::span<FuncParam* const> params() { return _params; }
 
+    /// \overload
+    std::span<FuncParam const* const> params() const { return _params; }
+
+    /// \Returns the return type of this function
     Type const* retType() const { return _retType; }
 
 private:
-    utl::small_vector<FunctionParameter> _params;
+    friend struct GlobalNameResolver;
+
+    utl::small_vector<FuncParam*> _params;
     Type const* _retType;
 };
 
+/// Function implementation
 class FunctionImpl: public Function, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
     explicit FunctionImpl(SemaContext& ctx, std::string name,
                           Facet const* facet, Scope* parent,
-                          utl::small_vector<FunctionParameter>&& params,
+                          utl::small_vector<FuncParam*>&& params,
                           Type const* retType);
 
     FACET_TYPE(FuncDefFacet)
@@ -330,7 +375,7 @@ public:
 class FuncArg: public Value {
 public:
     explicit FuncArg(std::string name, Facet const* facet, Scope* parent,
-                     ValueType const* type, ValueCat valueCat):
+                     QualType type, ValueCat valueCat):
         Value(SymbolType::FuncArg, std::move(name), facet, parent, type,
               valueCat) {}
 
@@ -344,7 +389,7 @@ class GenericTypeArg: public ValueType {};
 class Variable: public Value {
 public:
     explicit Variable(std::string name, Facet const* facet, Scope* parent,
-                      ValueType const* type):
+                      QualType type):
         Value(SymbolType::Variable, std::move(name), facet, parent, type,
               LValue) {}
 
@@ -372,7 +417,7 @@ public:
 
 protected:
     Computation(SymbolType symType, std::string name, Facet const* facet,
-                Scope* parent, ValueType const* type, ValueCat valueCat,
+                Scope* parent, QualType type, ValueCat valueCat,
                 utl::small_vector<Value*, 2> operands):
         Value(symType, std::move(name), facet, parent, type, valueCat),
         _operands(std::move(operands)) {}
@@ -389,7 +434,7 @@ public:
         Computation(SymbolType::ArithmeticComputation, std::move(name), facet,
                     parent, LHS->type(), ValueCat::RValue, { LHS, RHS }),
         op(operation) {
-        PRISM_ASSERT(LHS->type() == RHS->type(),
+        PRISM_ASSERT(LHS->type().get() == RHS->type().get(),
                      "Operands must have the same type");
     }
 

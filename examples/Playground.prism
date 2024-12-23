@@ -1,14 +1,18 @@
 
 fn foo(t: MyType) { t.mem_foo(); }
 
+let MyGlobal: i32 = 42;
+
 struct MyType {
-    fn mem_foo(&this) {}
+    fn mem_foo(&mut this) {}
+    
+    var myVar: i32;
 }
 
 trait MyTrait {
-    fn bar(&this);
+    // fn bar(&this);
 }
 
 impl MyTrait for MyType {
-    fn bar(&this) { this.mem_foo(); }
+    // fn bar(&this) { this.mem_foo(); }
 }

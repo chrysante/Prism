@@ -78,6 +78,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxError.h
     include/Prism/Parser/SyntaxError.def
 
+    include/Prism/Sema/Builtins.def
     include/Prism/Sema/Construction.h
     include/Prism/Sema/ExprAnalysis.h
     include/Prism/Sema/NameLookup.h
@@ -87,6 +88,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/Symbol.h
     include/Prism/Sema/Symbol.def
     include/Prism/Sema/SymbolFwd.h
+    include/Prism/Sema/QualType.h
 
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
@@ -116,6 +118,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/ParserBase.cpp
     src/Prism/Parser/SyntaxError.cpp
 
+    src/Prism/Sema/AnalysisBase.h
     src/Prism/Sema/Construction.cpp
     src/Prism/Sema/ExprAnalysis.cpp
     src/Prism/Sema/NameLookup.cpp
@@ -123,6 +126,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/SemaIssue.cpp
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
+    src/Prism/Sema/QualType.cpp
 
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp

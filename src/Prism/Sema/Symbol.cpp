@@ -60,8 +60,7 @@ TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
     _conf(conforming) {}
 
 Function::Function(std::string name, Facet const* facet, Scope* parent,
-                   utl::small_vector<FunctionParameter>&& params,
-                   Type const* retType):
+                   utl::small_vector<FuncParam*>&& params, Type const* retType):
     Symbol(SymbolType::Function, std::move(name), facet, parent),
     _params(std::move(params)),
     _retType(retType) {}
@@ -72,23 +71,13 @@ static std::tuple<ValueType const*, Mutability, ValueCat> destructureType(
     return { cast<ValueType const*>(type), Mutability::Const, LValue };
 }
 
-static void declareArguments(SemaContext& ctx, Scope* scope,
-                             std::span<FunctionParameter const> params) {
-    for (auto& param: params) {
-        auto [type, mut, valueCat] =
-            destructureType(cast<Type const*>(param.typeOrConstraint));
-        ctx.make<FuncArg>(param.name, param.facet, scope, type, valueCat);
-    }
-}
-
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
                            Facet const* facet, Scope* parent,
-                           utl::small_vector<FunctionParameter>&& params,
+                           utl::small_vector<FuncParam*>&& params,
                            Type const* retType):
     Function(std::move(name), facet, parent, std::move(params), retType),
     AssocScope(ctx.make<Scope>(parent), this) {
     setSymbolType(SymbolType::FunctionImpl);
-    declareArguments(ctx, associatedScope(), this->params());
 }
 
 using namespace tfmt::modifiers;
@@ -123,6 +112,11 @@ static constexpr utl::streammanip Null = [](std::ostream& str) {
                      tfmt::format(BrightRed | Bold, "NULL"));
 };
 
+static bool isBuiltin(Symbol const& sym) {
+    return isa<VoidType>(sym) || isa<ByteType>(sym) || isa<IntType>(sym) ||
+           isa<FloatType>(sym);
+}
+
 struct SymbolPrinter {
     std::ostream& str;
     IndentingStreambuf<> buf;
@@ -138,18 +132,44 @@ struct SymbolPrinter {
             visit(*symbol, [&](auto const& symbol) { printImpl(symbol); });
     }
 
+    void printNameImpl(QualType type) {
+        if (type.isMut()) str << Keyword("mut") << " ";
+        printNameImpl(type.get());
+    }
+
+    void printNameImpl(Symbol const* symbol) {
+        PRISM_ASSERT(&this->str == &str);
+        if (!symbol) {
+            str << Null;
+            return;
+        }
+        if (auto* ref = dyncast<ReferenceType const*>(symbol)) {
+            str << "&";
+            printNameImpl(ref->referred());
+            return;
+        }
+        std::string_view name = symbol->name();
+        if (name.empty()) {
+            str << tfmt::format(BrightGrey, "<anon: ", get_rtti(*symbol), ">");
+            return;
+        }
+        if (isBuiltin(*symbol)) {
+            str << Keyword(name);
+            return;
+        }
+        if (isa<UserType>(symbol)) {
+            str << Username(name);
+            return;
+        }
+        str << name;
+    }
+
+    auto printName(QualType type) {
+        return utl::streammanip([=, this](auto&) { printNameImpl(type); });
+    }
+
     auto printName(Symbol const* symbol) {
-        return utl::streammanip([=, this](std::ostream& str) -> auto& {
-            PRISM_ASSERT(&this->str == &str);
-            if (!symbol) return str << Null;
-            std::string_view name = symbol->name();
-            if (name.empty())
-                return str << tfmt::format(BrightGrey,
-                                           "<anon: ", get_rtti(*symbol), ">");
-            if (isa<BuiltinType>(symbol)) return str << Keyword(name);
-            if (isa<UserType>(symbol)) return str << Username(name);
-            return str << name;
-        });
+        return utl::streammanip([=, this](auto&) { printNameImpl(symbol); });
     }
 
     struct PrintChildrenOptions {
@@ -200,7 +220,7 @@ struct SymbolPrinter {
         auto* scope = target.associatedScope();
         utl::small_vector<Symbol const*> builtins, userDefined;
         for (auto* sym: scope->symbols()) {
-            (isa<BuiltinType>(sym) ? builtins : userDefined).push_back(sym);
+            (isBuiltin(*sym) ? builtins : userDefined).push_back(sym);
         }
         printChildren(builtins, { "\n", "\n\n" });
         printChildren(userDefined, DeclOpt);
@@ -213,19 +233,23 @@ struct SymbolPrinter {
 
     auto valueDecl(Value const& value) {
         return utl::streammanip([&](std::ostream& str) {
-            str << value.name() << ": " << printName(value.type()) << " "
+            str << value.name() << ": " << printName(value.type().get()) << " "
                 << tfmt::format(BrightGrey, value.cat());
         });
     }
 
     void printImpl(Value const& value) { str << valueDecl(value); }
 
+    void printImpl(FuncParam const& param) {
+        str << param.name() << ": " << printName(param.type());
+    }
+
     void printImpl(Function const& func) {
         str << Keyword("fn") << " " << func.name() << "(";
-        for (bool first = true; auto& param: func.params()) {
+        for (bool first = true; auto* param: func.params()) {
             if (!first) str << ", ";
             first = false;
-            str << param.name << ": " << printName(param.typeOrConstraint);
+            print(param);
         }
         str << ") -> " << printName(func.retType()) << " ";
         if (isa<FunctionImpl>(func)) printBraced(func.associatedScope());
@@ -236,7 +260,7 @@ struct SymbolPrinter {
         printBraced(sym.associatedScope());
     }
 
-    void printImpl(BuiltinType const& type) { str << printName(&type); }
+    void printImpl(Type const& type) { str << printName(&type); }
 
     void printImpl(UserType const& type) {
         // clang-format off

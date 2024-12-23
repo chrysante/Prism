@@ -1,0 +1,27 @@
+
+#ifndef SEMA_BUILTIN
+#define SEMA_BUILTIN(Name, Spelling, SymType)
+#endif
+
+#ifndef SEMA_BUILTIN_TYPE
+#define SEMA_BUILTIN_TYPE(Name, Spelling, SymType, ...)                        \
+    SEMA_BUILTIN(Name, Spelling, SymType)
+#endif
+
+// The names must match the names of the corresponding token types
+SEMA_BUILTIN_TYPE(Void, "void", VoidType)
+SEMA_BUILTIN_TYPE(Byte, "byte", ByteType)
+SEMA_BUILTIN_TYPE(Int8, "i8", IntType, 8, Signed)
+SEMA_BUILTIN_TYPE(Int16, "i16", IntType, 16, Signed)
+SEMA_BUILTIN_TYPE(Int32, "i32", IntType, 32, Signed)
+SEMA_BUILTIN_TYPE(Int64, "i64", IntType, 64, Signed)
+SEMA_BUILTIN_TYPE(UInt8, "u8", IntType, 8, Unsigned)
+SEMA_BUILTIN_TYPE(UInt16, "u16", IntType, 16, Unsigned)
+SEMA_BUILTIN_TYPE(UInt32, "u32", IntType, 32, Unsigned)
+SEMA_BUILTIN_TYPE(UInt64, "u64", IntType, 64, Unsigned)
+SEMA_BUILTIN_TYPE(Float32, "f32", FloatType, 32)
+SEMA_BUILTIN_TYPE(Float64, "f64", FloatType, 64)
+
+#undef SEMA_BUILTIN_TYPE
+
+#undef SEMA_BUILTIN

@@ -1,0 +1,52 @@
+
+trait Behaviour {
+	fn bar(&this);
+}
+
+struct Base {
+	dyn fn foo(&this, &dyn Behaviour);
+}
+
+impl Behaviour for Base {
+	// Takes &this as wide pointer
+	fn bar(&this) { 
+		// Here the vtable pointer points to Base.vtable.Behaviour, so we subtract offsetof(Base.vtable, Base.vtable.Behaviour)
+		this.foo(); 
+	}
+}
+
+struct Derived: Base {
+	override fn foo(&this) {}
+}
+
+struct NonPoly {}
+
+impl Behaviour for NonPoly {
+	// Takes &this as narrow pointer
+	fn bar(&this) {}
+}
+
+/// We monomorphize two versions of quuz(), one for polymorphic and one for non-polymorphic arguments?
+fn quuz(b: &dyn Behaviour) {
+	// In one version this passes the vtable pointer to bar(), in the other it doesn't
+	b.bar();
+}
+
+fn quux(b: &impl Behaviour) {
+	b.bar();
+}
+// Same as
+fn[T: Behaviour] quux(b: &T);
+
+fn foobar(b: &dyn Behaviour) {
+	quux(b);
+}
+
+fn main() {
+	let d = Derived();
+	quuz(d);
+	let n = NonPoly();
+	quuz(n);
+}
+
+fn quuz(a: &dyn Behaviour, b: &dyn Behaviour, c: &dyn Behaviour, d: &dyn Behaviour);

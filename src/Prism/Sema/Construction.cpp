@@ -13,7 +13,8 @@
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
-#include "Prism/Sema/NameLookup.h"
+#include "Prism/Sema/AnalysisBase.h"
+#include "Prism/Sema/ExprAnalysis.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaIssue.h"
@@ -22,20 +23,14 @@
 
 using namespace prism;
 using ranges::views::transform;
+using ranges::views::zip;
 
-static void declareBuiltins(SemaContext& ctx, Scope* scope) {
-    ctx.make<ByteType>("byte", scope);
+static void declareBuiltins(SemaContext& ctx) {
     using enum Signedness;
-    ctx.make<IntType>("i8", scope, 8, Signed);
-    ctx.make<IntType>("i16", scope, 16, Signed);
-    ctx.make<IntType>("i32", scope, 32, Signed);
-    ctx.make<IntType>("i64", scope, 64, Signed);
-    ctx.make<IntType>("u8", scope, 8, Unsigned);
-    ctx.make<IntType>("u16", scope, 16, Unsigned);
-    ctx.make<IntType>("u32", scope, 32, Unsigned);
-    ctx.make<IntType>("u64", scope, 64, Unsigned);
-    ctx.make<FloatType>("f32", scope, 32);
-    ctx.make<FloatType>("f64", scope, 64);
+#define SEMA_BUILTIN_TYPE(Name, Spelling, SymType, ...)                        \
+    ctx.makeBuiltin<SymType>(BuiltinSymbol::Name, Spelling,                    \
+                             nullptr __VA_OPT__(, ) __VA_ARGS__);
+#include "Prism/Sema/Builtins.def"
 }
 
 namespace {
@@ -77,29 +72,17 @@ struct GloablDeclDeclare {
     }
 
     void declareImpl(Scope* parent, VarDeclFacet const& facet) {
-        ctx.make<Variable>(getName(facet), &facet, parent, nullptr);
-    }
-
-    FunctionParameter makeFuncParam(ParamDeclFacet const* decl) {
-        if (!decl) return {};
-        // clang-format off
-        std::string name(visit(*decl, csp::overload{
-            [&](NamedParamDeclFacet const& param) {
-                return  sourceContext->getTokenStr(param.name());
-            },
-            [&](ThisParamDeclFacet const& param) { return "this"; }
-        })); // clang-format on
-        return { decl, std::move(name), nullptr };
+        ctx.make<Variable>(getName(facet), &facet, parent,
+                           QualType{ nullptr, {} });
     }
 
     void declareImpl(Scope* parent, FuncDefFacet const& facet) {
-        auto params = facet.params()->elems() | transform(FN(makeFuncParam));
         if (facet.body() && isa<CompoundFacet>(facet.body()))
             ctx.make<FunctionImpl>(getName(facet), &facet, parent,
-                                   params | ToSmallVector<>, nullptr);
+                                   utl::small_vector<FuncParam*>{}, nullptr);
         else
             ctx.make<Function>(getName(facet), &facet, parent,
-                               params | ToSmallVector<>, nullptr);
+                               utl::small_vector<FuncParam*>{}, nullptr);
     }
 
     void declareImpl(Scope* parent, CompTypeDeclFacet const& facet) {
@@ -134,11 +117,7 @@ static void declareGlobals(SemaContext& ctx, Scope* globalScope,
 
 namespace prism {
 
-struct GlobalNameResolver {
-    SemaContext& ctx;
-    IssueHandler& iss;
-    SourceContext const* src = nullptr;
-
+struct GlobalNameResolver: AnalysisBase {
     void resolve(Symbol* symbol) {
         if (!symbol) return;
         visit(*symbol, [this](auto& symbol) { resolveImpl(symbol); });
@@ -147,19 +126,101 @@ struct GlobalNameResolver {
     void resolveImpl(Symbol&) {}
 
     void resolveImpl(SourceFile& sourceFile) {
-        src = &sourceFile.sourceContext();
+        sourceContext = &sourceFile.sourceContext();
         resolveChildren(sourceFile);
     }
 
     void resolveImpl(TraitImpl& impl) {
         auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
-        auto* trait = lookup(def->traitDeclRef(), impl.parentScope());
-        auto* conf = lookup(def->conformingTypename(), impl.parentScope());
-        impl._trait = cast<Trait*>(trait);
-        impl._conf = cast<UserType*>(conf);
+        impl._trait = analyzeFacetAs<Trait>(*this, impl.parentScope(),
+                                            def->traitDeclRef());
+        impl._conf = analyzeFacetAs<UserType>(*this, impl.parentScope(),
+                                              def->conformingTypename());
+        resolveChildren(impl);
     }
 
-    void resolveImpl(Function& func) {}
+    void resolveImpl(UserType& type) { resolveChildren(type); }
+
+    void resolveImpl(Trait& trait) { resolveChildren(trait); }
+
+    void resolveImpl(Variable& var) {
+        if (!var.facet()->typespec()) {
+            PRISM_UNIMPLEMENTED();
+            return;
+        }
+        auto* type = analyzeFacetAs<Type>(*this, var.parentScope(),
+                                          var.facet()->typespec());
+        // For now we assume no references
+        auto* valtype = cast<ValueType*>(type);
+        var._type = { valtype, Mutability::Mut };
+    }
+
+    FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet) {
+        if (!facet) return nullptr;
+        return visit(*facet, [&](auto& facet) {
+            return analyzeParamImpl(func, facet);
+        });
+    }
+
+    FuncParam* analyzeParamImpl(Function& func,
+                                NamedParamDeclFacet const& param) {
+        auto* type =
+            analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
+        auto name = sourceContext->getTokenStr(param.name());
+        return ctx.make<FuncParam>(std::string(name), &param, type,
+                                   /* mut: */ false);
+    }
+
+    FuncParam* analyzeParamImpl(Function& func,
+                                ThisParamDeclFacet const& param) {
+        Mutability mut = Mutability::Const;
+        bool dyn = false, ref = false;
+        auto* typeFacet = param.spec();
+        while (!isa<TerminalFacet>(typeFacet)) {
+            auto* prefix = cast<PrefixFacet const*>(typeFacet);
+            typeFacet = prefix->operand();
+            using enum TokenKind;
+            switch (prefix->operation().kind) {
+            case Mut:
+                mut = Mutability::Mut;
+                break;
+            case Dyn:
+                dyn = true;
+                break;
+            case Ampersand:
+                ref = true;
+                break;
+            default:
+                PRISM_UNREACHABLE();
+            }
+        }
+        PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
+                     TokenKind::This);
+        auto* parent = dyncast<UserType*>(func.parentScope()->assocSymbol());
+        if (!parent) {
+            PRISM_UNIMPLEMENTED();
+        }
+        if (ref) {
+            auto* type = ctx.getRefType({ parent, mut });
+            return ctx.make<FuncParam>("this", &param, type, /* mut: */ false);
+        }
+        else {
+            return ctx.make<FuncParam>("this", &param, parent,
+                                       mut == Mutability::Mut);
+        }
+    }
+
+    void resolveImpl(Function& func) {
+        if (auto* paramDecls = func.facet()->params())
+            func._params = paramDecls->elems() |
+                           transform(REFFN(analyzeParam, func)) |
+                           ToSmallVector<>;
+        if (auto* retFacet = func.facet()->retType())
+            func._retType =
+                analyzeFacetAs<Type>(*this, func.parentScope(), retFacet);
+        else
+            func._retType = ctx.getVoid();
+    }
 
     void resolveChildren(std::span<Symbol* const> symbols) {
         for (auto* symbol: symbols)
@@ -168,23 +229,6 @@ struct GlobalNameResolver {
 
     void resolveChildren(auto& symbol) {
         resolveChildren(symbol.associatedScope()->symbols());
-    }
-
-    Symbol* lookup(Facet const* nameFacet, Scope* scope) {
-        if (auto* term = dyncast<TerminalFacet const*>(nameFacet)) {
-            PRISM_ASSERT(term->token().kind == TokenKind::Identifier);
-            auto name = src->getTokenStr(term->token());
-            auto symbols = unqualifiedLookup(scope, name);
-            if (symbols.isNone()) {
-                iss.push<UndeclaredID>(*src, nameFacet);
-                return nullptr;
-            }
-            if (!symbols.isSingleSymbol()) {
-                PRISM_UNIMPLEMENTED();
-            }
-            return symbols.singleSymbol();
-        }
-        PRISM_UNIMPLEMENTED();
     }
 };
 
@@ -211,7 +255,7 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
 Target* prism::constructTarget(SemaContext& ctx, IssueHandler& iss,
                                std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
-    declareBuiltins(ctx, target->associatedScope());
+    declareBuiltins(ctx);
     declareGlobals(ctx, target->associatedScope(), input);
     resolveGlobalNames(ctx, iss, target->associatedScope());
     return target;

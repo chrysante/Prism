@@ -6,12 +6,13 @@
 #include <vector>
 
 #include <csp.hpp>
+#include <utl/hashtable.hpp>
 
 #include <Prism/Sema/Scope.h>
+#include <Prism/Sema/Symbol.h>
 
 namespace prism {
 
-class Symbol;
 class SemaContext {
 public:
     SemaContext();
@@ -31,6 +32,25 @@ public:
         return make<Sym>(*this, std::forward<Args>(args)...);
     }
 
+    template <std::derived_from<Symbol> Sym, typename... Args>
+    Sym* makeBuiltin(BuiltinSymbol builtinID, Args&&... args) {
+        auto* sym = make<Sym>(std::forward<Args>(args)...);
+        builtins[(size_t)builtinID] = sym;
+        return sym;
+    }
+
+    Symbol* getBuiltin(BuiltinSymbol builtin) const {
+        return builtins[(size_t)builtin];
+    }
+
+#define SEMA_BUILTIN(Name, Spelling, SymType)                                  \
+    SymType* get##Name() const {                                               \
+        return cast<SymType*>(getBuiltin(BuiltinSymbol::Name));                \
+    }
+#include <Prism/Sema/Builtins.def>
+
+    ReferenceType const* getRefType(QualType referred);
+
     template <std::same_as<Scope> S>
     Scope* make(Scope* parent) {
         scopeBag.push_back(std::make_unique<S>(parent));
@@ -40,6 +60,8 @@ public:
 private:
     Symbol* addSymbol(csp::unique_ptr<Symbol> symbol);
 
+    std::vector<Symbol*> builtins;
+    utl::hashmap<uintptr_t, ReferenceType*> refTypes;
     std::vector<csp::unique_ptr<Symbol>> symbolBag;
     std::vector<std::unique_ptr<Scope>> scopeBag;
 };
