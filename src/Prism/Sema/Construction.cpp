@@ -1,9 +1,11 @@
 #include "Prism/Sema/Construction.h"
 
+#include <span>
 #include <vector>
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
+#include <utl/hashtable.hpp>
 #include <utl/scope_guard.hpp>
 #include <utl/stack.hpp>
 
@@ -115,9 +117,64 @@ static void declareGlobals(SemaContext& ctx, IssueHandler& iss,
     GloablDeclDeclare{ { ctx, iss }, globalScope }.run(input);
 }
 
+namespace {
+
+class DependencyNode {
+public:
+    explicit DependencyNode(Symbol* symbol, MonotonicBufferResource& resource):
+        sym(symbol), succs(&resource) {}
+
+    void addDependency(DependencyNode const* node) {
+        if (node) succs.push_back(node);
+    }
+
+    Symbol* symbol() const { return sym; }
+
+    std::span<DependencyNode const* const> successors() const { return succs; }
+
+private:
+    using AllocType =
+        ResourceAllocator<DependencyNode const*, MonotonicBufferResource>;
+    std::vector<DependencyNode const*, AllocType> succs;
+    Symbol* sym;
+};
+
+class DependencyGraph {
+public:
+    DependencyGraph(MonotonicBufferResource& resource): nodes(&resource) {}
+
+    DependencyNode* getNode(Symbol* sym) {
+        auto itr = nodes.find(sym);
+        if (itr != nodes.end()) return itr->second;
+        auto* resource = getResource();
+        auto* node = allocate<DependencyNode>(*resource, sym, *resource);
+        nodes.insert({ sym, node });
+        return node;
+    }
+
+private:
+    using AllocType =
+        ResourceAllocator<std::pair<Symbol const*, DependencyNode*>,
+                          MonotonicBufferResource>;
+
+    MonotonicBufferResource* getResource() const {
+        return nodes.get_allocator().resource();
+    }
+
+    utl::hashmap<Symbol const*, DependencyNode*, utl::hash<Symbol const*>,
+                 std::equal_to<>, AllocType>
+        nodes;
+};
+
+} // namespace
+
 namespace prism {
 
 struct GlobalNameResolver: InstantiationBase {
+    DependencyGraph& dependencies;
+
+    DependencyNode* getNode(Symbol* sym) { return dependencies.getNode(sym); }
+
     void resolve(Symbol* symbol) {
         if (!symbol) return;
         visit(*symbol, [this](auto& symbol) { resolveImpl(symbol); });
@@ -126,14 +183,20 @@ struct GlobalNameResolver: InstantiationBase {
     void resolveImpl(Symbol&) {}
 
     void declareGlobalVar(Scope* parent, VarDeclFacet const& facet) {
-        ctx.make<Variable>(getName(facet), &facet, parent,
-                           QualType{ nullptr, {} });
+        if (!facet.typespec()) {
+            PRISM_UNIMPLEMENTED();
+        }
+        auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
+        auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
+                                       QualType{ type, {} });
+        getNode(var)->addDependency(getNode(type));
     }
 
     void resolveImpl(SourceFile& sourceFile) {
         sourceContext = &sourceFile.sourceContext();
-        for (auto* decl:
-             sourceFile.facet()->decls() | csp::filter<VarDeclFacet>)
+        auto* node = getNode(&sourceFile);
+        auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
+        for (auto* decl: globals)
             declareGlobalVar(sourceFile.associatedScope(), *decl);
         resolveChildren(sourceFile);
     }
@@ -144,27 +207,41 @@ struct GlobalNameResolver: InstantiationBase {
                                             def->traitDeclRef());
         impl._conf = analyzeFacetAs<UserType>(*this, impl.parentScope(),
                                               def->conformingTypename());
+        auto* node = getNode(&impl);
+        node->addDependency(getNode(impl._trait));
+        node->addDependency(getNode(impl._conf));
         resolveChildren(impl);
     }
 
-    void declareBaseClass(Scope* scope, BaseDeclFacet const& decl) {
+    BaseClass* declareBaseClass(Scope* scope, BaseDeclFacet const& decl) {
         auto* basetype = analyzeFacetAs<UserType>(*this, scope, decl.type());
-        ctx.make<BaseClass>(&decl, scope, basetype);
+        auto* base = ctx.make<BaseClass>(&decl, scope, basetype);
+        getNode(base)->addDependency(getNode(basetype));
+        return base;
     }
 
-    void declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
+    MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
         auto* type = analyzeFacetAs<UserType>(*this, scope, decl.typespec());
-        ctx.make<MemberVar>(getName(decl), &decl, scope, type);
+        auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
+        getNode(var)->addDependency(getNode(type));
+        return var;
     }
 
     void resolveImpl(UserType& type) {
         auto* scope = type.associatedScope();
-        if (auto* bases = type.facet()->bases())
-            for (auto* decl: bases->elems())
-                declareBaseClass(scope, *decl);
-        if (auto* body = type.facet()->body())
-            for (auto* decl: body->elems() | csp::filter<VarDeclFacet>)
-                declareMemberVar(scope, *decl);
+        auto* node = getNode(&type);
+        if (auto* bases = type.facet()->bases()) {
+            for (auto* decl: bases->elems()) {
+                auto* base = declareBaseClass(scope, *decl);
+                node->addDependency(getNode(base));
+            }
+        }
+        if (auto* body = type.facet()->body()) {
+            for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
+                auto* var = declareMemberVar(scope, *decl);
+                node->addDependency(getNode(var));
+            }
+        }
         resolveChildren(type);
     }
 
@@ -268,16 +345,11 @@ struct GlobalNameResolver: InstantiationBase {
 
 static void resolveGlobalNames(SemaContext& ctx, IssueHandler& iss,
                                Scope* globalScope) {
-    GlobalNameResolver{ ctx, iss }.resolveChildren(globalScope->symbols());
+    MonotonicBufferResource resource;
+    DependencyGraph dependencies(resource);
+    GlobalNameResolver{ { ctx, iss }, dependencies }.resolveChildren(
+        globalScope->symbols());
 }
-
-namespace {
-
-struct DependencyNode {
-    Symbol* symbol;
-};
-
-} // namespace
 
 static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
                                             Target* target) {
