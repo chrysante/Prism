@@ -33,7 +33,7 @@ struct SymbolConverter<T> {
     static T* convertImpl(Symbol& sym) { return dyncast<T*>(&sym); }
 
     static T* convertImpl(BaseClass& base) {
-        return dyncast<T*>(const_cast<ValueType*>(base.type().get()));
+        return dyncast<T*>(const_cast<UserType*>(base.type()));
     }
 };
 

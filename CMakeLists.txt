@@ -104,6 +104,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
     src/Prism/Common/Typename.cpp
+    src/Prism/Common/Filters.py
 
     src/Prism/Facet/Facet.cpp
 
@@ -163,16 +164,22 @@ add_code_generator(Prism
                    src/Prism/Facet/FacetFilters.py)
 
 add_code_generator(Prism
+                   src/Prism/Sema/Symbols.yaml
+                   src/Prism/Sema/SymbolFwd.jinja
+                   include/Prism/Sema/SymbolFwd.inl
+                   src/Prism/Sema/SemaFilters.py)
+
+add_code_generator(Prism
                    src/Prism/Sema/SemaIssues.yaml
                    src/Prism/Sema/SemaIssuesDecl.jinja
                    include/Prism/Sema/SemaIssues.inl
-                   src/Prism/Sema/SemaIssueFilters.py)
+                   src/Prism/Sema/SemaFilters.py)
 
 add_code_generator(Prism
                   src/Prism/Sema/SemaIssues.yaml
                   src/Prism/Sema/SemaIssuesDef.jinja
                   src/Prism/Sema/SemaIssuesDef.inl
-                  src/Prism/Sema/SemaIssueFilters.py)
+                  src/Prism/Sema/SemaFilters.py)
 
 target_sources(Prism 
   PRIVATE 

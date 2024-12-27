@@ -1,0 +1,127 @@
+symbols:
+  - name: Symbol
+    abstract: true
+
+  - name: Module
+    base: Symbol
+    abstract: true
+
+  - name: Target
+    base: Module
+
+  - name: Library
+    base: Module
+
+  - name: SourceFile
+    base: Symbol
+
+  - name: FuncParam
+    base: Symbol
+
+  - name: Function
+    base: Symbol
+
+  - name: FunctionImpl
+    base: Function
+
+  - name: Type
+    base: Symbol
+    abstract: true
+
+  - name: ValueType
+    base: Type
+    abstract: true
+
+  - name: CompositeType
+    base: ValueType
+    abstract: true
+
+  - name: UserType
+    base: CompositeType
+    abstract: true
+
+  - name: StructType
+    base: UserType
+
+  - name: GenStructTypeInst
+    base: UserType
+
+  - name: DynType
+    base: ValueType
+    abstract: true
+
+  - name: DynStructType
+    base: DynType
+
+  - name: DynTraitType
+    base: DynType
+
+  - name: FunctionType
+    base: ValueType
+
+  - name: ByteType
+    base: CompositeType
+
+  - name: ArithmeticType
+    base: CompositeType
+    abstract: true
+
+  - name: IntType
+    base: ArithmeticType
+
+  - name: FloatType
+    base: ArithmeticType
+
+  - name: PointerType
+    base: ValueType
+    abstract: true
+
+  - name: RawPointerType
+    base: ValueType
+    abstract: true
+
+  - name: ReferenceType
+    base: Type
+
+  - name: VoidType
+    base: Type
+
+  - name: MemberSymbol
+    base: Symbol
+    abstract: true
+ 
+  - name: BaseClass
+    base: MemberSymbol
+
+  - name: MemberVar
+    base: MemberSymbol
+
+  - name: Trait
+    base: Symbol
+
+  - name: TraitImpl
+    base: Symbol
+
+  - name: GenericSymbol
+    base: Symbol
+    abstract: true
+
+  - name: Value
+    base: Symbol
+    abstract: true
+
+  - name: FuncArg
+    base: Value
+
+  - name: Variable
+    base: Value
+
+  - name: ValueAlias
+    base: Value
+
+  - name: Computation
+    base: Value
+    abstract: true
+
+  - name: ArithmeticComputation
+    base: Value

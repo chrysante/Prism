@@ -258,6 +258,41 @@ public:
         Type(SymbolType::VoidType, std::move(name), nullptr, parent) {}
 };
 
+/// Base class of `BaseClass` and `MemberVar`
+class MemberSymbol: public Symbol {
+public:
+    ValueType const* type() const { return _type; }
+
+protected:
+    MemberSymbol(SymbolType symType, std::string name, Facet const* facet,
+                 ValueType const* type, Scope* parent):
+        Symbol(symType, std::move(name), facet, parent), _type(type) {}
+
+private:
+    friend struct GlobalNameResolver;
+
+    ValueType const* _type;
+};
+
+class BaseClass: public MemberSymbol {
+public:
+    explicit BaseClass(Facet const* facet, Scope* parent, UserType const* type):
+        MemberSymbol(SymbolType::BaseClass, type->name(), facet, type, parent) {
+    }
+
+    UserType const* type() const {
+        return cast<UserType const*>(MemberSymbol::type());
+    }
+};
+
+class MemberVar: public MemberSymbol {
+public:
+    explicit MemberVar(std::string name, Facet const* facet, Scope* parent,
+                       ValueType const* type):
+        MemberSymbol(SymbolType::MemberVar, std::move(name), facet, type,
+                     parent) {}
+};
+
 class Trait: public Symbol, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
@@ -437,11 +472,6 @@ public:
 class GenericValueArg: public Value {};
 
 class GenericTypeArg: public ValueType {};
-
-class BaseClass: public Value {
-public:
-    explicit BaseClass(Facet const* facet, Scope* parent, UserType const* type);
-};
 
 class Variable: public Value {
 public:

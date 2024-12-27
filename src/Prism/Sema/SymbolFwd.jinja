@@ -1,0 +1,37 @@
+
+/// Hierarchical overview of `Symbol` classes
+//
+{{ symbols | build_inheritance_tree -}}
+//
+
+namespace prism {
+
+{% for symbol in symbols %}
+class {{ symbol.name }};
+{% endfor %}
+
+enum class SymbolType {
+    {% for symbol in symbols %}
+    {{ symbol.name }},
+    {% endfor %}
+};
+
+PRISM_DEFINE_ENUM_FUNCTIONS(SymbolType)
+    
+}
+
+{% for symbol in symbols %}
+{% if symbol.base %}
+{% set base_class = 'prism::' ~ symbol.base %}
+{% else %}
+{% set base_class = 'void' %}
+{% endif %}
+{% if symbol.abstract %}
+{% set corpo = 'Abstract' %}
+{% else %}
+{% set corpo = 'Concrete' %}
+{% endif %}
+PRISM_DEFINE_RTTI(prism::{{ symbol.name }}, prism::SymbolType::{{ symbol.name }},
+                  {{ base_class }}, {{ corpo }})
+{% endfor %}
+

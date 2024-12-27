@@ -3,6 +3,7 @@
 
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/Rtti.h>
+#include <Prism/Sema/SymbolFwd.inl>
 
 namespace prism {
 
@@ -24,31 +25,6 @@ PRISM_DEFINE_ENUM_FUNCTIONS(BindMode)
 enum class ArithmeticOperation { Add, Sub, Div, Mul, Rem };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)
-
-#define SEMA_SYMBOL(Name, ...) class Name;
-#include <Prism/Sema/Symbol.def>
-
-enum class SymbolType {
-#define SEMA_SYMBOL(Name, ...) Name,
-#include <Prism/Sema/Symbol.def>
-};
-
-PRISM_DEFINE_ENUM_FUNCTIONS(SymbolType)
-
-namespace detail {
-
-using NoParent = void;
-
-}
-
-} // namespace prism
-
-#define SEMA_SYMBOL(Name, Parent, Corpo, ...)                                  \
-    PRISM_DEFINE_RTTI(prism::Name, prism::SymbolType::Name, prism::Parent,     \
-                      Corpo)
-#include <Prism/Sema/Symbol.def>
-
-namespace prism {
 
 /// List of all builtins
 enum class BuiltinSymbol {

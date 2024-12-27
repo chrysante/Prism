@@ -10,6 +10,10 @@ def load_module_from_file(file_path, module_name):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
+    module_dir = os.path.dirname(os.path.dirname(file_path))
+    package_name = os.path.basename(module_dir)
+    module.__package__ = package_name if package_name != module_name else None
+    print(package_name)
     spec.loader.exec_module(module)
     return module
 

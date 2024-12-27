@@ -74,10 +74,6 @@ FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
     setSymbolType(SymbolType::FunctionImpl);
 }
 
-BaseClass::BaseClass(Facet const* facet, Scope* parent, UserType const* type):
-    Value(SymbolType::BaseClass, type->name(), facet, parent,
-          { type, Mutability::Mut }, LValue) {}
-
 using namespace tfmt::modifiers;
 
 namespace {
@@ -293,6 +289,11 @@ struct SymbolPrinter {
 
     void printImpl(BaseClass const& base) {
         str << Keyword("base") << " " << base.name() << ": "
+            << printName(base.type());
+    }
+
+    void printImpl(MemberVar const& base) {
+        str << Keyword("var") << " " << base.name() << ": "
             << printName(base.type());
     }
 };

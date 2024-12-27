@@ -33,12 +33,22 @@ static void declareBuiltins(SemaContext& ctx) {
 #include "Prism/Sema/Builtins.def"
 }
 
+static std::string getName(SourceContext const& sourceContext,
+                           std::derived_from<DeclFacet> auto const& facet) {}
+
 namespace {
 
-struct GloablDeclDeclare {
-    SemaContext& ctx;
+struct InstantiationBase: AnalysisBase {
+    std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
+        PRISM_ASSERT(sourceContext);
+        auto token = cast<TerminalFacet const&>(*facet.name()).token();
+        PRISM_ASSERT(token.kind == TokenKind::Identifier);
+        return std::string(sourceContext->getTokenStr(token));
+    }
+};
+
+struct GloablDeclDeclare: InstantiationBase {
     Scope* globalScope;
-    SourceContext const* sourceContext = nullptr;
 
     void run(std::span<SourceFilePair const> input) {
         ranges::for_each(input,
@@ -64,17 +74,6 @@ struct GloablDeclDeclare {
     }
 
     void declareImpl(Scope*, Facet const&) {}
-
-    std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
-        auto token = cast<TerminalFacet const&>(*facet.name()).token();
-        PRISM_ASSERT(token.kind == TokenKind::Identifier);
-        return std::string(sourceContext->getTokenStr(token));
-    }
-
-    void declareImpl(Scope* parent, VarDeclFacet const& facet) {
-        ctx.make<Variable>(getName(facet), &facet, parent,
-                           QualType{ nullptr, {} });
-    }
 
     void declareImpl(Scope* parent, FuncDefFacet const& facet) {
         if (facet.body() && isa<CompoundFacet>(facet.body()))
@@ -110,14 +109,15 @@ struct GloablDeclDeclare {
 
 } // namespace
 
-static void declareGlobals(SemaContext& ctx, Scope* globalScope,
+static void declareGlobals(SemaContext& ctx, IssueHandler& iss,
+                           Scope* globalScope,
                            std::span<SourceFilePair const> input) {
-    GloablDeclDeclare{ ctx, globalScope }.run(input);
+    GloablDeclDeclare{ { ctx, iss }, globalScope }.run(input);
 }
 
 namespace prism {
 
-struct GlobalNameResolver: AnalysisBase {
+struct GlobalNameResolver: InstantiationBase {
     void resolve(Symbol* symbol) {
         if (!symbol) return;
         visit(*symbol, [this](auto& symbol) { resolveImpl(symbol); });
@@ -125,8 +125,16 @@ struct GlobalNameResolver: AnalysisBase {
 
     void resolveImpl(Symbol&) {}
 
+    void declareGlobalVar(Scope* parent, VarDeclFacet const& facet) {
+        ctx.make<Variable>(getName(facet), &facet, parent,
+                           QualType{ nullptr, {} });
+    }
+
     void resolveImpl(SourceFile& sourceFile) {
         sourceContext = &sourceFile.sourceContext();
+        for (auto* decl:
+             sourceFile.facet()->decls() | csp::filter<VarDeclFacet>)
+            declareGlobalVar(sourceFile.associatedScope(), *decl);
         resolveChildren(sourceFile);
     }
 
@@ -139,18 +147,24 @@ struct GlobalNameResolver: AnalysisBase {
         resolveChildren(impl);
     }
 
-    void declareBaseClasses(UserType& type,
-                            std::span<BaseDeclFacet const* const> bases) {
-        auto* scope = type.associatedScope();
-        for (auto* decl: bases) {
-            auto* type = analyzeFacetAs<UserType>(*this, scope, decl->type());
-            ctx.make<BaseClass>(decl, scope, type);
-        }
+    void declareBaseClass(Scope* scope, BaseDeclFacet const& decl) {
+        auto* basetype = analyzeFacetAs<UserType>(*this, scope, decl.type());
+        ctx.make<BaseClass>(&decl, scope, basetype);
+    }
+
+    void declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
+        auto* type = analyzeFacetAs<UserType>(*this, scope, decl.typespec());
+        ctx.make<MemberVar>(getName(decl), &decl, scope, type);
     }
 
     void resolveImpl(UserType& type) {
+        auto* scope = type.associatedScope();
         if (auto* bases = type.facet()->bases())
-            declareBaseClasses(type, bases->elems());
+            for (auto* decl: bases->elems())
+                declareBaseClass(scope, *decl);
+        if (auto* body = type.facet()->body())
+            for (auto* decl: body->elems() | csp::filter<VarDeclFacet>)
+                declareMemberVar(scope, *decl);
         resolveChildren(type);
     }
 
@@ -274,7 +288,7 @@ Target* prism::constructTarget(SemaContext& ctx, IssueHandler& iss,
                                std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx);
-    declareGlobals(ctx, target->associatedScope(), input);
+    declareGlobals(ctx, iss, target->associatedScope(), input);
     resolveGlobalNames(ctx, iss, target->associatedScope());
     return target;
 }
