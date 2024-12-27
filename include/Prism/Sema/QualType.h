@@ -1,3 +1,6 @@
+#ifndef PRISM_SEMA_QUALTYPE_H
+#define PRISM_SEMA_QUALTYPE_H
+
 #include <utility>
 
 #include <utl/ipp.hpp>
@@ -26,3 +29,5 @@ private:
 };
 
 } // namespace prism
+
+#endif // PRISM_SEMA_QUALTYPE_H
