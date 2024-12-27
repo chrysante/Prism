@@ -34,6 +34,8 @@ enum class BuiltinSymbol {
 
 PRISM_DEFINE_ENUM_FUNCTIONS(BuiltinSymbol)
 
+bool isBuiltinSymbol(Symbol const& symbol);
+
 } // namespace prism
 
 #endif // PRISM_SEMA_SYMBOLFWD_H

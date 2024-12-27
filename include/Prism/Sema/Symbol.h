@@ -27,6 +27,9 @@ class SemaContext;
 
 class Symbol {
 public:
+    Symbol(Symbol const&) = delete;
+    Symbol& operator=(Symbol const&) = delete;
+
     std::string const& name() const { return _name; }
 
     /// \Return the corresponding source code construct
@@ -55,8 +58,6 @@ private:
     Facet const* _facet;
     Scope* _parent;
 };
-
-void print(Symbol const& symbol, std::ostream& ostream);
 
 namespace detail {
 

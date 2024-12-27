@@ -87,6 +87,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/Scope.h
     include/Prism/Sema/SemaContext.h
     include/Prism/Sema/SemaIssue.h
+    include/Prism/Sema/SemaPrint.h
     include/Prism/Sema/Symbol.h
     include/Prism/Sema/Symbol.def
     include/Prism/Sema/SymbolFwd.h
@@ -128,8 +129,10 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/NameLookup.cpp
     src/Prism/Sema/SemaContext.cpp
     src/Prism/Sema/SemaIssue.cpp
+    src/Prism/Sema/SemaPrint.cpp
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
+    src/Prism/Sema/SymbolFwd.cpp
     src/Prism/Sema/QualType.cpp
 
     src/Prism/Source/SourceContext.cpp

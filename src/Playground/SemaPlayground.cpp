@@ -15,6 +15,7 @@
 #include <Prism/Parser/Parser.h>
 #include <Prism/Sema/Construction.h>
 #include <Prism/Sema/SemaContext.h>
+#include <Prism/Sema/SemaPrint.h>
 #include <Prism/Sema/Symbol.h>
 #include <Prism/Source/SourceContext.h>
 
