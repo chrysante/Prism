@@ -54,7 +54,7 @@ Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
 
 TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
                      Trait* trait, UserType* conforming):
-    Symbol(SymbolType::TraitImpl, "", facet, parent),
+    Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
     AssocScope(ctx.make<Scope>(parent), this),
     _trait(trait),
     _conf(conforming) {}
@@ -65,12 +65,6 @@ Function::Function(std::string name, Facet const* facet, Scope* parent,
     _params(std::move(params)),
     _retType(retType) {}
 
-static std::tuple<ValueType const*, Mutability, ValueCat> destructureType(
-    Type const* type) {
-    // For now
-    return { cast<ValueType const*>(type), Mutability::Const, LValue };
-}
-
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
                            Facet const* facet, Scope* parent,
                            utl::small_vector<FuncParam*>&& params,
@@ -79,6 +73,10 @@ FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
     AssocScope(ctx.make<Scope>(parent), this) {
     setSymbolType(SymbolType::FunctionImpl);
 }
+
+BaseClass::BaseClass(Facet const* facet, Scope* parent, UserType const* type):
+    Value(SymbolType::BaseClass, type->name(), facet, parent,
+          { type, Mutability::Mut }, LValue) {}
 
 using namespace tfmt::modifiers;
 
@@ -117,6 +115,10 @@ static bool isBuiltin(Symbol const& sym) {
            isa<FloatType>(sym);
 }
 
+static bool isUser(Symbol const& sym) {
+    return isa<UserType>(sym) || isa<Trait>(sym);
+}
+
 struct SymbolPrinter {
     std::ostream& str;
     IndentingStreambuf<> buf;
@@ -148,6 +150,11 @@ struct SymbolPrinter {
             printNameImpl(ref->referred());
             return;
         }
+        if (auto* dynType = dyncast<DynType const*>(symbol)) {
+            str << Keyword("dyn") << " ";
+            printNameImpl(dynType->underlyingSymbol());
+            return;
+        }
         std::string_view name = symbol->name();
         if (name.empty()) {
             str << tfmt::format(BrightGrey, "<anon: ", get_rtti(*symbol), ">");
@@ -157,7 +164,7 @@ struct SymbolPrinter {
             str << Keyword(name);
             return;
         }
-        if (isa<UserType>(symbol)) {
+        if (isUser(*symbol)) {
             str << Username(name);
             return;
         }
@@ -256,7 +263,7 @@ struct SymbolPrinter {
     }
 
     void printUserTypeOrTrait(std::string_view decl, auto const& sym) {
-        str << Keyword(decl) << " " << sym.name() << " ";
+        str << Keyword(decl) << " " << printName(&sym) << " ";
         printBraced(sym.associatedScope());
     }
 
@@ -282,6 +289,11 @@ struct SymbolPrinter {
     void printImpl(Variable const& var) {
         str << Keyword("var") << " " << var.name() << ": "
             << printName(var.type());
+    }
+
+    void printImpl(BaseClass const& base) {
+        str << Keyword("base") << " " << base.name() << ": "
+            << printName(base.type());
     }
 };
 

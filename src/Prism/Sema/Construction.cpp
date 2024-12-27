@@ -139,7 +139,20 @@ struct GlobalNameResolver: AnalysisBase {
         resolveChildren(impl);
     }
 
-    void resolveImpl(UserType& type) { resolveChildren(type); }
+    void declareBaseClasses(UserType& type,
+                            std::span<BaseDeclFacet const* const> bases) {
+        auto* scope = type.associatedScope();
+        for (auto* decl: bases) {
+            auto* type = analyzeFacetAs<UserType>(*this, scope, decl->type());
+            ctx.make<BaseClass>(decl, scope, type);
+        }
+    }
+
+    void resolveImpl(UserType& type) {
+        if (auto* bases = type.facet()->bases())
+            declareBaseClasses(type, bases->elems());
+        resolveChildren(type);
+    }
 
     void resolveImpl(Trait& trait) { resolveChildren(trait); }
 
@@ -196,16 +209,21 @@ struct GlobalNameResolver: AnalysisBase {
         }
         PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
                      TokenKind::This);
-        auto* parent = dyncast<UserType*>(func.parentScope()->assocSymbol());
-        if (!parent) {
+        auto* parent = func.parentScope()->assocSymbol();
+        auto* thisType = [&]() -> ValueType const* {
+            if (auto* userType = dyncast<UserType*>(parent)) return userType;
+            if (auto* trait = dyncast<Trait*>(parent))
+                return ctx.getDynTraitType(trait);
+            if (auto* traitImpl = dyncast<TraitImpl*>(parent))
+                return traitImpl->conformingType();
             PRISM_UNIMPLEMENTED();
-        }
+        }();
         if (ref) {
-            auto* type = ctx.getRefType({ parent, mut });
+            auto* type = ctx.getRefType({ thisType, mut });
             return ctx.make<FuncParam>("this", &param, type, /* mut: */ false);
         }
         else {
-            return ctx.make<FuncParam>("this", &param, parent,
+            return ctx.make<FuncParam>("this", &param, thisType,
                                        mut == Mutability::Mut);
         }
     }

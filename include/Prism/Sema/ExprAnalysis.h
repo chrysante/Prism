@@ -4,7 +4,7 @@
 #include <concepts>
 
 #include <Prism/Common/Assert.h>
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/Symbol.h>
 
 namespace prism {
 
@@ -17,10 +17,30 @@ Symbol* analyzeFacet(AnalysisBase const& context, Scope* scope,
 
 namespace detail {
 
+template <typename Target>
+struct SymbolConverter {
+    static Target* convert(Symbol* sym) { return dyncast<Target*>(sym); }
+};
+
+template <typename T>
+    requires std::derived_from<T, Type>
+struct SymbolConverter<T> {
+    static T* convert(Symbol* sym) {
+        if (!sym) return nullptr;
+        return visit(*sym, [](auto& sym) { return convertImpl(sym); });
+    }
+
+    static T* convertImpl(Symbol& sym) { return dyncast<T*>(&sym); }
+
+    static T* convertImpl(BaseClass& base) {
+        return dyncast<T*>(const_cast<ValueType*>(base.type().get()));
+    }
+};
+
 template <std::derived_from<Symbol> S>
 S* verifySymbolType(AnalysisBase const& context, Symbol* symbol) {
-    auto* derived = dyncast<S*>(symbol);
-    if (derived) return derived;
+    auto* result = SymbolConverter<S>::convert(symbol);
+    if (result) return result;
     PRISM_UNIMPLEMENTED();
     return nullptr;
 }

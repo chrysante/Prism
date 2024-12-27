@@ -51,6 +51,8 @@ public:
 
     ReferenceType const* getRefType(QualType referred);
 
+    DynTraitType const* getDynTraitType(Trait* trait);
+
     template <std::same_as<Scope> S>
     Scope* make(Scope* parent) {
         scopeBag.push_back(std::make_unique<S>(parent));
@@ -62,6 +64,7 @@ private:
 
     std::vector<Symbol*> builtins;
     utl::hashmap<uintptr_t, ReferenceType*> refTypes;
+    utl::hashmap<Trait*, DynTraitType*> dynTraitTypes;
     std::vector<csp::unique_ptr<Symbol>> symbolBag;
     std::vector<std::unique_ptr<Scope>> scopeBag;
 };

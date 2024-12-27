@@ -31,3 +31,8 @@ ReferenceType const* SemaContext::getRefType(QualType referred) {
     return getOrMake(refTypes, std::bit_cast<uintptr_t>(referred),
                      [&] { return make<ReferenceType>(referred); });
 }
+
+DynTraitType const* SemaContext::getDynTraitType(Trait* trait) {
+    return getOrMake(dynTraitTypes, trait,
+                     [&] { return make<DynTraitType>(trait); });
+}

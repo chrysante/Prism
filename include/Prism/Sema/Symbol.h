@@ -137,6 +137,10 @@ protected:
 
 /// Base class of all user defined types
 class UserType: public CompositeType {
+public:
+    FACET_TYPE(CompTypeDeclFacet)
+
+protected:
     using CompositeType::CompositeType;
 };
 
@@ -146,8 +150,6 @@ public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
                         Scope* parent):
         UserType(SymbolType::StructType, ctx, std::move(name), facet, parent) {}
-
-    FACET_TYPE(CompTypeDeclFacet)
 };
 
 /// Instantiation of a struct type
@@ -212,6 +214,7 @@ public:
     ///
     bool isSigned() const { return sign == Signedness::Signed; }
 
+    ///
     bool isUnsigned() const { return !isSigned(); }
 
 private:
@@ -287,6 +290,55 @@ private:
 
     Trait* _trait;
     UserType* _conf;
+};
+
+///
+class DynType: public ValueType {
+public:
+    ///
+    Symbol* underlyingSymbol() { return _underlying; }
+
+    /// \overload
+    Symbol const* underlyingSymbol() const { return _underlying; }
+
+protected:
+    explicit DynType(SymbolType symtype, Symbol* underlying):
+        ValueType(symtype, /* name: */ {}, /* facet: */ nullptr,
+                  /* parentScope: */ nullptr),
+        _underlying(underlying) {}
+
+private:
+    Symbol* _underlying;
+};
+
+///
+class DynStructType: public DynType {
+public:
+    explicit DynStructType(StructType* type):
+        DynType(SymbolType::DynStructType, type) {}
+
+    ///
+    StructType* structType() { return cast<StructType*>(underlyingSymbol()); }
+
+    /// \overload
+    StructType const* structType() const {
+        return cast<StructType const*>(underlyingSymbol());
+    }
+};
+
+///
+class DynTraitType: public DynType {
+public:
+    explicit DynTraitType(Trait* trait):
+        DynType(SymbolType::DynTraitType, trait) {}
+
+    /// \Return the trait that this dynamic dynamic type conforms to
+    Trait* trait() { return cast<Trait*>(underlyingSymbol()); }
+
+    /// \overload
+    Trait const* trait() const {
+        return cast<Trait const*>(underlyingSymbol());
+    }
 };
 
 class GenericSymbol: public Symbol {};
@@ -385,6 +437,11 @@ public:
 class GenericValueArg: public Value {};
 
 class GenericTypeArg: public ValueType {};
+
+class BaseClass: public Value {
+public:
+    explicit BaseClass(Facet const* facet, Scope* parent, UserType const* type);
+};
 
 class Variable: public Value {
 public:
