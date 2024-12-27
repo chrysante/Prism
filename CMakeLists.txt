@@ -49,6 +49,7 @@ endfunction()
 CPMAddPackage("gh:chrysante/csp#main")
 CPMAddPackage("gh:chrysante/utility#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
+CPMAddPackage("gh:chrysante/graphgen#main")
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 CPMAddPackage("gh:catchorg/Catch2@3.7.1")
@@ -58,6 +59,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/Allocator.h
     include/Prism/Common/Assert.h
     include/Prism/Common/EnumUtil.h
+    include/Prism/Common/DebugGraphGen.h
     include/Prism/Common/Functional.h
     include/Prism/Common/IndentingStreambuf.h
     include/Prism/Common/Issue.h
@@ -98,6 +100,7 @@ set(PRISM_HEADER_FILES
 
 set(PRISM_SOURCE_FILES
     src/Prism/Common/Allocator.cpp
+    src/Prism/Common/DebugGraphGen.cpp
     src/Prism/Common/IndentingStreambuf.cpp
     src/Prism/Common/Issue.cpp
     src/Prism/Common/IssueHandler.cpp
@@ -197,6 +200,7 @@ target_link_libraries(Prism
     magic_enum
   PRIVATE
     termfmt
+    graphgen
 )
 
 target_include_directories(Prism PUBLIC include PRIVATE src)

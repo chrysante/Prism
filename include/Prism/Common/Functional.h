@@ -3,10 +3,10 @@
 
 #include <memory>
 
-#define PRISM_FNOBJ_DEF(Name, TemplateArgs, Args, Expr)                        \
+#define PRISM_FNOBJ_DEF(Name, TemplateArgs, Args, RetType, Expr)               \
     namespace detail {                                                         \
     struct Name##Fn {                                                          \
-        TemplateArgs constexpr decltype(auto) operator() Args const            \
+        TemplateArgs constexpr RetType operator() Args const                   \
             requires requires { Expr; }                                        \
         {                                                                      \
             return Expr;                                                       \
@@ -18,11 +18,16 @@
 namespace prism {
 
 PRISM_FNOBJ_DEF(Dereference, template <typename Ptr>, (Ptr && p),
-                *std::forward<Ptr>(p));
+                decltype(auto), *std::forward<Ptr>(p));
 
-PRISM_FNOBJ_DEF(AddressOf, , (auto& t), std::addressof(t));
+PRISM_FNOBJ_DEF(AddressOf, , (auto& t), auto*, std::addressof(t));
 
-PRISM_FNOBJ_DEF(Get, , (auto& t), t.get());
+PRISM_FNOBJ_DEF(ToAddress, , (auto const& t), auto const*, std::to_address(t));
+
+PRISM_FNOBJ_DEF(ToConstAddress, , (auto const& t), decltype(auto),
+                std::to_address(t));
+
+PRISM_FNOBJ_DEF(Get, , (auto& t), decltype(auto), t.get());
 
 namespace detail {
 template <typename T>

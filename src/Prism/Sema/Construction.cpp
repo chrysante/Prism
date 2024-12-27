@@ -1,8 +1,11 @@
 #include "Prism/Sema/Construction.h"
 
+#include <ostream>
 #include <span>
 #include <vector>
 
+#include <graphgen/generate.h>
+#include <graphgen/graph.h>
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <utl/hashtable.hpp>
@@ -11,6 +14,7 @@
 
 #include "Prism/Common/Allocator.h"
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/DebugGraphGen.h"
 #include "Prism/Common/IssueHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
@@ -117,7 +121,7 @@ static void declareGlobals(SemaContext& ctx, IssueHandler& iss,
     GloablDeclDeclare{ { ctx, iss }, globalScope }.run(input);
 }
 
-namespace {
+namespace prism {
 
 class DependencyNode {
 public:
@@ -141,15 +145,20 @@ private:
 
 class DependencyGraph {
 public:
-    DependencyGraph(MonotonicBufferResource& resource): nodes(&resource) {}
+    DependencyGraph(MonotonicBufferResource& resource): map(&resource) {}
 
     DependencyNode* getNode(Symbol* sym) {
-        auto itr = nodes.find(sym);
-        if (itr != nodes.end()) return itr->second;
+        auto itr = map.find(sym);
+        if (itr != map.end()) return itr->second;
         auto* resource = getResource();
         auto* node = allocate<DependencyNode>(*resource, sym, *resource);
-        nodes.insert({ sym, node });
+        map.insert({ sym, node });
         return node;
+    }
+
+    auto nodes() const {
+        return map | ranges::views::values |
+               ranges::views::transform(ToConstAddress);
     }
 
 private:
@@ -158,15 +167,35 @@ private:
                           MonotonicBufferResource>;
 
     MonotonicBufferResource* getResource() const {
-        return nodes.get_allocator().resource();
+        return map.get_allocator().resource();
     }
 
     utl::hashmap<Symbol const*, DependencyNode*, utl::hash<Symbol const*>,
                  std::equal_to<>, AllocType>
-        nodes;
+        map;
 };
 
-} // namespace
+void generateGraphviz(DependencyGraph const& graph, std::ostream& str) {
+    using namespace graphgen;
+    Graph G;
+    for (auto* node: graph.nodes()) {
+        auto* vertex = Vertex::make(ID(node))->label(node->symbol()->name());
+        G.add(vertex);
+        for (auto* succ: node->successors())
+            G.add(Edge{ ID(node), ID(succ) });
+    }
+    generate(G, str);
+}
+
+void generateGraphvizDebug(DependencyGraph const& graph) {
+    createDebugGraph({ .name = "DependencyGraph",
+                       .targetDir = "build",
+                       .generator = [&](std::ostream& str) {
+        generateGraphviz(graph, str);
+    } });
+}
+
+} // namespace prism
 
 namespace prism {
 
@@ -174,6 +203,14 @@ struct GlobalNameResolver: InstantiationBase {
     DependencyGraph& dependencies;
 
     DependencyNode* getNode(Symbol* sym) { return dependencies.getNode(sym); }
+
+    void addDependency(DependencyNode* node, Symbol* dependsOn) {
+        node->addDependency(getNode(dependsOn));
+    }
+
+    void addDependency(Symbol* symbol, Symbol* dependsOn) {
+        addDependency(getNode(symbol), dependsOn);
+    }
 
     void resolve(Symbol* symbol) {
         if (!symbol) return;
@@ -189,12 +226,11 @@ struct GlobalNameResolver: InstantiationBase {
         auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
         auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
                                        QualType{ type, {} });
-        getNode(var)->addDependency(getNode(type));
+        addDependency(var, type);
     }
 
     void resolveImpl(SourceFile& sourceFile) {
         sourceContext = &sourceFile.sourceContext();
-        auto* node = getNode(&sourceFile);
         auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
         for (auto* decl: globals)
             declareGlobalVar(sourceFile.associatedScope(), *decl);
@@ -208,22 +244,22 @@ struct GlobalNameResolver: InstantiationBase {
         impl._conf = analyzeFacetAs<UserType>(*this, impl.parentScope(),
                                               def->conformingTypename());
         auto* node = getNode(&impl);
-        node->addDependency(getNode(impl._trait));
-        node->addDependency(getNode(impl._conf));
+        addDependency(node, impl._trait);
+        addDependency(node, impl._conf);
         resolveChildren(impl);
     }
 
     BaseClass* declareBaseClass(Scope* scope, BaseDeclFacet const& decl) {
         auto* basetype = analyzeFacetAs<UserType>(*this, scope, decl.type());
         auto* base = ctx.make<BaseClass>(&decl, scope, basetype);
-        getNode(base)->addDependency(getNode(basetype));
+        addDependency(base, basetype);
         return base;
     }
 
     MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
         auto* type = analyzeFacetAs<UserType>(*this, scope, decl.typespec());
         auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
-        getNode(var)->addDependency(getNode(type));
+        addDependency(var, type);
         return var;
     }
 
@@ -233,13 +269,13 @@ struct GlobalNameResolver: InstantiationBase {
         if (auto* bases = type.facet()->bases()) {
             for (auto* decl: bases->elems()) {
                 auto* base = declareBaseClass(scope, *decl);
-                node->addDependency(getNode(base));
+                addDependency(node, base);
             }
         }
         if (auto* body = type.facet()->body()) {
             for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
                 auto* var = declareMemberVar(scope, *decl);
-                node->addDependency(getNode(var));
+                addDependency(node, var);
             }
         }
         resolveChildren(type);
