@@ -18,10 +18,12 @@
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaPrint.h"
 #include "Prism/Sema/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+using ranges::views::drop;
 using ranges::views::transform;
 using ranges::views::zip;
 
@@ -315,6 +317,33 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
     return nullptr;
 }
 
+static void instantiateSymbol(Symbol* symbol) {}
+
+static std::unique_ptr<TypeDefCycle> makeCycleError(
+    std::span<Symbol const* const> cycle) {
+    auto error = std::make_unique<TypeDefCycle>(nullptr, nullptr);
+    for (auto itr = cycle.begin(); itr < cycle.end() - 1; ++itr) {
+        auto* sym = *itr;
+        auto fmt = [&]() -> std::function<void(std::ostream&)> {
+            auto* dep = *std::next(itr);
+            if (!isa<MemberSymbol>(dep) || std::next(itr) >= cycle.end() - 1)
+                return VALFN1(_1 << formatName(*sym) << " depends on "
+                                 << formatName(*dep));
+            ++itr;
+            auto* mid = *itr;
+            dep = *std::next(itr);
+            if (isa<BaseClass>(mid))
+                return VALFN1(_1 << formatName(*sym) << " depends on "
+                                 << formatName(*dep) << " through inheritance");
+            return VALFN1(_1 << formatName(*sym) << " depends on "
+                             << formatName(*dep) << " through member "
+                             << formatName(*mid));
+        }();
+        error->addNote(sym->facet(), std::move(fmt));
+    }
+    return error;
+}
+
 Target* prism::constructTarget(MonotonicBufferResource& resource,
                                SemaContext& ctx, IssueHandler& iss,
                                std::span<SourceFilePair const> input) {
@@ -323,6 +352,12 @@ Target* prism::constructTarget(MonotonicBufferResource& resource,
     declareGlobals(ctx, iss, target->associatedScope(), input);
     auto dependencies =
         resolveGlobalNames(resource, ctx, iss, target->associatedScope());
-    generateGraphvizDebug(dependencies);
+    auto order = dependencies.topsort();
+    if (order.isCycle) {
+        iss.push(makeCycleError(order.symbols));
+        return target;
+    }
+    for (auto* symbol: order.symbols)
+        instantiateSymbol(symbol);
     return target;
 }

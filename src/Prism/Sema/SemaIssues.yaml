@@ -5,3 +5,9 @@ issues:
     kind: Error
     header: >
       str << "Use of undeclared identifier '" << getID(facet(), sourceContext()) << "'";
+
+  - name: TypeDefCycle
+    base: SemaIssue
+    kind: Error
+    header: >
+      str << "Detected a cycle in a type definition";

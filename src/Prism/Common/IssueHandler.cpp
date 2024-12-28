@@ -10,6 +10,6 @@ void IssueHandler::print(SourceContext const& ctx) { format(std::cerr, ctx); }
 
 void IssueHandler::format(std::ostream& str, SourceContext const& ctx) const {
     for (auto& issue: *this) {
-        issue.format(str, ctx);
+        issue.format(str, &ctx);
     }
 }

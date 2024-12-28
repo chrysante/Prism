@@ -23,7 +23,7 @@ public:
     }
 
     ///
-    SourceContext const& sourceContext() const { return ctx; }
+    SourceContext const* sourceContext() const { return ctx; }
 
     /// Adds a descriptive note
     SemaNote* addNote(Facet const* facet, utl::vstreammanip<> impl);
@@ -34,21 +34,21 @@ public:
     }
 
 protected:
-    SemaIssue(Issue::Kind kind, SourceContext const& ctx, Facet const* facet);
+    SemaIssue(Issue::Kind kind, SourceContext const* ctx, Facet const* facet);
 
 private:
-    SourceContext const& ctx;
+    SourceContext const* ctx;
     Facet const* fct;
 };
 
 ///
 class SemaNote: public SemaIssue {
 public:
-    explicit SemaNote(SourceContext const& ctx, Facet const* facet,
+    explicit SemaNote(SourceContext const* ctx, Facet const* facet,
                       utl::vstreammanip<> impl);
 
 private:
-    void header(std::ostream& os, SourceContext const& ctx) const override;
+    void header(std::ostream& os, SourceContext const* ctx) const override;
 
     utl::vstreammanip<> impl;
 };

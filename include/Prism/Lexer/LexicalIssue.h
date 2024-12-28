@@ -26,7 +26,7 @@ public:
     Reason reason() const { return _reason; }
 
 private:
-    void header(std::ostream& os, SourceContext const& ctx) const override;
+    void header(std::ostream& os, SourceContext const* ctx) const override;
 
     Reason _reason;
 };

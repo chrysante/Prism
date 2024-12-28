@@ -12,7 +12,7 @@
 using namespace prism;
 using namespace tfmt::modifiers;
 
-void Issue::format(std::ostream& str, SourceContext const& ctx) const {
+void Issue::format(std::ostream& str, SourceContext const* ctx) const {
     TreeFormatter fmt(str);
     formatImpl(fmt, ctx);
 }
@@ -76,7 +76,7 @@ static void printSourceRange(SourceContext const& ctx, SourceRange range,
     forEachLine(snipped, [&, first = true](std::string_view line) mutable {
         if (!first) str << "\n";
         first = false;
-        str << tfmt::format(BrightGrey, std::setw(5), ++lineIndex) << " │ ";
+        str << tfmt::format(BrightGrey, std::setw(5), ++lineIndex, " ║ ");
         str << tfmt::format(BrightGrey, line);
     });
 }
@@ -93,16 +93,17 @@ static tfmt::Modifier getHighlightMod(Issue::Kind kind) {
     }
 }
 
-void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const& ctx) const {
+void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
     auto& str = treeFmt.ostream();
     str << fmt(kind());
     auto range = sourceRange();
-    if (range) str << fmt(ctx.getSourceLocation(range->index)) << " ";
+    PRISM_ASSERT(!range || ctx);
+    if (range) str << fmt(ctx->getSourceLocation(range->index)) << " ";
     header(str, ctx);
     str << "\n";
     if (range) {
         treeFmt.writeDetails(children().empty(), [&] {
-            printSourceRange(ctx, *range, BrightGrey, getHighlightMod(kind()),
+            printSourceRange(*ctx, *range, BrightGrey, getHighlightMod(kind()),
                              str);
         });
     }

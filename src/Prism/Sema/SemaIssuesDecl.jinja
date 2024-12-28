@@ -4,10 +4,10 @@
 class {{ issue.name }}: public {{ issue.base }} {
 {% if not issue.abstract %}
 public:
-    explicit {{ issue.name }}(SourceContext const& ctx, Facet const* facet): SemaIssue(Issue::{{ issue.kind }}, ctx, facet) {}
+    explicit {{ issue.name }}(SourceContext const* ctx, Facet const* facet): SemaIssue(Issue::{{ issue.kind }}, ctx, facet) {}
 
 private:
-    void header(std::ostream& str, SourceContext const& ctx) const override;
+    void header(std::ostream& str, SourceContext const* ctx) const override;
 
 {% endif %}
 };

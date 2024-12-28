@@ -16,6 +16,6 @@ static Issue::Kind toSeverity(LexicalIssue::Reason reason) {
 LexicalIssue::LexicalIssue(Reason reason, SourceRange sourceRange):
     Issue(toSeverity(reason), sourceRange), _reason(reason) {}
 
-void LexicalIssue::header(std::ostream& str, SourceContext const& ctx) const {
+void LexicalIssue::header(std::ostream& str, SourceContext const* ctx) const {
     str << "lexical issue";
 }

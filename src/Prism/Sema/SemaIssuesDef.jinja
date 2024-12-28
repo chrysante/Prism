@@ -1,7 +1,7 @@
 
 {% macro define_issue_class(issue) %}
     {% if not issue.abstract %}
-void {{ issue.name }}::header(std::ostream& str, SourceContext const& ctx) const {
+void {{ issue.name }}::header(std::ostream& str, SourceContext const* ctx) const {
     {{ issue.header }}
 }
     {% endif %}

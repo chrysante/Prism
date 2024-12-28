@@ -27,7 +27,7 @@ public:
     virtual ~Issue() = default;
 
     /// Formats this issue to \p os
-    void format(std::ostream& os, SourceContext const& ctx) const;
+    void format(std::ostream& os, SourceContext const* ctx) const;
 
     ///
     Kind kind() const { return _kind; }
@@ -65,9 +65,9 @@ protected:
 
 private:
     /// A single line message that sums up the issue
-    virtual void header(std::ostream& os, SourceContext const& ctx) const = 0;
+    virtual void header(std::ostream& os, SourceContext const* ctx) const = 0;
 
-    void formatImpl(TreeFormatter& fmt, SourceContext const& ctx) const;
+    void formatImpl(TreeFormatter& fmt, SourceContext const* ctx) const;
 
     Kind _kind;
     bool _hasSourceRange;

@@ -6,6 +6,7 @@
 
 #include <range/v3/view.hpp>
 #include <utl/hashtable.hpp>
+#include <utl/vector.hpp>
 
 #include <Prism/Common/Allocator.h>
 #include <Prism/Common/Functional.h>
@@ -49,8 +50,8 @@ private:
 ///     struct S { var t: T; }
 ///     struct T { var s: S; }
 ///
-/// But the design of more general and can be used to track all kinds of
-/// dependencies.
+/// But the design is more general and can be used to track all kinds of
+/// dependencies between symbols.
 class DependencyGraph {
     auto nodes() const {
         return map | ranges::views::values |
@@ -75,6 +76,16 @@ public:
     auto begin() const { return nodes().begin(); }
     auto end() const { return nodes().end(); }
     /// @}
+
+    /// Result structure for `topsort()`
+    struct TopsortResult {
+        bool isCycle;
+        utl::small_vector<Symbol*> symbols;
+    };
+
+    /// \Returns a topological order of the graph or a cycle if the graph is not
+    /// acyclic
+    TopsortResult topsort() const;
 
 private:
     using AllocType =

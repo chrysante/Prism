@@ -46,7 +46,7 @@ struct AnaContext: AnalysisBase {
         auto name = sourceContext->getTokenStr(id.token());
         auto symbols = unqualifiedLookup(scope, name);
         if (!symbols.success()) {
-            auto* issue = iss.push<UndeclaredID>(*sourceContext, &id);
+            auto* issue = iss.push<UndeclaredID>(sourceContext, &id);
             if (auto* similar = symbols.similar()) {
                 issue
                     ->addNote(VALFN1(_1 << "Did you mean \'"
