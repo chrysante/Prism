@@ -20,12 +20,14 @@ class IssueHandler {
 public:
     template <std::derived_from<Issue> I, typename... Args>
         requires std::constructible_from<I, Args&&...>
-    void push(Args&&... args) {
-        push(std::make_unique<I>(std::forward<Args>(args)...));
+    I* push(Args&&... args) {
+        auto* p = push(std::make_unique<I>(std::forward<Args>(args)...));
+        return static_cast<I*>(p);
     }
 
-    void push(std::unique_ptr<Issue> issue) {
+    Issue* push(std::unique_ptr<Issue> issue) {
         list.push_back(std::move(issue));
+        return list.back().get();
     }
 
     bool empty() const { return list.empty(); }

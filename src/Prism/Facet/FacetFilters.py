@@ -1,14 +1,12 @@
 def interface_type(type):
-    return {
-        "TerminalFacet": "Token",
-        "AstWrapperFacet": "AstNode*"
-    }.get(type, f"{type} const*")
+    if type == "TerminalFacet":
+        return "Token"
+    return f"{type} const*";
 
 def to_interface_type(type):
-    return {
-        "TerminalFacet": "->token()",
-        "AstWrapperFacet": "->get()"
-    }.get(type, "")
+    if type == "TerminalFacet":
+        return "->token()"
+    return "";
 
 def ctor_param(member):
     return f"{interface_type(member['type'])} {member['name']}"

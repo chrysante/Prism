@@ -7,7 +7,7 @@ public:
     explicit {{ issue.name }}(SourceContext const& ctx, Facet const* facet): SemaIssue(Issue::{{ issue.kind }}, ctx, facet) {}
 
 private:
-    void doFormat(std::ostream& str, SourceContext const& ctx) const override;
+    void header(std::ostream& str, SourceContext const& ctx) const override;
 
 {% endif %}
 };

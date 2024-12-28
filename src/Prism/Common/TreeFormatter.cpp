@@ -20,14 +20,18 @@ void TreeFormatter::Indenter::operator()(std::streambuf* buf) const {
     static auto const Mod = tfmt::BrightGrey | tfmt::Bold;
     bool useAnsiCodes = tfmt::isTermFormattable(fmt->ostr);
     if (useAnsiCodes)
-        buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
+        buf->sputn(tfmt::Reset.ansiBuffer().data(),
+                   tfmt::Reset.ansiBuffer().size());
+    buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
     auto const& repr = Repr[fmt->style.lines];
     for (auto& level: fmt->levels) {
         auto reprStr = repr[level];
         buf->sputn(reprStr.data(), reprStr.size());
         level = Next[level];
     }
-    if (useAnsiCodes)
+    if (useAnsiCodes) {
         buf->sputn(tfmt::Reset.ansiBuffer().data(),
                    tfmt::Reset.ansiBuffer().size());
+        tfmt::reapplyModifiers(fmt->ostr);
+    }
 }

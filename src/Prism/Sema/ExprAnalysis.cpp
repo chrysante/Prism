@@ -8,9 +8,25 @@
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaPrint.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+
+static Facet const* getDeclName(Facet const* facet) {
+    if (!facet) return nullptr;
+    return visit(*facet, [](auto const& facet) -> Facet const* {
+        if constexpr (requires { facet.nameFacet(); }) {
+            return facet.nameFacet();
+        }
+        else if constexpr (requires { facet.name(); }) {
+            return facet.name();
+        }
+        else {
+            return &facet;
+        }
+    });
+}
 
 namespace {
 
@@ -28,8 +44,17 @@ struct AnaContext: AnalysisBase {
     Symbol* analyzeID(TerminalFacet const& id) {
         auto name = sourceContext->getTokenStr(id.token());
         auto symbols = unqualifiedLookup(scope, name);
-        if (symbols.isNone()) {
-            iss.push<UndeclaredID>(*sourceContext, &id);
+        if (!symbols.success()) {
+            auto* issue = iss.push<UndeclaredID>(*sourceContext, &id);
+            if (auto* similar = symbols.similar()) {
+                auto* name = getDeclName(similar->facet());
+                issue
+                    ->addNote([=](std::ostream& str) {
+                    str << "Did you mean \'" << formatName(*similar) << "\'?";
+                })->addNote(name, [=](std::ostream& str) {
+                    str << formatName(*similar) << " declared here";
+                });
+            }
             return nullptr;
         }
         if (symbols.isSingleSymbol()) return symbols.singleSymbol();

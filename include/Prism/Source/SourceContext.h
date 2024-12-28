@@ -49,6 +49,10 @@ public:
 
     std::string_view source() const { return src; }
 
+    std::string_view source(SourceRange range) const {
+        return src.substr(range.index, range.length);
+    }
+
     std::string_view getTokenStr(Token tok) const {
         return src.substr(tok.index, tok.sourceLen);
     }

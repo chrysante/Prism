@@ -8,7 +8,7 @@ using namespace prism;
 Symbol::Symbol(SymbolType type, std::string name, Facet const* facet,
                Scope* parent):
     _symType(type), _name(std::move(name)), _facet(facet), _parent(parent) {
-    if (parent) parent->addSymbol(this);
+    if (parent) parent->addSymbol(*this);
 }
 
 Scope const* Symbol::associatedScope() const {

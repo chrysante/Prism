@@ -13,10 +13,19 @@ namespace prism {
 
 class Scope;
 
+namespace detail {
+
+struct SimilarName {
+    Symbol* symbol;
+};
+
+} // namespace detail
+
 class NameLookupResult {
     using OverloadSet = utl::small_vector<Function*>;
     using AmbiSet = utl::small_vector<Symbol*>;
     using None = std::monostate;
+    using Similar = detail::SimilarName;
 
 public:
     NameLookupResult() = default;
@@ -27,21 +36,37 @@ public:
 
     NameLookupResult(AmbiSet ambiSet): data(std::move(ambiSet)) {}
 
+    NameLookupResult(Similar similar): data(similar) {}
+
     bool isNone() const { return is<None>(); }
 
     bool isSingleSymbol() const { return is<Symbol*>(); }
 
-    Symbol* singleSymbol() const { return get<Symbol*>(); }
+    Symbol* singleSymbol() const {
+        return isSingleSymbol() ? get<Symbol*>() : nullptr;
+    }
 
     bool isOverloadSet() const { return is<OverloadSet>(); }
 
     std::span<Function* const> overloadSet() const {
-        return get<OverloadSet>();
+        if (isOverloadSet()) return get<OverloadSet>();
+        return {};
     }
 
-    bool isAmbiguous() const { return is<Symbol*>(); }
+    bool isAmbiguous() const { return is<AmbiSet>(); }
 
-    std::span<Symbol* const> ambiguousSymbols() const { return get<AmbiSet>(); }
+    std::span<Symbol* const> ambiguousSymbols() const {
+        if (isAmbiguous()) return get<AmbiSet>();
+        return {};
+    }
+
+    bool isSimilar() const { return is<Similar>(); }
+
+    Symbol* similar() const {
+        return isSimilar() ? get<Similar>().symbol : nullptr;
+    }
+
+    bool success() const { return !isNone() && !isSimilar(); }
 
 private:
     template <typename T>
@@ -53,10 +78,15 @@ private:
         return std::get<T>(data);
     }
 
-    std::variant<None, Symbol*, OverloadSet, AmbiSet> data;
+    std::variant<None, Symbol*, OverloadSet, AmbiSet, Similar> data;
 };
 
-NameLookupResult unqualifiedLookup(Scope* scope, std::string_view name);
+struct NameLookupOptions {
+    bool allowSimilarNames = true;
+};
+
+NameLookupResult unqualifiedLookup(Scope* scope, std::string_view name,
+                                   NameLookupOptions options = {});
 
 } // namespace prism
 

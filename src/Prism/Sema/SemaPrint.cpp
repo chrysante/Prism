@@ -46,27 +46,27 @@ static bool isUser(Symbol const& sym) {
     return isa<UserType>(sym) || isa<Trait>(sym);
 }
 
-static void fmtNameImpl(QualType type, std::ostream& str);
-static void fmtNameImpl(Symbol const* symbol, std::ostream& str);
+static void fmtName(QualType type, std::ostream& str);
+static void fmtName(Symbol const* symbol, std::ostream& str);
 
-static void fmtNameImpl(QualType type, std::ostream& str) {
+static void fmtName(QualType type, std::ostream& str) {
     if (type.isMut()) str << Keyword("mut") << " ";
-    fmtNameImpl(type.get(), str);
+    fmtName(type.get(), str);
 }
 
-static void fmtNameImpl(Symbol const* symbol, std::ostream& str) {
+static void fmtName(Symbol const* symbol, std::ostream& str) {
     if (!symbol) {
         str << Null;
         return;
     }
     if (auto* ref = dyncast<ReferenceType const*>(symbol)) {
         str << "&";
-        fmtNameImpl(ref->referred(), str);
+        fmtName(ref->referred(), str);
         return;
     }
     if (auto* dynType = dyncast<DynType const*>(symbol)) {
         str << Keyword("dyn") << " ";
-        fmtNameImpl(dynType->underlyingSymbol(), str);
+        fmtName(dynType->underlyingSymbol(), str);
         return;
     }
     std::string_view name = symbol->name();
@@ -86,12 +86,11 @@ static void fmtNameImpl(Symbol const* symbol, std::ostream& str) {
 }
 
 static auto fmtName(QualType type) {
-    return utl::streammanip([=](std::ostream& str) { fmtNameImpl(type, str); });
+    return utl::streammanip([=](std::ostream& str) { fmtName(type, str); });
 }
 
 static auto fmtName(Symbol const* symbol) {
-    return utl::streammanip(
-        [=](std::ostream& str) { fmtNameImpl(symbol, str); });
+    return utl::streammanip([=](std::ostream& str) { fmtName(symbol, str); });
 }
 
 static auto fmtName(Symbol const& symbol) { return fmtName(&symbol); }
@@ -281,4 +280,8 @@ void prism::print(Symbol const& symbol, std::ostream& str) {
 
 utl::vstreammanip<> prism::formatDecl(Symbol const& symbol) {
     return [&](std::ostream& str) { fmtDecl(&symbol, str); };
+}
+
+utl::vstreammanip<> prism::formatName(Symbol const& symbol) {
+    return [&](std::ostream& str) { fmtName(&symbol, str); };
 }

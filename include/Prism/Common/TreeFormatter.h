@@ -47,6 +47,7 @@ public:
         levels.push_back(isLeaf ? LastChildContinue : ChildContinue);
         std::invoke(std::forward<decltype(writeCallback)>(writeCallback));
         levels.pop_back();
+        ostr << "\n";
     }
 
     /// Used to print a single child node. Handles indentation and edge drawing

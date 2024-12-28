@@ -3,5 +3,5 @@ issues:
   - name: UndeclaredID
     base: SemaIssue
     kind: Error
-    message: >
+    header: >
       str << "Use of undeclared identifier '" << getID(facet(), sourceContext()) << "'";

@@ -12,7 +12,8 @@ namespace prism {
 /// Base class of all syntax issues
 class SyntaxError: public Issue {
 protected:
-    explicit SyntaxError(Token tok): Issue(Issue::Error, tok.index) {}
+    explicit SyntaxError(Token tok):
+        Issue(Issue::Error, tok.getSourceRange()) {}
 };
 
 } // namespace prism
@@ -40,8 +41,8 @@ namespace prism {
                                      PRISM_REMOVE_PARENS CtorArgs) {}          \
                                                                                \
     private:                                                                   \
-        void doFormat(std::ostream& os,                                        \
-                      SourceContext const& ctx) const override;                \
+        void header(std::ostream& os,                                          \
+                    SourceContext const& ctx) const override;                  \
                                                                                \
         PRISM_FOR_EACH(PRISM_MEMBER_DECLARE, PRISM_NONE,                       \
                        PRISM_REMOVE_PARENS CtorArgs)                           \

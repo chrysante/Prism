@@ -55,6 +55,12 @@ explicit {{ facet.name }}({{ node_type_param }}
     return childAt<{{ member.type }}>(
         {{ index }}){{ member.type|to_interface_type }};
 }
+{% if member.type == "TerminalFacet" %}
+
+{{ member.type }} const* {{ member.name }}Facet() const {
+    return childAt<{{ member.type }}>({{ index }});
+}
+{% endif  %}
 {% endmacro %}
 
 {% macro all_field_accessors(cls, offset) %}

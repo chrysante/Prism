@@ -13,6 +13,8 @@ void print(Symbol const& symbol, std::ostream& ostream);
 
 utl::vstreammanip<> formatDecl(Symbol const& symbol);
 
+utl::vstreammanip<> formatName(Symbol const& symbol);
+
 } // namespace prism
 
 #endif // PRISM_SEMA_SEMAPRINT_H

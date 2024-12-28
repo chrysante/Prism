@@ -12,6 +12,11 @@ struct SourceLocation {
     uint32_t column;
 };
 
+///
+struct SourceRange {
+    uint32_t index, length;
+};
+
 } // namespace prism
 
 #endif // PRISM_SOURCE_SOURCELOCATION_H

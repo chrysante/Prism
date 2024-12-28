@@ -6,6 +6,7 @@
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Common/EnumUtil.h>
+#include <Prism/Source/SourceLocation.h>
 
 namespace prism {
 
@@ -38,6 +39,9 @@ struct Token {
 
     /// Global error token constant
     static Token const ErrorToken;
+
+    /// \Returns the source range of this token
+    SourceRange getSourceRange() const { return { index, sourceLen }; }
 };
 
 static_assert(sizeof(Token) == 8);

@@ -1,9 +1,14 @@
 #ifndef PRISM_SEMA_SCOPE_H
 #define PRISM_SEMA_SCOPE_H
 
+#include <bit>
 #include <span>
+#include <utility>
 
 #include <utl/hashtable.hpp>
+#include <utl/metric_table.hpp>
+#include <utl/small_ptr_vector.hpp>
+#include <utl/vector.hpp>
 
 namespace prism {
 
@@ -37,15 +42,34 @@ public:
     /// \overload
     std::span<Symbol const* const> symbols() const { return _symbols.values(); }
 
+    /// \Returns all symbols named \p name in this scope
+    std::span<Symbol* const> symbolsByName(std::string_view name) {
+        return std::bit_cast<std::span<Symbol* const>>(
+            std::as_const(*this).symbolsByName(name));
+    }
+
+    /// \overload
+    std::span<Symbol const* const> symbolsByName(std::string_view name) const;
+
+    /// \Returns all symbols named \p name or similarly in this scope
+    utl::small_vector<Symbol*> symbolsByApproxName(std::string_view name);
+
+    /// \overload
+    utl::small_vector<Symbol const*> symbolsByApproxName(
+        std::string_view name) const;
+
 private:
     friend class Symbol;
     friend class detail::AssocScope;
 
-    void addSymbol(Symbol* symbol);
+    void addSymbol(Symbol& symbol);
 
     Scope* _parentScope = nullptr;
     Symbol* _assocSymbol = nullptr;
     utl::hashset<Symbol*> _symbols;
+    utl::hashmap<std::string_view, utl::small_ptr_vector<Symbol*>> _names;
+    utl::metric_map<std::string_view, utl::small_ptr_vector<Symbol*>>
+        _approxNames;
 };
 
 } // namespace prism
