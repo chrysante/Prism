@@ -10,4 +10,4 @@ issues:
     base: SemaIssue
     kind: Error
     header: >
-      str << "Detected a cycle in a type definition";
+      str << "Detected a cycle in a type definition:";

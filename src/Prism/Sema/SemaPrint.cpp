@@ -1,6 +1,6 @@
 #include "Prism/Sema/SemaPrint.h"
 
-#include <ostream>
+#include <iostream>
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
@@ -277,6 +277,8 @@ struct SymbolPrinter {
 void prism::print(Symbol const& symbol, std::ostream& str) {
     SymbolPrinter(str).print(&symbol);
 }
+
+void prism::print(Symbol const& symbol) { print(symbol, std::cerr); }
 
 utl::vstreammanip<> prism::formatDecl(Symbol const& symbol) {
     return [&](std::ostream& str) { fmtDecl(&symbol, str); };

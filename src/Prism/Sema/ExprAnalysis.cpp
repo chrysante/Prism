@@ -48,12 +48,11 @@ struct AnaContext: AnalysisBase {
         if (!symbols.success()) {
             auto* issue = iss.push<UndeclaredID>(sourceContext, &id);
             if (auto* similar = symbols.similar()) {
-                issue
-                    ->addNote(VALFN1(_1 << "Did you mean \'"
-                                        << formatName(*similar) << "\'?"))
-                    ->addNote(getDeclName(similar->facet()),
-                              VALFN1(_1 << formatName(*similar)
-                                        << " declared here"));
+                auto* note = issue->addNote(VALFN1(
+                    _1 << "Did you mean \'" << formatName(*similar) << "\'?"));
+                if (auto* nameFct = getDeclName(similar->facet()))
+                    note->addNote(nameFct, VALFN1(_1 << formatName(*similar)
+                                                     << " declared here"));
             }
             return nullptr;
         }

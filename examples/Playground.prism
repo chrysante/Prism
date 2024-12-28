@@ -1,7 +1,7 @@
 
 fn foo(t: MyType) { t.mem_foo(); }
 
-let MyGlobal: i32 = 42;
+let MyGlobal: i32;
 
 struct MyBase {
     var i: OtherType;
@@ -9,7 +9,7 @@ struct MyBase {
 
 struct MyType: MyBase {
     fn mem_foo(&mut this) {}
-    
+
     var myVar: MyBase;
 }
 

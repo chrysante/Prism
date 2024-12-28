@@ -27,11 +27,11 @@ using ranges::views::drop;
 using ranges::views::transform;
 using ranges::views::zip;
 
-static void declareBuiltins(SemaContext& ctx) {
+static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
     using enum Signedness;
 #define SEMA_BUILTIN_TYPE(Name, Spelling, SymType, ...)                        \
     ctx.makeBuiltin<SymType>(BuiltinSymbol::Name, Spelling,                    \
-                             nullptr __VA_OPT__(, ) __VA_ARGS__);
+                             globalScope __VA_OPT__(, ) __VA_ARGS__);
 #include "Prism/Sema/Builtins.def"
 }
 
@@ -146,7 +146,6 @@ struct GlobalNameResolver: InstantiationBase {
             PRISM_UNIMPLEMENTED();
         }
         auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
-        if (!type) PRISM_UNIMPLEMENTED();
         auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
                                        QualType{ type, {} });
         addDependency(*var, type);
@@ -206,18 +205,6 @@ struct GlobalNameResolver: InstantiationBase {
     }
 
     void resolveImpl(Trait& trait) { resolveChildren(trait); }
-
-    void resolveImpl(Variable& var) {
-        if (!var.facet()->typespec()) {
-            PRISM_UNIMPLEMENTED();
-            return;
-        }
-        auto* type = analyzeFacetAs<Type>(*this, var.parentScope(),
-                                          var.facet()->typespec());
-        // For now we assume no references
-        auto* valtype = cast<ValueType*>(type);
-        var._type = { valtype, Mutability::Mut };
-    }
 
     FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet) {
         if (!facet) return nullptr;
@@ -348,7 +335,7 @@ Target* prism::constructTarget(MonotonicBufferResource& resource,
                                SemaContext& ctx, IssueHandler& iss,
                                std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
-    declareBuiltins(ctx);
+    declareBuiltins(ctx, target->associatedScope());
     declareGlobals(ctx, iss, target->associatedScope(), input);
     auto dependencies =
         resolveGlobalNames(resource, ctx, iss, target->associatedScope());

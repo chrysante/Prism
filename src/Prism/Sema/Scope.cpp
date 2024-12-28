@@ -1,5 +1,7 @@
 #include "Prism/Sema/Scope.h"
 
+#include <algorithm>
+
 #include "Prism/Common/Assert.h"
 #include "Prism/Sema/Symbol.h"
 
@@ -49,6 +51,10 @@ static CallbackIterator<T, F> makeCallbackIterator(F f) {
     return CallbackIterator<T, F>(f);
 }
 
+static size_t computeAcceptedDistance(size_t nameSize) {
+    return std::clamp(nameSize / 3, size_t{ 1 }, size_t{ 4 });
+}
+
 template <typename S, typename Map>
 static utl::small_vector<S*> symbolsByApproxNameImpl(std::string_view name,
                                                      Map const& map) {
@@ -62,7 +68,8 @@ static utl::small_vector<S*> symbolsByApproxNameImpl(std::string_view name,
         }
         utl::small_vector<S*>* r;
     };
-    map.lookup(name, 3, makeCallbackIterator<ItrType>(Callback{ &result }));
+    map.lookup(name, computeAcceptedDistance(name.size()),
+               makeCallbackIterator<ItrType>(Callback{ &result }));
     return result;
 }
 

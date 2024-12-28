@@ -9,7 +9,11 @@
 
 namespace prism {
 
+///
 void print(Symbol const& symbol, std::ostream& ostream);
+
+/// Prints to `std::cerr`
+void print(Symbol const& symbol);
 
 utl::vstreammanip<> formatDecl(Symbol const& symbol);
 
