@@ -3,7 +3,9 @@ fn foo(t: MyType) { t.mem_foo(); }
 
 let MyGlobal: i32 = 42;
 
-struct MyBase {}
+//struct MyBase {
+//    var i: MyType;
+//}
 
 struct MyType: MyBase {
     fn mem_foo(&mut this) {}
@@ -15,7 +17,7 @@ trait MyTrait {
     fn bar(&this);
 }
 
-impl MyTrait for MyType {
+impl _MyTrait for MyType {
     fn bar(&this) { this.mem_foo(); }
 }
 

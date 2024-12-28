@@ -82,6 +82,7 @@ set(PRISM_HEADER_FILES
 
     include/Prism/Sema/Builtins.def
     include/Prism/Sema/Construction.h
+    include/Prism/Sema/DependencyGraph.h
     include/Prism/Sema/ExprAnalysis.h
     include/Prism/Sema/NameLookup.h
     include/Prism/Sema/Scope.h
@@ -125,6 +126,7 @@ set(PRISM_SOURCE_FILES
 
     src/Prism/Sema/AnalysisBase.h
     src/Prism/Sema/Construction.cpp
+    src/Prism/Sema/DependencyGraph.cpp
     src/Prism/Sema/ExprAnalysis.cpp
     src/Prism/Sema/NameLookup.cpp
     src/Prism/Sema/SemaContext.cpp

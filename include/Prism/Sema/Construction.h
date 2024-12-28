@@ -4,6 +4,8 @@
 #include <span>
 #include <utility>
 
+#include <Prism/Common/Allocator.h>
+
 namespace prism {
 
 class SemaContext;
@@ -17,7 +19,8 @@ struct SourceFilePair {
     SourceContext const& context;
 };
 
-Target* constructTarget(SemaContext& ctx, IssueHandler& issueHandler,
+Target* constructTarget(MonotonicBufferResource& resource, SemaContext& ctx,
+                        IssueHandler& issueHandler,
                         std::span<SourceFilePair const> input);
 
 } // namespace prism

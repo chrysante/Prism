@@ -86,7 +86,7 @@ static int semaPlaygroundMain(Options options) {
         return 1;
     }
     SemaContext ctx;
-    auto* target = constructTarget(ctx, issueHandler,
+    auto* target = constructTarget(alloc, ctx, issueHandler,
                                    { { { parseTree, sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout);

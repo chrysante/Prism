@@ -8,6 +8,26 @@
 
 using namespace prism;
 
+static std::string_view toExtension(DebugGraphDescriptor::OutputType type) {
+    using enum DebugGraphDescriptor::OutputType;
+    switch (type) {
+    case SVG:
+        return ".svg";
+    case PNG:
+        return ".png";
+    }
+}
+
+static std::string_view toGraphvizCmd(DebugGraphDescriptor::OutputType type) {
+    using enum DebugGraphDescriptor::OutputType;
+    switch (type) {
+    case SVG:
+        return "-Tsvg";
+    case PNG:
+        return "-Tpng";
+    }
+}
+
 void prism::createDebugGraph(DebugGraphDescriptor const& desc) {
     if (!desc.generator) {
         std::cerr << "Missing generator\n";
@@ -22,9 +42,10 @@ void prism::createDebugGraph(DebugGraphDescriptor const& desc) {
     desc.generator(dotFile);
     dotFile.close();
     if (!desc.generateGraph) return;
-    auto svgFilePath = desc.targetDir / (desc.name + ".svg");
-    auto dotCommand =
-        utl::strcat("dot -Tsvg -o ", svgFilePath, " ", dotFilePath);
+    auto svgFilePath =
+        desc.targetDir / utl::strcat(desc.name, toExtension(desc.outputType));
+    auto dotCommand = utl::strcat("dot ", toGraphvizCmd(desc.outputType),
+                                  " -o ", svgFilePath, " ", dotFilePath);
     std::system(dotCommand.c_str());
     if (!desc.openFile) return;
     auto openCommand = utl::strcat("open ", svgFilePath);

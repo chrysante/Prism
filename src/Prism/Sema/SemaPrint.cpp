@@ -15,8 +15,6 @@ using ranges::views::enumerate;
 using ranges::views::intersperse;
 using ranges::views::transform;
 
-namespace {
-
 static constexpr utl::streammanip Keyword = [](std::ostream& str,
                                                auto const&... args) {
     str << tfmt::format(Bold | BrightMagenta, args...);
@@ -41,8 +39,7 @@ static constexpr utl::streammanip Decorated =
 };
 
 static constexpr utl::streammanip Null = [](std::ostream& str) {
-    str << Decorated(BrightGrey, "<", ">",
-                     tfmt::format(BrightRed | Bold, "NULL"));
+    str << tfmt::format(BrightRed | Bold, "NULL");
 };
 
 static bool isUser(Symbol const& sym) {
@@ -74,7 +71,7 @@ static void fmtNameImpl(Symbol const* symbol, std::ostream& str) {
     }
     std::string_view name = symbol->name();
     if (name.empty()) {
-        str << tfmt::format(BrightGrey, "<anon: ", get_rtti(*symbol), ">");
+        str << tfmt::format(BrightGrey, "anon: ", get_rtti(*symbol));
         return;
     }
     if (isBuiltinSymbol(*symbol)) {
@@ -97,6 +94,8 @@ static auto fmtName(Symbol const* symbol) {
         [=](std::ostream& str) { fmtNameImpl(symbol, str); });
 }
 
+static auto fmtName(Symbol const& symbol) { return fmtName(&symbol); }
+
 static void fmtDecl(Symbol const* symbol, std::ostream& str);
 
 static void fmtDeclImpl(Symbol const& symbol, std::ostream& str) {
@@ -104,7 +103,7 @@ static void fmtDeclImpl(Symbol const& symbol, std::ostream& str) {
 }
 
 static void fmtDeclImpl(Function const& func, std::ostream& str) {
-    str << Keyword("fn") << " " << func.name() << "(";
+    str << Keyword("fn") << " " << fmtName(func) << "(";
     for (bool first = true; auto* param: func.params()) {
         if (!first) str << ", ";
         first = false;
@@ -114,33 +113,33 @@ static void fmtDeclImpl(Function const& func, std::ostream& str) {
 }
 
 static void fmtDeclImpl(FuncParam const& param, std::ostream& str) {
-    str << param.name() << ": " << fmtName(param.type());
+    str << fmtName(param) << ": " << fmtName(param.type());
 }
 
 static void fmtDeclImpl(StructType const& type, std::ostream& str) {
-    str << Keyword("struct") << " " << fmtName(&type);
+    str << Keyword("struct") << " " << fmtName(type);
 }
 
 static void fmtDeclImpl(Trait const& trait, std::ostream& str) {
-    str << Keyword("trait") << " " << fmtName(&trait);
+    str << Keyword("trait") << " " << fmtName(trait);
 }
 
 static void fmtDeclImpl(TraitImpl const& impl, std::ostream& str) {
-    str << Keyword("impl") << " " << fmtName(impl.trait()) << Keyword(" for ")
-        << fmtName(impl.conformingType());
+    str << Keyword("impl") << " " << fmtName(impl.trait()) << " "
+        << Keyword("for") << " " << fmtName(impl.conformingType());
 }
 
 static void fmtDeclImpl(Variable const& var, std::ostream& str) {
-    str << Keyword("var") << " " << var.name() << ": " << fmtName(var.type());
+    str << Keyword("var") << " " << fmtName(var) << ": " << fmtName(var.type());
 }
 
 static void fmtDeclImpl(BaseClass const& base, std::ostream& str) {
-    str << Keyword("base") << " " << base.name() << ": "
+    str << Keyword("base") << " " << fmtName(base) << ": "
         << fmtName(base.type());
 }
 
 static void fmtDeclImpl(MemberVar const& var, std::ostream& str) {
-    str << Keyword("memvar") << " " << var.name() << ": "
+    str << Keyword("memvar") << " " << fmtName(var) << ": "
         << fmtName(var.type());
 }
 
@@ -157,6 +156,8 @@ static auto fmtDecl(Symbol const* symbol) {
 }
 
 static auto fmtDecl(Symbol const& symbol) { return fmtDecl(&symbol); }
+
+namespace {
 
 struct SymbolPrinter {
     std::ostream& str;
@@ -215,7 +216,7 @@ struct SymbolPrinter {
         }
     }
 
-    void printImpl(Symbol const& symbol) { str << fmtName(&symbol); }
+    void printImpl(Symbol const& symbol) { str << fmtName(symbol); }
 
     void printImpl(Target const& target) {
         auto* scope = target.associatedScope();
@@ -234,7 +235,7 @@ struct SymbolPrinter {
 
     auto valueDecl(Value const& value) {
         return utl::streammanip([&](std::ostream& str) {
-            str << value.name() << ": " << fmtName(value.type().get()) << " "
+            str << fmtName(value) << ": " << fmtName(value.type().get()) << " "
                 << tfmt::format(BrightGrey, value.cat());
         });
     }
@@ -242,7 +243,7 @@ struct SymbolPrinter {
     void printImpl(Value const& value) { str << valueDecl(value); }
 
     void printImpl(FuncParam const& param) {
-        str << param.name() << ": " << fmtName(param.type());
+        str << fmtName(param) << ": " << fmtName(param.type());
     }
 
     void printImpl(Function const& func) {
@@ -250,7 +251,7 @@ struct SymbolPrinter {
         if (isa<FunctionImpl>(func)) printBraced(func.associatedScope());
     }
 
-    void printImpl(Type const& type) { str << fmtName(&type); }
+    void printImpl(Type const& type) { str << fmtName(type); }
 
     void printImpl(UserType const& type) {
         str << fmtDecl(type) << " ";
