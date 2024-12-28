@@ -10,11 +10,15 @@ struct SourceLocation {
     uint32_t index;
     uint32_t line;
     uint32_t column;
+
+    bool operator==(SourceLocation const&) const = default;
 };
 
 ///
 struct SourceRange {
     uint32_t index, length;
+
+    bool operator==(SourceRange const&) const = default;
 };
 
 } // namespace prism

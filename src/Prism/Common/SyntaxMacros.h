@@ -29,4 +29,7 @@ decltype(auto) operator->*(DoToken, F&& f) {
 #define REFFN(Name, ...)                                                       \
     [&, this ] PRISM_FN_IMPL(Name __VA_OPT__(, ) __VA_ARGS__)
 
+#define VALFN1(__VA_ARGS__)                                                    \
+    [=](auto&& _1) -> decltype(auto) { return (__VA_ARGS__); }
+
 #endif // PRISM_COMMON_SYNTAXMACROS_H

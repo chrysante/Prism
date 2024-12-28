@@ -76,7 +76,7 @@ static void printSourceRange(SourceContext const& ctx, SourceRange range,
     forEachLine(snipped, [&, first = true](std::string_view line) mutable {
         if (!first) str << "\n";
         first = false;
-        str << tfmt::format(BrightGrey, std::setw(5), ++lineIndex, " | ");
+        str << tfmt::format(BrightGrey, std::setw(5), ++lineIndex) << " │ ";
         str << tfmt::format(BrightGrey, line);
     });
 }

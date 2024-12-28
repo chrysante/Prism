@@ -154,8 +154,8 @@ TEST_CASE("Errors", "[lexer]") {
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 0, 4, 3 });
     L.next();
     REQUIRE(H.size() == 2);
-    auto errTok1 = dynamic_cast<LexicalIssue const&>(H.front()).token();
-    CHECK(errTok1 == RefToken{ ctx, TokenKind::Error, 0, 0, 4 });
-    auto errTok2 = dynamic_cast<LexicalIssue const&>(H.back()).token();
-    CHECK(errTok2 == RefToken{ ctx, TokenKind::Error, 0, 7, 1 });
+    auto errRng1 = dynamic_cast<LexicalIssue const&>(H.front()).sourceRange();
+    CHECK(errRng1.value() == SourceRange{ 0, 4 });
+    auto errRng2 = dynamic_cast<LexicalIssue const&>(H.back()).sourceRange();
+    CHECK(errRng2.value() == SourceRange{ 7, 1 });
 }

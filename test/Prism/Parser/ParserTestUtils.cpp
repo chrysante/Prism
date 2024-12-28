@@ -135,7 +135,8 @@ static bool matchIssue(ExpectedIssue const& expIss,
     for (auto itr = issues.begin(); itr != issues.end(); ++itr) {
         auto& issue = **itr;
         if (!expIss.checkType(&issue)) continue;
-        auto sourceLoc = ctx.getSourceLocation(issue.sourceIndex());
+        auto sourceLoc =
+            ctx.getSourceLocation(issue.sourceRange().value().index);
         if (sourceLoc.line != expIss.line) continue;
         if (expIss.column && sourceLoc.column != *expIss.column) continue;
         issues.erase(itr);

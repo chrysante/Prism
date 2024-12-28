@@ -2,6 +2,7 @@
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/IssueHandler.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/NameLookup.h"
@@ -47,13 +48,12 @@ struct AnaContext: AnalysisBase {
         if (!symbols.success()) {
             auto* issue = iss.push<UndeclaredID>(*sourceContext, &id);
             if (auto* similar = symbols.similar()) {
-                auto* name = getDeclName(similar->facet());
                 issue
-                    ->addNote([=](std::ostream& str) {
-                    str << "Did you mean \'" << formatName(*similar) << "\'?";
-                })->addNote(name, [=](std::ostream& str) {
-                    str << formatName(*similar) << " declared here";
-                });
+                    ->addNote(VALFN1(_1 << "Did you mean \'"
+                                        << formatName(*similar) << "\'?"))
+                    ->addNote(getDeclName(similar->facet()),
+                              VALFN1(_1 << formatName(*similar)
+                                        << " declared here"));
             }
             return nullptr;
         }
