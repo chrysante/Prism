@@ -328,6 +328,8 @@ static std::unique_ptr<TypeDefCycle> makeCycleError(
         }();
         error->addNote(sym->facet(), std::move(fmt));
     }
+    error->addHint(
+        VALFN1(_1 << "Use pointer members to break strong dependencies"));
     return error;
 }
 

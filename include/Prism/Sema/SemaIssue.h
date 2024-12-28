@@ -9,6 +9,7 @@
 namespace prism {
 
 class SemaNote;
+class SemaHint;
 
 /// Base class of a sema issues
 class SemaIssue: public Issue {
@@ -33,6 +34,14 @@ public:
         return addNote(nullptr, std::move(impl));
     }
 
+    /// Adds a hint
+    SemaHint* addHint(Facet const* facet, utl::vstreammanip<> impl);
+
+    /// \overload
+    SemaHint* addHint(utl::vstreammanip<> impl) {
+        return addHint(nullptr, std::move(impl));
+    }
+
 protected:
     SemaIssue(Issue::Kind kind, SourceContext const* ctx, Facet const* facet);
 
@@ -41,16 +50,31 @@ private:
     Facet const* fct;
 };
 
-///
-class SemaNote: public SemaIssue {
-public:
-    explicit SemaNote(SourceContext const* ctx, Facet const* facet,
-                      utl::vstreammanip<> impl);
+class SemaMessage: public SemaIssue {
+protected:
+    explicit SemaMessage(Issue::Kind kind, SourceContext const* ctx,
+                         Facet const* facet, utl::vstreammanip<> impl);
 
 private:
     void header(std::ostream& os, SourceContext const* ctx) const override;
 
     utl::vstreammanip<> impl;
+};
+
+///
+class SemaNote: public SemaMessage {
+public:
+    explicit SemaNote(SourceContext const* ctx, Facet const* facet,
+                      utl::vstreammanip<> impl):
+        SemaMessage(Issue::Note, ctx, facet, std::move(impl)) {}
+};
+
+///
+class SemaHint: public SemaMessage {
+public:
+    explicit SemaHint(SourceContext const* ctx, Facet const* facet,
+                      utl::vstreammanip<> impl):
+        SemaMessage(Issue::Hint, ctx, facet, std::move(impl)) {}
 };
 
 } // namespace prism

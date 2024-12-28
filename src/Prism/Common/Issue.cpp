@@ -29,6 +29,9 @@ static auto fmt(Issue::Kind kind) {
             break;
         case Note:
             break;
+        case Hint:
+            str << tfmt::format(Bold | BrightGreen, "Hint:") << " ";
+            break;
         }
     });
 }
@@ -67,8 +70,6 @@ static void forEachLine(std::string_view text,
 }
 
 static void printSourceRange(SourceContext const& ctx, SourceRange range,
-                             tfmt::Modifier const& background,
-                             tfmt::Modifier const& highlight,
                              std::ostream& str) {
     SourceRange wholeRange = expandToWholeLines(ctx, range);
     std::string_view snipped = ctx.source(wholeRange);
@@ -81,18 +82,6 @@ static void printSourceRange(SourceContext const& ctx, SourceRange range,
     });
 }
 
-static tfmt::Modifier getHighlightMod(Issue::Kind kind) {
-    using enum Issue::Kind;
-    switch (kind) {
-    case Error:
-        return BrightWhite | BGBrightRed;
-    case Warning:
-        return BrightWhite | BGYellow;
-    case Note:
-        return BrightWhite | BGBrightBlue;
-    }
-}
-
 void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
     auto& str = treeFmt.ostream();
     str << fmt(kind());
@@ -102,10 +91,8 @@ void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
     header(str, ctx);
     str << "\n";
     if (range) {
-        treeFmt.writeDetails(children().empty(), [&] {
-            printSourceRange(*ctx, *range, BrightGrey, getHighlightMod(kind()),
-                             str);
-        });
+        treeFmt.writeDetails(children().empty(),
+                             [&] { printSourceRange(*ctx, *range, str); });
     }
     treeFmt.writeChildren(children(), [&](Issue const* child) {
         child->formatImpl(treeFmt, ctx);

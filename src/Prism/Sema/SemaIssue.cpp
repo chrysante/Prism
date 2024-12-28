@@ -43,11 +43,15 @@ SemaNote* SemaIssue::addNote(Facet const* facet, utl::vstreammanip<> impl) {
     return addChild<SemaNote>(sourceContext(), facet, std::move(impl));
 }
 
-SemaNote::SemaNote(SourceContext const* ctx, Facet const* facet,
-                   utl::vstreammanip<> impl):
-    SemaIssue(Issue::Note, ctx, facet), impl(std::move(impl)) {}
+SemaHint* SemaIssue::addHint(Facet const* facet, utl::vstreammanip<> impl) {
+    return addChild<SemaHint>(sourceContext(), facet, std::move(impl));
+}
 
-void SemaNote::header(std::ostream& str, SourceContext const*) const {
+SemaMessage::SemaMessage(Issue::Kind kind, SourceContext const* ctx,
+                         Facet const* facet, utl::vstreammanip<> impl):
+    SemaIssue(kind, ctx, facet), impl(std::move(impl)) {}
+
+void SemaMessage::header(std::ostream& str, SourceContext const*) const {
     str << impl;
 }
 

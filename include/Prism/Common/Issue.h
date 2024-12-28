@@ -22,7 +22,7 @@ class TreeFormatter;
 /// Base class of all issues
 class Issue {
 public:
-    enum Kind { Error, Warning, Note };
+    enum Kind { Error, Warning, Note, Hint };
 
     virtual ~Issue() = default;
 
