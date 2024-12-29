@@ -9,8 +9,15 @@
 
 namespace prism {
 
+struct SemaPrintOptions {
+    bool structureMemoryLayout = false;
+    bool traitObligations = false;
+    bool traitConformances = false;
+};
+
 ///
-void print(Symbol const& symbol, std::ostream& ostream);
+void print(Symbol const& symbol, std::ostream& ostream,
+           SemaPrintOptions options = {});
 
 /// Prints to `std::cerr`
 void print(Symbol const& symbol);

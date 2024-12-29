@@ -1,10 +1,12 @@
 #ifndef PRISM_SEMA_SYMBOL_H
 #define PRISM_SEMA_SYMBOL_H
 
+#include <bit>
 #include <iosfwd>
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 #include <utl/vector.hpp>
 
@@ -24,6 +26,8 @@ namespace prism {
 
 class SourceContext;
 class SemaContext;
+class Obligation;
+class Conformance;
 
 class Symbol {
 public:
@@ -153,8 +157,50 @@ protected:
     using ScopedType::ScopedType;
 };
 
+namespace detail {
+
+template <typename T>
+class InterfaceLike {
+protected:
+    InterfaceLike();
+    ~InterfaceLike();
+
+    std::span<T const* const> items() const {
+        return std::bit_cast<std::span<T const* const>>(std::span(_items));
+    }
+
+    void addItem(csp::unique_ptr<T>&& item);
+
+private:
+    std::vector<csp::unique_ptr<T>> _items;
+};
+
+} // namespace detail
+
+/// Base class for symbols that can define interfaces
+class TraitLike: detail::InterfaceLike<Obligation> {
+public:
+    /// Obligations imposed by this symbol
+    std::span<Obligation const* const> obligations() const { return items(); }
+
+    void addObligation(csp::unique_ptr<Obligation>&& obl) {
+        addItem(std::move(obl));
+    }
+};
+
+/// Base class for symbols that can conform to interfaces
+class ImplLike: detail::InterfaceLike<Conformance> {
+public:
+    /// Conformances defined by this symbol
+    std::span<Conformance const* const> conformances() const { return items(); }
+
+    void addConformance(csp::unique_ptr<Conformance>&& conf) {
+        addItem(std::move(conf));
+    }
+};
+
 /// Base class of all types with non-static member variables
-class CompositeType: public UserType {
+class CompositeType: public UserType, public TraitLike, public ImplLike {
 public:
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -331,8 +377,8 @@ public:
         MemberSymbol(SymbolType::BaseClass, type->name(), facet, type, parent) {
     }
 
-    UserType const* type() const {
-        return cast<UserType const*>(MemberSymbol::type());
+    CompositeType const* type() const {
+        return cast<CompositeType const*>(MemberSymbol::type());
     }
 };
 
@@ -344,7 +390,11 @@ public:
                      parent) {}
 };
 
-class Trait: public Symbol, public detail::AssocScope {
+class Trait:
+    public Symbol,
+    public TraitLike,
+    public ImplLike,
+    public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
@@ -352,10 +402,10 @@ public:
                    Scope* parent);
 };
 
-class BaseConformance: public Symbol {
+class BaseTrait: public Symbol {
 public:
-    explicit BaseConformance(Facet const* facet, Scope* parent, Trait* trait):
-        Symbol(SymbolType::BaseConformance, trait->name(), facet, parent),
+    explicit BaseTrait(Facet const* facet, Scope* parent, Trait* trait):
+        Symbol(SymbolType::BaseTrait, trait->name(), facet, parent),
         _trait(trait) {}
 
     /// \Returns the conformance declaration
@@ -368,7 +418,7 @@ private:
     Trait* _trait;
 };
 
-class TraitImpl: public Symbol, public detail::AssocScope {
+class TraitImpl: public Symbol, public ImplLike, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 

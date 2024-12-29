@@ -89,7 +89,10 @@ static int semaPlaygroundMain(Options options) {
     auto* target = analyzeModule(alloc, ctx, issueHandler,
                                  { { { parseTree, sourceContext } } });
     header(std::cout, "Sema IR");
-    print(*target, std::cout);
+    print(*target, std::cout,
+          { .structureMemoryLayout = true,
+            .traitObligations = true,
+            .traitConformances = true });
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);
         return 1;

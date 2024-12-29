@@ -182,9 +182,9 @@ struct GlobalNameResolver: InstantiationBase {
             return baseclass;
         }
         if (auto* trait = dyncast<Trait*>(base)) {
-            auto* baseconf = ctx.make<BaseConformance>(&decl, scope, trait);
-            addDependency(*baseconf, trait);
-            return baseconf;
+            auto* basetrait = ctx.make<BaseTrait>(&decl, scope, trait);
+            addDependency(*basetrait, trait);
+            return basetrait;
         }
     }
 

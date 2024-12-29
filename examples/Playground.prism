@@ -7,7 +7,7 @@ trait MyTrait: MyBaseTrait {
     fn foo(&this) -> i32;
 }
 
-struct MyStruct: MyBaseTrait {}
+struct MyStruct: MyTrait {}
 
 impl MyTrait for MyStruct {
     

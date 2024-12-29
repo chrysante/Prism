@@ -103,7 +103,7 @@ symbols:
   - name: MemberVar
     base: MemberSymbol
 
-  - name: BaseConformance
+  - name: BaseTrait
     base: Symbol
 
   - name: Trait

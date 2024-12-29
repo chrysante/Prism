@@ -85,6 +85,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/Builtins.def
     include/Prism/Sema/ConformanceAnalysis.h
     include/Prism/Sema/Construction.h
+    include/Prism/Sema/Contracts.h
     include/Prism/Sema/DependencyGraph.h
     include/Prism/Sema/ExprAnalysis.h
     include/Prism/Sema/NameLookup.h
@@ -132,6 +133,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/AnalysisBase.h
     src/Prism/Sema/ConformanceAnalysis.cpp
     src/Prism/Sema/Construction.cpp
+    src/Prism/Sema/Contracts.cpp
     src/Prism/Sema/DependencyGraph.cpp
     src/Prism/Sema/ExprAnalysis.cpp
     src/Prism/Sema/NameLookup.cpp
