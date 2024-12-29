@@ -24,7 +24,7 @@ impl MyTrait for MyType {
 struct OtherType: MyType {
     var mem: byte;
     
-    var v: void;
+    var v: bool;
 }
 
 struct G { var o: OtherType; }

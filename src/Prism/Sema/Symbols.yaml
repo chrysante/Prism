@@ -66,6 +66,9 @@ symbols:
   - name: ByteType
     base: ScopedType
 
+  - name: BoolType
+    base: ScopedType
+
   - name: ArithmeticType
     base: ScopedType
     abstract: true

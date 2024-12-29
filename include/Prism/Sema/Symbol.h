@@ -219,8 +219,16 @@ private:
 ///
 class ByteType: public ScopedType {
 public:
-    ByteType(SemaContext& ctx, std::string name, Scope* parent):
+    explicit ByteType(SemaContext& ctx, std::string name, Scope* parent):
         ScopedType(SymbolType::ByteType, ctx, std::move(name), nullptr, parent,
+                   TypeLayout(1)) {}
+};
+
+///
+class BoolType: public ScopedType {
+public:
+    explicit BoolType(SemaContext& ctx, std::string name, Scope* parent):
+        ScopedType(SymbolType::BoolType, ctx, std::move(name), nullptr, parent,
                    TypeLayout(1)) {}
 };
 

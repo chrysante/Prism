@@ -11,6 +11,7 @@
 // The names must match the names of the corresponding token types
 SEMA_BUILTIN_TYPE(Void, "void", VoidType)
 SEMA_BUILTIN_TYPE(Byte, "byte", ByteType)
+SEMA_BUILTIN_TYPE(Bool, "bool", BoolType)
 SEMA_BUILTIN_TYPE(Int8, "i8", IntType, 8, Signed)
 SEMA_BUILTIN_TYPE(Int16, "i16", IntType, 16, Signed)
 SEMA_BUILTIN_TYPE(Int32, "i32", IntType, 32, Signed)
