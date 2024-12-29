@@ -1,35 +1,14 @@
 
-fn foo(t: MyType) { t.mem_foo(); }
-
-let MyGlobal: i32;
-
-struct MyBase {
-    var i: i32;
+trait MyBaseTrait {
+    fn bar(&this) -> i32;
 }
 
-struct MyType: MyBase {
-    fn mem_foo(&mut this) {}
-
-    var myVar: MyBase;
+trait MyTrait: MyBaseTrait {
+    fn foo(&this) -> i32;
 }
 
-trait MyTrait {
-    fn bar(&this);
-}
+struct MyStruct: MyBaseTrait {}
 
-impl MyTrait for MyType {
-    fn bar(&this) { this.mem_foo(); }
-}
-
-struct OtherType: MyType {
-    var mem: byte;
+impl MyTrait for MyStruct {
     
-    var v: bool;
 }
-
-struct G { var o: OtherType; }
-
-
-struct S { var i: i32; var c: byte; }
-
-struct T { var s: S; var c: byte; var c2: byte; }

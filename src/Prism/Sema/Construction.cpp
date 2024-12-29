@@ -173,12 +173,19 @@ struct GlobalNameResolver: InstantiationBase {
         resolveChildren(impl);
     }
 
-    BaseClass* declareBaseClass(Scope* scope, BaseDeclFacet const& decl) {
-        auto* basetype = analyzeFacetAs<UserType>(*this, scope, decl.type());
-        if (!basetype) return nullptr;
-        auto* base = ctx.make<BaseClass>(&decl, scope, basetype);
-        addDependency(*base, basetype);
-        return base;
+    Symbol* declareBase(Scope* scope, BaseDeclFacet const& decl) {
+        auto* base = analyzeFacet(*this, scope, decl.type());
+        if (!base) return nullptr;
+        if (auto* type = dyncast<UserType*>(base)) {
+            auto* baseclass = ctx.make<BaseClass>(&decl, scope, type);
+            addDependency(*baseclass, type);
+            return baseclass;
+        }
+        if (auto* trait = dyncast<Trait*>(base)) {
+            auto* baseconf = ctx.make<BaseConformance>(&decl, scope, trait);
+            addDependency(*baseconf, trait);
+            return baseconf;
+        }
     }
 
     MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
@@ -188,27 +195,46 @@ struct GlobalNameResolver: InstantiationBase {
         return var;
     }
 
-    void resolveImpl(CompositeType& type) {
-        auto* scope = type.associatedScope();
-        auto* node = getNode(type);
-        if (auto* bases = type.facet()->bases()) {
+    void declareMembers(Symbol& typeOrTrait,
+                        utl::function_view<void(Symbol*)> verify) {
+        auto* scope = typeOrTrait.associatedScope();
+        auto* node = getNode(typeOrTrait);
+        auto* facet = cast<CompTypeDeclFacet const*>(typeOrTrait.facet());
+        if (auto* bases = facet->bases()) {
             for (auto* decl: bases->elems()) {
-                auto* base = declareBaseClass(scope, *decl);
-                type._bases.push_back(base);
+                auto* base = declareBase(scope, *decl);
                 addDependency(node, base);
+                verify(base);
             }
         }
-        if (auto* body = type.facet()->body()) {
+        if (auto* body = facet->body()) {
             for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
                 auto* var = declareMemberVar(scope, *decl);
-                type._memvars.push_back(var);
                 addDependency(node, var);
+                verify(var);
             }
         }
+    }
+
+    void resolveImpl(CompositeType& type) {
+        declareMembers(type, [&](Symbol* sym) {
+            if (auto* baseclass = dyncast<BaseClass*>(sym))
+                type._bases.push_back(baseclass);
+            else if (auto* memvar = dyncast<MemberVar*>(sym))
+                type._memvars.push_back(memvar);
+        });
         resolveChildren(type);
     }
 
-    void resolveImpl(Trait& trait) { resolveChildren(trait); }
+    void resolveImpl(Trait& trait) {
+        declareMembers(trait, [&](Symbol* sym) {
+            if (auto* baseclass = dyncast<BaseClass*>(sym))
+                PRISM_UNIMPLEMENTED(); // Error
+            else if (auto* memvar = dyncast<MemberVar*>(sym))
+                PRISM_UNIMPLEMENTED(); // Error
+        });
+        resolveChildren(trait);
+    }
 
     FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet) {
         if (!facet) return nullptr;

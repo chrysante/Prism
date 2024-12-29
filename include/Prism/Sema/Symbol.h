@@ -352,6 +352,22 @@ public:
                    Scope* parent);
 };
 
+class BaseConformance: public Symbol {
+public:
+    explicit BaseConformance(Facet const* facet, Scope* parent, Trait* trait):
+        Symbol(SymbolType::BaseConformance, trait->name(), facet, parent),
+        _trait(trait) {}
+
+    /// \Returns the conformance declaration
+    Trait* trait() { return _trait; }
+
+    /// \overload
+    Trait const* trait() const { return _trait; }
+
+private:
+    Trait* _trait;
+};
+
 class TraitImpl: public Symbol, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;

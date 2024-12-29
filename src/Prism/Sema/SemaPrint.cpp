@@ -136,8 +136,13 @@ static void fmtDeclImpl(Variable const& var, std::ostream& str) {
 }
 
 static void fmtDeclImpl(BaseClass const& base, std::ostream& str) {
-    str << Keyword("base") << " " << fmtName(base) << ": "
+    str << Keyword("base_class") << " " << fmtName(base) << ": "
         << fmtName(base.type());
+}
+
+static void fmtDeclImpl(BaseConformance const& base, std::ostream& str) {
+    str << Keyword("base_trait") << " " << fmtName(base) << ": "
+        << fmtName(base.trait());
 }
 
 static void fmtDeclImpl(MemberVar const& var, std::ostream& str) {
@@ -285,6 +290,8 @@ struct SymbolPrinter {
     void printImpl(Variable const& var) { str << fmtDecl(var) << " "; }
 
     void printImpl(MemberSymbol const& member) { str << fmtDecl(member); }
+
+    void printImpl(BaseConformance const& base) { str << fmtDecl(base); }
 };
 
 } // namespace
