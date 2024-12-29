@@ -23,6 +23,8 @@ impl MyTrait for MyType {
 
 struct OtherType: MyType {
     var mem: byte;
+    
+    var v: void;
 }
 
 

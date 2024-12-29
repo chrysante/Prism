@@ -4,10 +4,25 @@ issues:
     base: SemaIssue
     kind: Error
     header: >
-      str << "Use of undeclared identifier '" << getID(facet(), sourceContext()) << "'";
+      str << "Use of undeclared identifier '" << getID(facet(), sourceContext())
+          << "'";
 
   - name: TypeDefCycle
     base: SemaIssue
     kind: Error
+    comment: 'Cyclic structure definition'
+    no_source: true
     header: >
       str << "Detected a cycle in a type definition:";
+
+  - name: BadSymRef
+    base: SemaIssue
+    kind: Error
+    members:
+      - name: providedSymbol
+        type: Symbol const*
+      - name: expectedSymbolType
+        type: SymbolType
+    header: >
+      str << "Expected " << prettyName(expectedSymbolType) << ", have "
+          << formatName(providedSymbol);

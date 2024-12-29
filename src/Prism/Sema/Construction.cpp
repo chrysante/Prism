@@ -359,7 +359,7 @@ static void instantiateSymbol(SemaContext& ctx, IssueHandler& iss,
 
 static std::unique_ptr<TypeDefCycle> makeCycleError(
     std::span<Symbol const* const> cycle) {
-    auto error = std::make_unique<TypeDefCycle>(nullptr, nullptr);
+    auto error = std::make_unique<TypeDefCycle>();
     for (auto itr = cycle.begin(); itr < cycle.end() - 1; ++itr) {
         auto* sym = *itr;
         auto fmt = [&]() -> std::function<void(std::ostream&)> {

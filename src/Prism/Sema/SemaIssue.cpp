@@ -7,8 +7,11 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Functional.h"
+#include "Prism/Common/PrettyName.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
+#include "Prism/Sema/SemaPrint.h"
+#include "Prism/Sema/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;

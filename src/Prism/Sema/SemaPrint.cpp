@@ -299,6 +299,14 @@ utl::vstreammanip<> prism::formatDecl(Symbol const& symbol) {
     return [&](std::ostream& str) { fmtDecl(&symbol, str); };
 }
 
+utl::vstreammanip<> prism::formatDecl(Symbol const* symbol) {
+    return [=](std::ostream& str) { fmtDecl(symbol, str); };
+}
+
 utl::vstreammanip<> prism::formatName(Symbol const& symbol) {
     return [&](std::ostream& str) { fmtName(&symbol, str); };
+}
+
+utl::vstreammanip<> prism::formatName(Symbol const* symbol) {
+    return [=](std::ostream& str) { fmtName(symbol, str); };
 }

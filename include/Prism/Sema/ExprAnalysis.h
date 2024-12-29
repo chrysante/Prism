@@ -37,11 +37,15 @@ struct SymbolConverter<T> {
     }
 };
 
+void pushBadSymRef(AnalysisBase const& context, Facet const* facet,
+                   Symbol* symbol, SymbolType expected);
+
 template <std::derived_from<Symbol> S>
-S* verifySymbolType(AnalysisBase const& context, Symbol* symbol) {
+S* verifySymbolType(AnalysisBase const& context, Facet const* facet,
+                    Symbol* symbol) {
     auto* result = SymbolConverter<S>::convert(symbol);
     if (result) return result;
-    PRISM_UNIMPLEMENTED();
+    pushBadSymRef(context, facet, symbol, csp::impl::TypeToID<S>);
     return nullptr;
 }
 
@@ -52,7 +56,7 @@ S* analyzeFacetAs(AnalysisBase const& context, Scope* scope,
                   Facet const* facet) {
     auto* symbol = analyzeFacet(context, scope, facet);
     if (!symbol) return nullptr;
-    return detail::verifySymbolType<S>(context, symbol);
+    return detail::verifySymbolType<S>(context, facet, symbol);
 }
 
 } // namespace prism

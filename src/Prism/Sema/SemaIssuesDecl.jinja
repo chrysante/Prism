@@ -1,14 +1,47 @@
 
+{% macro define_ctor(issue) %}
+
+{% if issue.members %}
+{% set comma_if_members = ', ' %}
+{% else %}
+{% set comma_if_members = '' %}
+{% endif %}
+
+explicit {{ issue.name }}(
+    {% if not issue.no_source -%}
+    SourceContext const* ctx, Facet const* facet
+        {{ comma_if_members }}
+    {%- endif %}
+        {{- issue.members | map('issue_member_ctor_param') | join(', ') -}}
+    ): SemaIssue(
+            Issue::{{ issue.kind }},
+    {% if not issue.no_source %}
+            ctx, facet
+    {% else %}
+            nullptr, nullptr
+    {% endif %}
+        )
+        {{ comma_if_members }}
+    {{- issue.members | map('issue_member_ctor_init') | join(', ') -}}
+        {}
+
+{% endmacro %}
+
 {% macro define_issue_class(issue) %}
 
+/// {{ issue.comment }}
 class {{ issue.name }}: public {{ issue.base }} {
 {% if not issue.abstract %}
 public:
-    explicit {{ issue.name }}(SourceContext const* ctx, Facet const* facet): SemaIssue(Issue::{{ issue.kind }}, ctx, facet) {}
+    {{ define_ctor(issue) }}
 
 private:
     void header(std::ostream& str, SourceContext const* ctx) const override;
 
+    {% for member in issue.members %}
+    {{ member.type }} {{ member.name }};
+    {% endfor %}
+    
 {% endif %}
 };
     

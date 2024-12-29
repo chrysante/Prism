@@ -66,6 +66,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/IssueHandler.h
     include/Prism/Common/MacroUtils.h
     include/Prism/Common/MacroUtilsUndef.h
+    include/Prism/Common/PrettyName.h
     include/Prism/Common/Ranges.h
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
@@ -106,6 +107,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/IndentingStreambuf.cpp
     src/Prism/Common/Issue.cpp
     src/Prism/Common/IssueHandler.cpp
+    src/Prism/Common/PrettyName.cpp
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
     src/Prism/Common/Typename.cpp

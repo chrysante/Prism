@@ -76,6 +76,11 @@ struct AnaContext: AnalysisBase {
 
 } // namespace
 
+void detail::pushBadSymRef(AnalysisBase const& context, Facet const* facet,
+                           Symbol* symbol, SymbolType expected) {
+    context.iss.push<BadSymRef>(context.sourceContext, facet, symbol, expected);
+}
+
 Symbol* prism::analyzeFacet(AnalysisBase const& context, Scope* scope,
                             Facet const* facet) {
     return AnaContext{ context, scope }.analyze(facet);

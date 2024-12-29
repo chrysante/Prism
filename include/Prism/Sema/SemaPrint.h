@@ -15,9 +15,17 @@ void print(Symbol const& symbol, std::ostream& ostream);
 /// Prints to `std::cerr`
 void print(Symbol const& symbol);
 
+/// \Returns a stream manipulator writing the declaration of \p symbol
 utl::vstreammanip<> formatDecl(Symbol const& symbol);
 
+/// \overload for pointers
+utl::vstreammanip<> formatDecl(Symbol const* symbol);
+
+/// \Returns a stream manipulator writing the name of \p symbol
 utl::vstreammanip<> formatName(Symbol const& symbol);
+
+/// \overload for pointers
+utl::vstreammanip<> formatName(Symbol const* symbol);
 
 } // namespace prism
 

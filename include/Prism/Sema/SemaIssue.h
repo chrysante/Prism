@@ -5,6 +5,7 @@
 
 #include <Prism/Common/Issue.h>
 #include <Prism/Facet/FacetFwd.h>
+#include <Prism/Sema/SymbolFwd.h>
 
 namespace prism {
 
