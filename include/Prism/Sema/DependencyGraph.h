@@ -21,7 +21,7 @@ class Symbol;
 class DependencyNode {
 public:
     explicit DependencyNode(Symbol& symbol, MonotonicBufferResource& resource):
-        sym(symbol), succs(&resource) {}
+        succs(&resource), sym(symbol) {}
 
     /// Tracks \p node  as a dependency
     void addDependency(DependencyNode const* node) {

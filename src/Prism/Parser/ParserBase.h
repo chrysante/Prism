@@ -41,8 +41,8 @@ struct ParserBase {
                         SourceContext const& sourceCtx, IssueHandler& iss):
         alloc(alloc),
         sourceCtx(sourceCtx),
-        lexer(sourceCtx.source(), iss),
-        iss(iss) {}
+        iss(iss),
+        lexer(sourceCtx.source(), iss) {}
 
     // MARK: Facet allocation
     template <typename T, typename... Args>

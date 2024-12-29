@@ -40,7 +40,7 @@ template <typename T>
 detail::InterfaceLike<T>::InterfaceLike() = default;
 
 template <typename T>
-detail::InterfaceLike<T>::~InterfaceLike() = default;
+detail::InterfaceLike<T>::InterfaceLike::~InterfaceLike() = default;
 
 template <typename T>
 void detail::InterfaceLike<T>::addItem(csp::unique_ptr<T>&& item) {

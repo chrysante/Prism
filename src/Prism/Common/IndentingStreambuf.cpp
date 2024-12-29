@@ -17,7 +17,7 @@ int IndentingStreambufBase::overflow(int ch) {
         writeIndentation(wrappedBuffer);
     }
     processCharacter((char)ch);
-    return wrappedBuffer->sputc(ch);
+    return wrappedBuffer->sputc((char)ch);
 }
 
 void IndentingStreambufBase::processCharacter(char c) {
@@ -54,7 +54,7 @@ void IndentingStreambufBase::processCharacter(char c) {
 }
 
 void DefaultIndenter::operator()(std::streambuf* buf) const {
-    int end = std::max(level * spacesPerLevel, 0);
+    size_t end = (size_t)std::max(level * spacesPerLevel, 0);
     for (size_t i = 0; i < end; ++i)
         buf->sputc(' ');
 }

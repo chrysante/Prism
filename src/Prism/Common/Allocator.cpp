@@ -44,7 +44,7 @@ MonotonicBufferResource& MonotonicBufferResource::operator=(
 
 void* MonotonicBufferResource::allocate(size_t size, size_t align) {
     std::byte* result = alignPointer(current, align);
-    if (end - result < size) {
+    if (size_t(end - result) < size) {
         addChunk(std::max(size, buffer ? buffer->size * 2 : InititalSize));
         result = alignPointer(current, align);
     }

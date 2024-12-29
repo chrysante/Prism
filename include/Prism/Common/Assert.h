@@ -4,7 +4,7 @@
 #include <cassert>
 
 #define PRISM_ASSERT(condition, ...)                                           \
-    PRISM_ASSERT_IMPL(condition, ##__VA_ARGS__, 2, 1)
+    PRISM_ASSERT_IMPL(condition, __VA_ARGS__ __VA_OPT__(, ) 2, 1)
 #define PRISM_ASSERT_IMPL(condition, message, count, ...)                      \
     PRISM_ASSERT_IMPL_##count(condition, message)
 #define PRISM_ASSERT_IMPL_1(condition, message) assert(condition)

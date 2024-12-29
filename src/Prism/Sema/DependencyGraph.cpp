@@ -74,7 +74,7 @@ DependencyGraph::TopsortResult DependencyGraph::doTopsort() const {
     // Extract the cycle from the stack
     auto cycleBegin = ranges::find(stack, cycleStart);
     auto cycle = concat(ranges::make_subrange(cycleBegin, stack.end()) |
-                            transform(VALFN1(&_1->symbol())),
+                            transform(FN1(&_1->symbol())),
                         single(&cycleStart->symbol())) |
                  ToSmallVector<>;
     return { /* isCycle: */ true, std::move(cycle) };

@@ -36,14 +36,6 @@ static constexpr utl::streammanip Comment = [](std::ostream& str,
     str << tfmt::format(BrightGrey, "// ", args...);
 };
 
-static constexpr utl::streammanip Decorated =
-    [](std::ostream& str, tfmt::Modifier const& mod, auto const& leftDelim,
-       auto const& rightDelim, auto const&... args) {
-    str << tfmt::format(mod, leftDelim);
-    ((str << args), ...);
-    str << tfmt::format(mod, rightDelim);
-};
-
 static constexpr utl::streammanip Null = [](std::ostream& str) {
     str << tfmt::format(BrightRed | Bold, "NULL");
 };
@@ -159,8 +151,7 @@ struct FmtDeclOptions {
 static void fmtDecl(Symbol const* symbol, std::ostream& str,
                     FmtDeclOptions options);
 
-static void fmtDeclImpl(Symbol const& symbol, std::ostream& str,
-                        FmtDeclOptions options) {
+static void fmtDeclImpl(Symbol const&, std::ostream& str, FmtDeclOptions) {
     str << "<invalid-decl>";
 }
 

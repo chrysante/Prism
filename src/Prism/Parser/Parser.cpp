@@ -338,16 +338,16 @@ ParamDeclFacet const* Parser::parseParamDecl() {
 }
 
 ParamDeclFacet const* Parser::parseThisParamDecl() {
-    auto primary = [&](auto& primary) -> Facet const* {
+    auto primary = [&]() -> Facet const* {
         if (auto tok = match(This)) return allocate<TerminalFacet>(*tok);
         return nullptr;
     };
     auto prefix = [&](auto& prefix) -> Facet const* {
         auto tok = match({ Ampersand, Mut, Dyn });
-        if (!tok) return primary(primary);
+        if (!tok) return primary();
         auto [operand] =
             makeParser()
-                .rule({ REFFN(prefix, prefix), Raise<ExpectedTypeSpec>() })
+                .rule({ FN0(&, prefix(prefix)), Raise<ExpectedTypeSpec>() })
                 .eval();
         return allocate<PrefixFacet>(*tok, operand);
     };
@@ -555,7 +555,7 @@ Facet const* Parser::parseCallFacet(Facet const* primary) {
         auto [open, args, close] =
             makeParser()
                 .fastFail(Match(openKind))
-                .rule(VALFN(parseListFacet, Comma, closeKind))
+                .rule(FN0(&, parseListFacet(Comma, closeKind)))
                 .rule(MatchExpect(closeKind))
                 .eval();
         if (!open) return nullptr;
@@ -718,7 +718,7 @@ Facet const* Parser::parseBinaryFacetRTL(
     auto [op, rhs] =
         makeParser()
             .fastFail(Match(acceptedOperators))
-            .rule({ VALFN(parseBinaryFacetRTL, acceptedOperators, next),
+            .rule({ FN0(&, parseBinaryFacetRTL(acceptedOperators, next)),
                     Raise<ExpectedExpr>() })
             .eval();
     if (!op) return lhs;

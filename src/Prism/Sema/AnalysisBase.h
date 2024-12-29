@@ -7,7 +7,8 @@ class SemaContext;
 class IssueHandler;
 class SourceContext;
 
-struct AnalysisBase {
+class AnalysisBase {
+public:
     SemaContext& ctx;
     IssueHandler& iss;
     SourceContext const* sourceContext = nullptr;

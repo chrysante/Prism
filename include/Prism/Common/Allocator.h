@@ -16,7 +16,7 @@ concept MemoryResource = requires(R& r) {
         r.allocate(size_t{}, size_t{})
     } -> std::convertible_to<void*>;
     {
-        r.deallocate((void*){}, size_t{}, size_t{})
+        r.deallocate((void*)nullptr, size_t{}, size_t{})
     };
 };
 

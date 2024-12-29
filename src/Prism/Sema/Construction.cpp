@@ -38,9 +38,6 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
 #include "Prism/Sema/Builtins.def"
 }
 
-static std::string getName(SourceContext const& sourceContext,
-                           std::derived_from<DeclFacet> auto const& facet) {}
-
 namespace {
 
 struct InstantiationBase: AnalysisBase {
@@ -185,6 +182,7 @@ struct GlobalNameResolver: InstantiationBase {
             addDependency(*basetrait, trait);
             return basetrait;
         }
+        PRISM_UNIMPLEMENTED();
     }
 
     MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
@@ -245,7 +243,7 @@ struct GlobalNameResolver: InstantiationBase {
 
     FuncParam* analyzeParamImpl(Function& func,
                                 NamedParamDeclFacet const& param,
-                                size_t index) {
+                                size_t /* index */) {
         auto* type =
             analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
         auto name = sourceContext->getTokenStr(param.name());
@@ -336,11 +334,6 @@ static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,
     return dependencies;
 }
 
-static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
-                                            Target* target) {
-    return nullptr;
-}
-
 namespace prism {
 
 struct InstantiationContext: AnalysisBase {
@@ -400,22 +393,22 @@ static std::unique_ptr<TypeDefCycle> makeCycleError(
         auto fmt = [&]() -> std::function<void(std::ostream&)> {
             auto* dep = *std::next(itr);
             if (!isa<MemberSymbol>(dep) || std::next(itr) >= cycle.end() - 1)
-                return VALFN1(_1 << formatName(*sym) << " depends on "
+                return FN1(=, _1 << formatName(*sym) << " depends on "
                                  << formatName(*dep));
             ++itr;
             auto* mid = *itr;
             dep = *std::next(itr);
             if (isa<BaseClass>(mid))
-                return VALFN1(_1 << formatName(*sym) << " depends on "
+                return FN1(=, _1 << formatName(*sym) << " depends on "
                                  << formatName(*dep) << " through inheritance");
-            return VALFN1(_1 << formatName(*sym) << " depends on "
+            return FN1(=, _1 << formatName(*sym) << " depends on "
                              << formatName(*dep) << " through member "
                              << formatName(*mid));
         }();
         error->addNote(sym->facet(), std::move(fmt));
     }
     error->addHint(
-        VALFN1(_1 << "Use pointer members to break strong dependencies"));
+        FN1(=, _1 << "Use pointer members to break strong dependencies"));
     return error;
 }
 

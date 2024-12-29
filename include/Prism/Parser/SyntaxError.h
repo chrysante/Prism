@@ -42,7 +42,7 @@ namespace prism {
                                                                                \
     private:                                                                   \
         void header(std::ostream& os,                                          \
-                    SourceContext const* ctx) const override;                  \
+                    [[maybe_unused]] SourceContext const* ctx) const override; \
                                                                                \
         PRISM_FOR_EACH(PRISM_MEMBER_DECLARE, PRISM_NONE,                       \
                        PRISM_REMOVE_PARENS CtorArgs)                           \

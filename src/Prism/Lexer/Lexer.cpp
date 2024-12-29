@@ -5,6 +5,7 @@
 
 #include <range/v3/algorithm.hpp>
 #include <utl/hashtable.hpp>
+#include <utl/utility.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Lexer/LexicalIssue.h"
@@ -20,7 +21,7 @@ Token Lexer::next() {
         uint32_t begin = index;
         if (auto tok = nextImpl()) {
             if (errBegin) {
-                uint16_t errLen = begin - *errBegin;
+                uint16_t errLen = utl::narrow_cast<uint16_t>(begin - *errBegin);
                 iss.push<LexicalIssue>(LexicalIssue::InvalidCharacterSequence,
                                        SourceRange{ *errBegin, errLen });
             }
@@ -94,13 +95,11 @@ static constexpr auto operatorLetterArrayImpl(auto cont) {
     return cont(begin, mid);
 }
 
-static constexpr size_t operatorLetterArraySize() {
-    return operatorLetterArrayImpl(ranges::distance);
-}
-
 static constexpr auto makeOperatorLetterArray() {
+    constexpr size_t Size =
+        utl::narrow_cast<size_t>(operatorLetterArrayImpl(ranges::distance));
     return operatorLetterArrayImpl([](auto begin, auto end) {
-        std::array<char, operatorLetterArraySize()> result;
+        std::array<char, Size> result;
         std::copy(begin, end, result.begin());
         return result;
     });

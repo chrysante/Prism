@@ -112,7 +112,7 @@ struct LinearParser: public ParserBase {
     struct LinParser {
         LinearParser& parser;
         RecoveryOptions recov;
-        std::array<ParserRule, N> rules;
+        std::array<ParserRule, N> rules = {};
 
         template <typename NewChild = IndexTree<N>>
         LinParser<N + 1, Children..., NewChild> rule(ParserRule rule) const&& {

@@ -69,15 +69,19 @@ protected:
                    0;
     }
 
+    struct Term {
+        Token tok;
+    };
+
+    struct NonTerm {
+        uint32_t flag        : 2;
+        uint32_t numChildren : 30;
+        FacetType type;
+    };
+
     union alignas(void*) {
-        struct {
-            Token tok;
-        } term;
-        struct {
-            uint32_t flag        : 2;
-            uint32_t numChildren : 30;
-            FacetType type;
-        } nonTerm;
+        Term term;
+        NonTerm nonTerm;
     };
 };
 
@@ -114,7 +118,7 @@ public:
     Token token() const { return term.tok; }
 
 private:
-    friend FacetType get_rtti(TerminalFacet const& node) {
+    friend FacetType get_rtti(TerminalFacet const&) {
         return FacetType::TerminalFacet;
     }
 };
@@ -199,10 +203,13 @@ class SourceContext;
 class TreeFormatter;
 
 struct FacetPrintOptions {
+    using CallbackType =
+        utl::function_view<void(std::ostream& ostream, Facet const* facet,
+                                Facet const* parent, size_t index)>;
+
     SourceContext const* srcCtx = nullptr;
-    utl::function_view<void(std::ostream& ostream, Facet const* facet,
-                            Facet const* parent, size_t index)>
-        nodeCallback;
+
+    CallbackType nodeCallback = {};
 };
 
 /// Prints \p facet  as a tree to \p ostream

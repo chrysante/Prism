@@ -31,17 +31,17 @@ std::string prism::prettyName(std::string_view name,
             continue; // Skip underscores
         }
         if (first) {
-            result += options.capitalizeFirst ? std::toupper(c) :
-                                                std::tolower(c);
+            result += options.capitalizeFirst ? (char)std::toupper(c) :
+                                                (char)std::tolower(c);
             first = false;
         }
         else if (newWord) {
-            result += options.capitalizeRest ? std::toupper(c) :
-                                               std::tolower(c);
+            result += options.capitalizeRest ? (char)std::toupper(c) :
+                                               (char)std::tolower(c);
             newWord = false;
         }
         else {
-            result += std::tolower(c);
+            result += (char)std::tolower(c);
         }
     }
     return result;

@@ -16,23 +16,25 @@ static constexpr std::array<std::string_view, 4> Repr[] = {
     { "├╴", "│ ", "╰╴", "  " },
 };
 
+static void write(std::streambuf* buf, std::string_view text) {
+    buf->sputn(text.data(), (std::streamsize)text.size());
+}
+
 void TreeFormatter::Indenter::operator()(std::streambuf* buf) const {
     static auto const Mod = tfmt::BrightGrey | tfmt::Bold;
     bool useAnsiCodes = tfmt::isTermFormattable(fmt->ostr);
     if (useAnsiCodes) {
-        buf->sputn(tfmt::Reset.ansiBuffer().data(),
-                   tfmt::Reset.ansiBuffer().size());
-        buf->sputn(Mod.ansiBuffer().data(), Mod.ansiBuffer().size());
+        write(buf, tfmt::Reset.ansiBuffer());
+        write(buf, Mod.ansiBuffer());
     }
     auto const& repr = Repr[fmt->style.lines];
     for (auto& level: fmt->levels) {
         auto reprStr = repr[level];
-        buf->sputn(reprStr.data(), reprStr.size());
+        write(buf, reprStr);
         level = Next[level];
     }
     if (useAnsiCodes) {
-        buf->sputn(tfmt::Reset.ansiBuffer().data(),
-                   tfmt::Reset.ansiBuffer().size());
+        write(buf, tfmt::Reset.ansiBuffer());
         tfmt::reapplyModifiers(fmt->ostr);
     }
 }

@@ -45,7 +45,7 @@ struct ConformanceAnalysisContext: AnalysisBase {
     }
 
     csp::unique_ptr<Obligation> analyzeOblImpl(Function& func,
-                                               TraitLike& trait) {
+                                               TraitLike& /*trait*/) {
         return csp::make_unique<FunctionObligation>(&func);
     }
 
@@ -55,10 +55,7 @@ struct ConformanceAnalysisContext: AnalysisBase {
                 trait.addObligation(std::move(obl));
     }
 
-    void analyzeConformances(ImplLike& impl, Scope* scope) {
-        for (auto* sym: scope->symbols()) {
-        }
-    }
+    void analyzeConformances(ImplLike&, Scope*) {}
 
     template <typename From, typename To>
     void copy(From& from, To& to) {
@@ -116,9 +113,8 @@ static void analyzeConformance(SemaContext& ctx, IssueHandler& iss,
     visit(*sym, [&](auto& sym) { confCtx.analyze(sym); });
 }
 
-void prism::analyzeConformances(MonotonicBufferResource& resource,
-                                SemaContext& ctx, IssueHandler& iss,
-                                Target& target,
+void prism::analyzeConformances(MonotonicBufferResource&, SemaContext& ctx,
+                                IssueHandler& iss, Target&,
                                 DependencyGraph const& dependencies) {
     for (auto* sym: dependencies.getTopoOrder() | reverse) {
         analyzeConformance(ctx, iss, sym);

@@ -18,20 +18,43 @@ decltype(auto) operator->*(DoToken, F&& f) {
 
 } // namespace internal
 
-#define PRISM_FN_IMPL(Name, ...)                                               \
-    <typename... Args>(Args && ... args)->decltype(auto) {                     \
-        return Name(__VA_ARGS__ __VA_OPT__(, )((Args&&)args)...);              \
+#define FN(Name)                                                               \
+    [this]<typename... Args>(Args&&... args) -> decltype(auto) {               \
+        return Name(((Args&&)args)...);                                        \
     }
 
-#define FN(Name, ...) [this] PRISM_FN_IMPL(Name __VA_OPT__(, ) __VA_ARGS__)
-#define VALFN(Name, ...)                                                       \
-    [ =, this ] PRISM_FN_IMPL(Name __VA_OPT__(, ) __VA_ARGS__)
-#define REFFN(Name, ...)                                                       \
-    [&, this ] PRISM_FN_IMPL(Name __VA_OPT__(, ) __VA_ARGS__)
+// FN0: Zero arguments
+#define FN0(...) PRISM_FN0_IMPL(__VA_ARGS__, 2, 1)
+#define PRISM_FN0_IMPL(Capture, Expr, NumArgs, ...)                            \
+    PRISM_FN0_IMPL_##NumArgs(Capture, Expr)
+#define PRISM_FN0_IMPL_1(Expr, ...) PRISM_FN0_IMPL_2(, Expr)
+#define PRISM_FN0_IMPL_2(Capture, Expr)                                        \
+    [Capture]() -> decltype(auto) { return Expr; }
 
-#define FN1(Capture, __VA_ARGS__)                                              \
-    [Capture](auto&& _1) -> decltype(auto) { return __VA_ARGS__; }
-#define VALFN1(__VA_ARGS__) FN1(=, __VA_ARGS__)
-#define REFFN1(__VA_ARGS__) FN1(&, __VA_ARGS__)
+// FN1: One argument
+#define FN1(...) PRISM_FN1_IMPL(__VA_ARGS__, 2, 1)
+#define PRISM_FN1_IMPL(Capture, Expr, NumArgs, ...)                            \
+    PRISM_FN1_IMPL_##NumArgs(Capture, Expr)
+#define PRISM_FN1_IMPL_1(Expr, ...) PRISM_FN1_IMPL_2(, Expr)
+#define PRISM_FN1_IMPL_2(Capture, Expr)                                        \
+    [Capture](auto&& _1) -> decltype(auto) { return Expr; }
+
+// FN2: Two arguments
+#define FN2(...) PRISM_FN2_IMPL(__VA_ARGS__, 2, 1)
+#define PRISM_FN2_IMPL(Capture, Expr, NumArgs, ...)                            \
+    PRISM_FN2_IMPL_##NumArgs(Capture, Expr)
+#define PRISM_FN2_IMPL_1(Expr, ...) PRISM_FN2_IMPL_2(, Expr)
+#define PRISM_FN2_IMPL_2(Capture, Expr)                                        \
+    [Capture](auto&& _1, auto&& _2) -> decltype(auto) { return Expr; }
+
+// FN3: Three arguments
+#define FN3(...) PRISM_FN3_IMPL(__VA_ARGS__, 2, 1)
+#define PRISM_FN3_IMPL(Capture, Expr, NumArgs, ...)                            \
+    PRISM_FN3_IMPL_##NumArgs(Capture, Expr)
+#define PRISM_FN3_IMPL_1(Expr, ...) PRISM_FN3_IMPL_2(, Expr)
+#define PRISM_FN3_IMPL_2(Capture, Expr)                                        \
+    [Capture](auto&& _1, auto&& _2, auto&& _3) -> decltype(auto) {             \
+        return Expr;                                                           \
+    }
 
 #endif // PRISM_COMMON_SYNTAXMACROS_H

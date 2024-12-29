@@ -303,7 +303,8 @@ public:
     IntType(SemaContext& ctx, std::string name, Scope* parent, size_t bitwidth,
             Signedness sign):
         ArithmeticType(SymbolType::IntType, ctx, std::move(name), parent,
-                       bitwidth) {}
+                       bitwidth),
+        sign(sign) {}
 
     ///
     Signedness signedness() const { return sign; }

@@ -47,8 +47,9 @@ static void header(std::ostream& str, std::string_view title) {
             str << c;
     };
     size_t numCols = tfmt::getWidth(str).value_or(80);
-    size_t innerWidth = std::max<ssize_t>(numCols - 2, {});
-    title = title.substr(0, std::max<ssize_t>(innerWidth - 2, {}));
+    size_t innerWidth = (size_t)std::max((ssize_t)numCols - 2, ssize_t{});
+    title =
+        title.substr(0, (size_t)std::max((ssize_t)innerWidth - 2, ssize_t{}));
     size_t remainingSpace = innerWidth - title.size();
     size_t leftSpace = remainingSpace / 7;
     size_t rightSpace = remainingSpace - leftSpace;

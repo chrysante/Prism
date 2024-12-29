@@ -16,6 +16,18 @@ function(enable_sanitizers target)
     endif()
 endfunction()
 
+function(enable_warnings target)
+  set(warning_flags
+      -Wall
+      -Wextra
+      -Wpedantic
+      -Wnon-virtual-dtor
+      -Wconversion
+      -Wsign-conversion
+  )
+  target_compile_options(${target} PRIVATE ${warning_flags})
+endfunction()
+
 function(create_empty_file filename)
     get_filename_component(dir ${filename} DIRECTORY)
     file(MAKE_DIRECTORY ${dir})
@@ -162,6 +174,7 @@ set(PRISM_TEST_FILES
 
 add_library(Prism SHARED)
 enable_sanitizers(Prism)
+enable_warnings(Prism)
 
 add_code_generator(Prism
                    src/Prism/Facet/Facets.yaml 
@@ -222,6 +235,7 @@ target_include_directories(Prism PUBLIC include PRIVATE src)
 
 add_executable(PrismTest)
 enable_sanitizers(PrismTest)
+enable_warnings(PrismTest)
 
 target_sources(PrismTest
   PRIVATE  
@@ -241,6 +255,7 @@ target_include_directories(PrismTest PRIVATE test)
 
 add_executable(Playground)
 enable_sanitizers(Playground)
+enable_warnings(Playground)
 
 target_sources(Playground
   PRIVATE  

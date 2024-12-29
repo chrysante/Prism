@@ -16,6 +16,12 @@
 
 using namespace prism;
 
+static Facet const* findNonNullChild(auto&& children) {
+    auto itr = ranges::find_if(children, ToAddress);
+    PRISM_ASSERT(itr != children.end());
+    return *itr;
+};
+
 static std::optional<SourceRange> getSourceRange(Facet const* facet) {
     if (!facet) return std::nullopt;
     auto find = [](Facet const* facet, auto inc) {
@@ -25,14 +31,10 @@ static std::optional<SourceRange> getSourceRange(Facet const* facet) {
         }
         return cast<TerminalFacet const*>(facet);
     };
-    auto findNonNullChild = [](auto&& children) {
-        auto itr = ranges::find_if(children, ToAddress);
-        PRISM_ASSERT(itr != children.end());
-        return *itr;
-    };
-    auto* first = find(facet, VALFN1(findNonNullChild(_1->children())));
-    auto* last = find(facet, VALFN1(findNonNullChild(_1->children() |
-                                                     ranges::views::reverse)));
+
+    auto* first = find(facet, FN1(findNonNullChild(_1->children())));
+    auto* last = find(facet, FN1(findNonNullChild(_1->children() |
+                                                  ranges::views::reverse)));
     uint32_t beginIndex = first->token().index;
     uint32_t endIndex = last->token().index + last->token().sourceLen;
     return SourceRange{ beginIndex, endIndex - beginIndex };
