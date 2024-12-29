@@ -19,7 +19,7 @@ using ranges::views::concat;
 using ranges::views::single;
 using ranges::views::transform;
 
-DependencyGraph::TopsortResult DependencyGraph::topsort() const {
+DependencyGraph::TopsortResult DependencyGraph::doTopsort() const {
     utl::hashmap<DependencyNode const*, size_t> inDegrees;
     for (auto* node: nodes())
         for (auto* dep: node->dependencies())

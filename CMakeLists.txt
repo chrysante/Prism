@@ -83,6 +83,7 @@ set(PRISM_HEADER_FILES
 
     include/Prism/Sema/Analysis.h
     include/Prism/Sema/Builtins.def
+    include/Prism/Sema/ConformanceAnalysis.h
     include/Prism/Sema/Construction.h
     include/Prism/Sema/DependencyGraph.h
     include/Prism/Sema/ExprAnalysis.h
@@ -128,7 +129,8 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/SyntaxError.cpp
 
     src/Prism/Sema/Analysis.cpp
-    src/Prism/Sema/AnalysisBase.h    
+    src/Prism/Sema/AnalysisBase.h
+    src/Prism/Sema/ConformanceAnalysis.cpp
     src/Prism/Sema/Construction.cpp
     src/Prism/Sema/DependencyGraph.cpp
     src/Prism/Sema/ExprAnalysis.cpp

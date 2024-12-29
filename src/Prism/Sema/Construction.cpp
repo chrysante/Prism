@@ -412,20 +412,20 @@ static std::unique_ptr<TypeDefCycle> makeCycleError(
     return error;
 }
 
-Target* prism::constructTarget(MonotonicBufferResource& resource,
-                               SemaContext& ctx, IssueHandler& iss,
-                               std::span<SourceFilePair const> input) {
+ConstructionResult prism::constructTarget(
+    MonotonicBufferResource& resource, SemaContext& ctx, IssueHandler& iss,
+    std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx, target->associatedScope());
     declareGlobals(ctx, iss, target->associatedScope(), input);
     auto dependencies =
         resolveGlobalNames(resource, ctx, iss, target->associatedScope());
-    auto order = dependencies.topsort();
-    if (order.isCycle) {
-        iss.push(makeCycleError(order.symbols));
-        return target;
+    dependencies.topsort();
+    if (dependencies.hasCycle()) {
+        iss.push(makeCycleError(dependencies.getCycle()));
+        return ConstructionResult::Fatal(target);
     }
-    for (auto* symbol: order.symbols | ranges::views::reverse)
+    for (auto* symbol: dependencies.getTopoOrder() | ranges::views::reverse)
         instantiateSymbol(ctx, iss, symbol);
-    return target;
+    return { target, std::move(dependencies) };
 }

@@ -1,5 +1,6 @@
 #include "Prism/Sema/Analysis.h"
 
+#include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/Construction.h"
 
 using namespace prism;
@@ -7,6 +8,10 @@ using namespace prism;
 Target* prism::analyzeModule(MonotonicBufferResource& resource,
                              SemaContext& ctx, IssueHandler& iss,
                              std::span<SourceFilePair const> input) {
-    auto* target = constructTarget(resource, ctx, iss, input);
+    auto constr = constructTarget(resource, ctx, iss, input);
+    if (constr.haveFatalError) return constr.target;
+    auto* target = constr.target;
+    auto& dependencies = constr.dependencyGraph.value();
+    analyzeConformances(resource, ctx, iss, *target, dependencies);
     return target;
 }

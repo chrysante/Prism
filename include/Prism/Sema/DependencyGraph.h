@@ -9,6 +9,7 @@
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Allocator.h>
+#include <Prism/Common/Assert.h>
 #include <Prism/Common/Functional.h>
 
 namespace prism {
@@ -77,7 +78,33 @@ public:
     auto end() const { return nodes().end(); }
     /// @}
 
-    /// Result structure for `topsort()`
+    /// Topologically sorts the graph
+    void topsort() { tsResult = doTopsort(); }
+
+    /// \Returns true if this graph has a cycle.
+    /// \pre `topsort()` must be called before
+    bool hasCycle() const { return tsResult.value().isCycle; }
+
+    /// \Returns the cycle in this graph
+    /// \pre `topsort()` must be called before and `hasCycle()` must be true
+    std::span<Symbol* const> getCycle() const {
+        PRISM_ASSERT(hasCycle());
+        return tsResult.value().symbols;
+    }
+
+    /// \Returns the topological ordering of this graph
+    /// \pre `topsort()` must be called before and `hasCycle()` must be false
+    std::span<Symbol* const> getTopoOrder() const {
+        PRISM_ASSERT(!hasCycle());
+        return tsResult.value().symbols;
+    }
+
+private:
+    MonotonicBufferResource* getResource() const {
+        return map.get_allocator().resource();
+    }
+
+    /// Result structure for `doTopsort()`
     struct TopsortResult {
         bool isCycle;
         utl::small_vector<Symbol*> symbols;
@@ -85,20 +112,17 @@ public:
 
     /// \Returns a topological order of the graph or a cycle if the graph is not
     /// acyclic
-    TopsortResult topsort() const;
+    TopsortResult doTopsort() const;
 
-private:
     using AllocType =
         ResourceAllocator<std::pair<Symbol const*, DependencyNode*>,
                           MonotonicBufferResource>;
 
-    MonotonicBufferResource* getResource() const {
-        return map.get_allocator().resource();
-    }
-
     utl::hashmap<Symbol const*, DependencyNode*, utl::hash<Symbol const*>,
                  std::equal_to<>, AllocType>
         map;
+
+    std::optional<TopsortResult> tsResult;
 };
 
 /// Writes \p graph into \p ostream as graphviz code
