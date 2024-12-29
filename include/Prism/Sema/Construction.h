@@ -2,22 +2,16 @@
 #define PRISM_SEMA_CONSTRUCTION_H
 
 #include <span>
-#include <utility>
 
 #include <Prism/Common/Allocator.h>
+#include <Prism/Sema/SymbolFwd.h>
 
 namespace prism {
 
 class SemaContext;
 class SourceContext;
-class Target;
 class SourceFileFacet;
 class IssueHandler;
-
-struct SourceFilePair {
-    SourceFileFacet const* facet;
-    SourceContext const& context;
-};
 
 Target* constructTarget(MonotonicBufferResource& resource, SemaContext& ctx,
                         IssueHandler& issueHandler,

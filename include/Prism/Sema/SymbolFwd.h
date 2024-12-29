@@ -10,6 +10,14 @@
 
 namespace prism {
 
+class SourceFileFacet;
+class SourceContext;
+
+struct SourceFilePair {
+    SourceFileFacet const* facet;
+    SourceContext const& context;
+};
+
 enum class ValueCat { LValue, RValue };
 
 static constexpr ValueCat LValue = ValueCat::LValue;

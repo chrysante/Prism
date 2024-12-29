@@ -13,7 +13,7 @@
 #include <Prism/Common/TreeFormatter.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Parser/Parser.h>
-#include <Prism/Sema/Construction.h>
+#include <Prism/Sema/Analysis.h>
 #include <Prism/Sema/SemaContext.h>
 #include <Prism/Sema/SemaPrint.h>
 #include <Prism/Sema/Symbol.h>
@@ -86,8 +86,8 @@ static int semaPlaygroundMain(Options options) {
         return 1;
     }
     SemaContext ctx;
-    auto* target = constructTarget(alloc, ctx, issueHandler,
-                                   { { { parseTree, sourceContext } } });
+    auto* target = analyzeModule(alloc, ctx, issueHandler,
+                                 { { { parseTree, sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout);
     if (!issueHandler.empty()) {
