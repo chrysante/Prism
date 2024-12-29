@@ -82,11 +82,9 @@ struct GloablDeclDeclare: InstantiationBase {
 
     void declareImpl(Scope* parent, FuncDefFacet const& facet) {
         if (facet.body() && isa<CompoundFacet>(facet.body()))
-            ctx.make<FunctionImpl>(getName(facet), &facet, parent,
-                                   utl::small_vector<FuncParam*>{}, nullptr);
+            ctx.make<FunctionImpl>(getName(facet), &facet, parent);
         else
-            ctx.make<Function>(getName(facet), &facet, parent,
-                               utl::small_vector<FuncParam*>{}, nullptr);
+            ctx.make<Function>(getName(facet), &facet, parent);
     }
 
     void declareImpl(Scope* parent, CompTypeDeclFacet const& facet) {
@@ -308,11 +306,13 @@ struct GlobalNameResolver: InstantiationBase {
                 paramDecls->elems() | enumerate |
                 transform(FN1(&, analyzeParam(func, _1.second, _1.first))) |
                 ToSmallVector<>;
-        if (auto* retFacet = func.facet()->retType())
-            func._retType =
-                analyzeFacetAs<Type>(*this, func.parentScope(), retFacet);
-        else
-            func._retType = ctx.getVoid();
+        auto* retType = [&]() -> Type const* {
+            if (auto* retFacet = func.facet()->retType())
+                return analyzeFacetAs<Type>(*this, func.parentScope(),
+                                            retFacet);
+            return ctx.getVoid();
+        }();
+        func._sig = FuncSig::Compute(retType, func.params());
     }
 
     void resolveChildren(std::span<Symbol* const> symbols) {

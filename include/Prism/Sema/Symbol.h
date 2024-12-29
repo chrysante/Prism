@@ -12,6 +12,7 @@
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Facet/FacetFwd.h>
+#include <Prism/Sema/FuncSig.h>
 #include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
 #include <Prism/Sema/SymbolFwd.h>
@@ -545,6 +546,8 @@ public:
                       utl::small_vector<FuncParam*>&& params,
                       Type const* retType);
 
+    explicit Function(std::string name, Facet const* facet, Scope* parent);
+
     FACET_TYPE(FuncDeclBaseFacet)
 
     /// \Returns the parameters of this function
@@ -554,13 +557,17 @@ public:
     std::span<FuncParam const* const> params() const { return _params; }
 
     /// \Returns the return type of this function
-    Type const* retType() const { return _retType; }
+    Type const* retType() const { return signature().retType(); }
+
+    /// \Returns the signature of this function. Only valid after construction
+    /// phase
+    FuncSig const& signature() const { return _sig; }
 
 private:
     friend struct GlobalNameResolver;
 
     utl::small_vector<FuncParam*> _params;
-    Type const* _retType;
+    FuncSig _sig;
 };
 
 /// Function implementation
@@ -572,6 +579,9 @@ public:
                           Facet const* facet, Scope* parent,
                           utl::small_vector<FuncParam*>&& params,
                           Type const* retType);
+
+    explicit FunctionImpl(SemaContext& ctx, std::string name,
+                          Facet const* facet, Scope* parent);
 
     FACET_TYPE(FuncDefFacet)
 };

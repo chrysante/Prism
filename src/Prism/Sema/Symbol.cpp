@@ -67,13 +67,23 @@ Function::Function(std::string name, Facet const* facet, Scope* parent,
                    utl::small_vector<FuncParam*>&& params, Type const* retType):
     Symbol(SymbolType::Function, std::move(name), facet, parent),
     _params(std::move(params)),
-    _retType(retType) {}
+    _sig(FuncSig::Compute(retType, this->params())) {}
+
+Function::Function(std::string name, Facet const* facet, Scope* parent):
+    Symbol(SymbolType::Function, std::move(name), facet, parent) {}
 
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
                            Facet const* facet, Scope* parent,
                            utl::small_vector<FuncParam*>&& params,
                            Type const* retType):
     Function(std::move(name), facet, parent, std::move(params), retType),
+    AssocScope(ctx.make<Scope>(parent), this) {
+    setSymbolType(SymbolType::FunctionImpl);
+}
+
+FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
+                           Facet const* facet, Scope* parent):
+    Function(std::move(name), facet, parent),
     AssocScope(ctx.make<Scope>(parent), this) {
     setSymbolType(SymbolType::FunctionImpl);
 }
