@@ -39,22 +39,34 @@ PRISM_DEFINE_ENUM_FUNCTIONS(BuiltinSymbol)
 
 bool isBuiltinSymbol(Symbol const& symbol);
 
-/// Memory layout of a type, i.e., size and alignment in bytes
+/// Memory layout of a type, i.e., size, stride and alignment in bytes
 class TypeLayout {
 public:
     /// Incomplete layout means the type and size is not known
     static TypeLayout const Incomplete;
 
     /// Constructs a complete layout
-    TypeLayout(size_t size, size_t align): _size(size), _align(align) {
+    TypeLayout(size_t size, size_t stride, size_t align):
+        _size(size), _stride(stride), _align(align) {
         PRISM_ASSERT(align < (size_t)-1, "-1 is reserved for incomplete types");
     }
+
+    /// Convenience constructor for layouts where all values are equal
+    explicit TypeLayout(size_t sizeStrideAlign):
+        TypeLayout(sizeStrideAlign, sizeStrideAlign, sizeStrideAlign) {}
 
     /// \Returns the size.
     /// \pre Must be complete
     size_t size() const {
         PRISM_ASSERT(isComplete());
         return _size;
+    }
+
+    /// \Returns the stride.
+    /// \pre Must be complete
+    size_t stride() const {
+        PRISM_ASSERT(isComplete());
+        return _stride;
     }
 
     /// \Returns the alignment.
@@ -77,6 +89,7 @@ private:
     TypeLayout() = default;
 
     size_t _size = 0;
+    size_t _stride = 0;
     size_t _align = (size_t)-1;
 };
 

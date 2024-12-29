@@ -326,7 +326,7 @@ struct InstantiationContext: AnalysisBase {
     }
 
     TypeLayout computeLayout(CompositeType const& type, LayoutAccumulator acc) {
-        TypeLayout layout = { 0, 0 };
+        TypeLayout layout = { 0, 0, 0 };
         auto members =
             concat(type.bases() | transform(cast<MemberSymbol const*>),
                    type.memberVars());
@@ -335,14 +335,15 @@ struct InstantiationContext: AnalysisBase {
             if (!member->type()) return TypeLayout::Incomplete;
             layout = acc(layout, member->type()->layout());
         }
-        return { align(layout.size(), layout.alignment()), layout.alignment() };
+        return { layout.size(), align(layout.size(), layout.alignment()),
+                 layout.alignment() };
     }
 
     void instantiate(StructType& type) {
         auto layout = computeLayout(type, [](TypeLayout curr, TypeLayout next) {
             size_t size = align(curr.size(), next.alignment()) + next.size();
             size_t align = std::max(curr.alignment(), next.alignment());
-            return TypeLayout{ size, align };
+            return TypeLayout{ size, size, align };
         });
         type.setLayout(layout);
     }

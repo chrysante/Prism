@@ -221,7 +221,7 @@ class ByteType: public ScopedType {
 public:
     ByteType(SemaContext& ctx, std::string name, Scope* parent):
         ScopedType(SymbolType::ByteType, ctx, std::move(name), nullptr, parent,
-                   TypeLayout(1, 1)) {}
+                   TypeLayout(1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
@@ -234,7 +234,7 @@ protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
         ScopedType(symType, ctx, std::move(name), nullptr, parent,
-                   { bitwidth / 8, bitwidth / 8 }) {
+                   TypeLayout(bitwidth / 8)) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
 };
@@ -283,7 +283,7 @@ class ReferenceType: public Type {
 public:
     explicit ReferenceType(QualType referred):
         Type(SymbolType::ReferenceType, /* name: */ {}, /* facet: */ nullptr,
-             /* scope: */ nullptr, TypeLayout{ 8, 8 }),
+             /* scope: */ nullptr, TypeLayout(8)),
         ref(referred) {}
 
     /// \Return the referred-to qual type, e.g., `mut i32` for a `&mut i32`
