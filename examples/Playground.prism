@@ -4,7 +4,7 @@ trait MyBaseTrait {
 }
 
 trait MyTrait: MyBaseTrait {
-    fn foo(&this) -> i32;
+    fn foo(&this, &this) -> i32;
 }
 
 struct MyStruct: MyTrait {}

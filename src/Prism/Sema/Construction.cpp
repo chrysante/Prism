@@ -26,6 +26,7 @@
 using namespace prism;
 using ranges::views::concat;
 using ranges::views::drop;
+using ranges::views::enumerate;
 using ranges::views::transform;
 using ranges::views::zip;
 
@@ -236,15 +237,17 @@ struct GlobalNameResolver: InstantiationBase {
         resolveChildren(trait);
     }
 
-    FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet) {
+    FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet,
+                            size_t index) {
         if (!facet) return nullptr;
         return visit(*facet, [&](auto& facet) {
-            return analyzeParamImpl(func, facet);
+            return analyzeParamImpl(func, facet, index);
         });
     }
 
     FuncParam* analyzeParamImpl(Function& func,
-                                NamedParamDeclFacet const& param) {
+                                NamedParamDeclFacet const& param,
+                                size_t index) {
         auto* type =
             analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
         auto name = sourceContext->getTokenStr(param.name());
@@ -252,8 +255,11 @@ struct GlobalNameResolver: InstantiationBase {
                                    /* mut: */ false);
     }
 
-    FuncParam* analyzeParamImpl(Function& func,
-                                ThisParamDeclFacet const& param) {
+    FuncParam* analyzeParamImpl(Function& func, ThisParamDeclFacet const& param,
+                                size_t index) {
+        if (index != 0) {
+            iss.push<ThisParamBadPosition>(sourceContext, &param);
+        }
         Mutability mut = Mutability::Const;
         bool dyn = false, ref = false;
         auto* typeFacet = param.spec();
@@ -298,9 +304,10 @@ struct GlobalNameResolver: InstantiationBase {
 
     void resolveImpl(Function& func) {
         if (auto* paramDecls = func.facet()->params())
-            func._params = paramDecls->elems() |
-                           transform(REFFN(analyzeParam, func)) |
-                           ToSmallVector<>;
+            func._params =
+                paramDecls->elems() | enumerate |
+                transform(FN1(&, analyzeParam(func, _1.second, _1.first))) |
+                ToSmallVector<>;
         if (auto* retFacet = func.facet()->retType())
             func._retType =
                 analyzeFacetAs<Type>(*this, func.parentScope(), retFacet);
