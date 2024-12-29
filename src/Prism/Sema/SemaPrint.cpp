@@ -7,11 +7,14 @@
 #include <termfmt/termfmt.h>
 
 #include "Prism/Common/IndentingStreambuf.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
 using namespace tfmt::modifiers;
+using ranges::views::concat;
 using ranges::views::enumerate;
+using ranges::views::filter;
 using ranges::views::intersperse;
 using ranges::views::transform;
 
@@ -185,15 +188,14 @@ struct SymbolPrinter {
         .separator = "\n\n", .separatorAfterLast = "\n"
     };
 
-    void printChildren(std::span<Symbol const* const> symbols,
-                       PrintChildrenOptions opt) {
-        for (auto [index, sym]: symbols | enumerate) {
+    void printChildren(auto&& symbols, PrintChildrenOptions opt) {
+        bool first = true;
+        for (auto* sym: symbols) {
+            if (!first) str << opt.separator;
+            first = false;
             print(sym);
-            if (index < symbols.size() - 1)
-                str << opt.separator;
-            else
-                str << opt.separatorAfterLast;
         }
+        if (!first) str << opt.separatorAfterLast;
     }
 
     void printChildren(Scope const* scope, PrintChildrenOptions opt) {
@@ -201,18 +203,21 @@ struct SymbolPrinter {
         printChildren(scope->symbols(), opt);
     }
 
-    void printBraced(Scope const* scope) {
-        if (!scope) {
-            str << "{ " << Null << " }";
-        }
-        else if (scope->symbols().empty()) {
+    void printBraced(auto&& symbols) {
+        if (ranges::empty(symbols)) {
             str << "{}";
+            return;
         }
-        else {
-            str << "{\n";
-            buf.indended([&] { printChildren(scope, StmtOpt); });
-            str << "}";
-        }
+        str << "{\n";
+        buf.indented([&] { printChildren(symbols, StmtOpt); });
+        str << "}";
+    }
+
+    void printBraced(Scope const* scope) {
+        if (!scope)
+            str << "{ " << Null << " }";
+        else
+            printBraced(scope->symbols());
     }
 
     void printImpl(Symbol const& symbol) { str << fmtName(symbol); }
@@ -252,10 +257,19 @@ struct SymbolPrinter {
 
     void printImpl(Type const& type) { str << fmtName(type); }
 
-    void printImpl(UserType const& type) {
+    void printImpl(CompositeType const& type) {
         str << Comment(type.layout()) << '\n';
         str << fmtDecl(type) << " ";
-        printBraced(type.associatedScope());
+        // We jump through some hoops here to always print the base classes and
+        // non-static membar variables in the order of declaration, and all
+        // other symbols afterwards in arbitrary order
+        auto members =
+            concat(type.bases() | transform(cast<MemberSymbol const*>),
+                   type.memberVars());
+        auto memSet = members | ranges::to<utl::hashset<Symbol const*>>;
+        auto others = type.associatedScope()->symbols() |
+                      filter(FN1(&, !memSet.contains(_1)));
+        printBraced(concat(members, others));
     }
 
     void printImpl(Trait const& trait) {

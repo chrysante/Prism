@@ -24,3 +24,8 @@ impl MyTrait for MyType {
 struct OtherType: MyType {
     var mem: byte;
 }
+
+
+struct S { var i: i32; var c: byte; }
+
+struct T { var s: S; var c: byte; var c2: byte; }

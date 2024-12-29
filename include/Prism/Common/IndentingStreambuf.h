@@ -52,7 +52,7 @@ struct DefaultIndenter {
     void decrease() { --level; }
 
     template <std::invocable F>
-    void indended(F&& f) {
+    void indented(F&& f) {
         increase();
         std::invoke(std::forward<F>(f));
         decrease();
