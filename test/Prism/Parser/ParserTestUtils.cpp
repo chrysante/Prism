@@ -161,7 +161,7 @@ bool AstRefNode::verifyIssues() const {
     for (auto* issue: issues) {
         gIssueMatchErrors.push_back([=](std::ostream& str) {
             str << "Unexpected issue: ";
-            issue->format(str, gCtx);
+            issue->format(str, &gCtx);
             str << std::endl;
         });
     }
