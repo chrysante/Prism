@@ -331,9 +331,11 @@ struct InstantiationContext: AnalysisBase {
             concat(type.bases() | transform(cast<MemberSymbol const*>),
                    type.memberVars());
         for (auto* member: members) {
-            // For types with invalid members we report incomplete
-            if (!member->type()) return TypeLayout::Incomplete;
-            layout = acc(layout, member->type()->layout());
+            // For types with invalid members we report poison
+            auto* memtype = member->type();
+            if (!memtype || !memtype->layout().isComplete())
+                return TypeLayout::Poison;
+            layout = acc(layout, memtype->layout());
         }
         return { layout.size(), align(layout.size(), layout.alignment()),
                  layout.alignment() };

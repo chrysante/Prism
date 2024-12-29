@@ -27,6 +27,8 @@ struct OtherType: MyType {
     var v: void;
 }
 
+struct G { var o: OtherType; }
+
 
 struct S { var i: i32; var c: byte; }
 

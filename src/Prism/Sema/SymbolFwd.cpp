@@ -14,7 +14,8 @@ bool prism::isBuiltinSymbol(Symbol const& sym) {
 }
 
 std::ostream& prism::operator<<(std::ostream& str, TypeLayout layout) {
-    if (!layout) return str << "Incomplete";
+    if (layout.isIncomplete()) return str << "Incomplete";
+    if (layout.isPoison()) return str << "Poison";
     return str << "size: " << layout.size() << ", stride: " << layout.stride()
                << ", align: " << layout.alignment();
 }
