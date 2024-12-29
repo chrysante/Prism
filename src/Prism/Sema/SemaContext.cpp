@@ -12,11 +12,11 @@ SemaContext::SemaContext() {
 
 SemaContext::~SemaContext() = default;
 
-Symbol* SemaContext::addSymbol(csp::unique_ptr<Symbol> sym) {
-    auto* s = sym.get();
-    symbolBag.push_back(std::move(sym));
-    return s;
-}
+#define SEMA_BUILTIN(Name, Spelling, SymType)                                  \
+    SymType* SemaContext::get##Name() const {                                  \
+        return cast<SymType*>(getBuiltin(BuiltinSymbol::Name));                \
+    }
+#include <Prism/Sema/Builtins.def>
 
 template <typename KeyType, typename T>
 static T getOrMake(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {
@@ -35,4 +35,10 @@ ReferenceType const* SemaContext::getRefType(QualType referred) {
 DynTraitType const* SemaContext::getDynTraitType(Trait* trait) {
     return getOrMake(dynTraitTypes, trait,
                      [&] { return make<DynTraitType>(trait); });
+}
+
+Symbol* SemaContext::addSymbol(csp::unique_ptr<Symbol> sym) {
+    auto* s = sym.get();
+    symbolBag.push_back(std::move(sym));
+    return s;
 }

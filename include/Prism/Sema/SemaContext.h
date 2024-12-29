@@ -8,8 +8,9 @@
 #include <csp.hpp>
 #include <utl/hashtable.hpp>
 
+#include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
-#include <Prism/Sema/Symbol.h>
+#include <Prism/Sema/SymbolFwd.h>
 
 namespace prism {
 
@@ -43,10 +44,7 @@ public:
         return builtins[(size_t)builtin];
     }
 
-#define SEMA_BUILTIN(Name, Spelling, SymType)                                  \
-    SymType* get##Name() const {                                               \
-        return cast<SymType*>(getBuiltin(BuiltinSymbol::Name));                \
-    }
+#define SEMA_BUILTIN(Name, Spelling, SymType) SymType* get##Name() const;
 #include <Prism/Sema/Builtins.def>
 
     ReferenceType const* getRefType(QualType referred);
