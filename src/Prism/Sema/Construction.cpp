@@ -4,6 +4,7 @@
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
+#include <utl/function_view.hpp>
 #include <utl/stack.hpp>
 #include <utl/vector.hpp>
 
@@ -23,6 +24,7 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+using ranges::views::concat;
 using ranges::views::drop;
 using ranges::views::transform;
 using ranges::views::zip;
@@ -180,24 +182,26 @@ struct GlobalNameResolver: InstantiationBase {
     }
 
     MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
-        auto* type = analyzeFacetAs<UserType>(*this, scope, decl.typespec());
+        auto* type = analyzeFacetAs<ValueType>(*this, scope, decl.typespec());
         auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
         addDependency(*var, type);
         return var;
     }
 
-    void resolveImpl(UserType& type) {
+    void resolveImpl(CompositeType& type) {
         auto* scope = type.associatedScope();
         auto* node = getNode(type);
         if (auto* bases = type.facet()->bases()) {
             for (auto* decl: bases->elems()) {
                 auto* base = declareBaseClass(scope, *decl);
+                type._bases.push_back(base);
                 addDependency(node, base);
             }
         }
         if (auto* body = type.facet()->body()) {
             for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
                 auto* var = declareMemberVar(scope, *decl);
+                type._memvars.push_back(var);
                 addDependency(node, var);
             }
         }
@@ -304,15 +308,47 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
     return nullptr;
 }
 
-namespace {
+namespace prism {
 
 struct InstantiationContext: AnalysisBase {
     void instantiate(Symbol&) {}
 
-    void instantiate(StructType& type) {}
+    using LayoutAccumulator =
+        utl::function_view<TypeLayout(TypeLayout, TypeLayout)>;
+
+    static size_t align(size_t size, size_t al) {
+        if (al == 0) {
+            PRISM_ASSERT(size == 0, "Align == 0 must imply size == 0");
+            return size;
+        }
+        if (size % al == 0) return size;
+        return size + al - size % al;
+    }
+
+    TypeLayout computeLayout(CompositeType const& type, LayoutAccumulator acc) {
+        TypeLayout layout = { 0, 0 };
+        auto members =
+            concat(type.bases() | transform(cast<MemberSymbol const*>),
+                   type.memberVars());
+        for (auto* member: members) {
+            // For types with invalid members we report incomplete
+            if (!member->type()) return TypeLayout::Incomplete;
+            layout = acc(layout, member->type()->layout());
+        }
+        return { align(layout.size(), layout.alignment()), layout.alignment() };
+    }
+
+    void instantiate(StructType& type) {
+        auto layout = computeLayout(type, [](TypeLayout curr, TypeLayout next) {
+            size_t size = align(curr.size(), next.alignment()) + next.size();
+            size_t align = std::max(curr.alignment(), next.alignment());
+            return TypeLayout{ size, align };
+        });
+        type.setLayout(layout);
+    }
 };
 
-} // namespace
+} // namespace prism
 
 static void instantiateSymbol(SemaContext& ctx, IssueHandler& iss,
                               Symbol* symbol) {

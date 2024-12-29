@@ -30,9 +30,8 @@ SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
     AssocScope(ctx.make<Scope>(parent), this),
     sourceCtx(sourceCtx) {}
 
-CompositeType::CompositeType(SymbolType symType, SemaContext& ctx,
-                             std::string name, Facet const* facet,
-                             Scope* parent, TypeLayout layout):
+ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
+                       Facet const* facet, Scope* parent, TypeLayout layout):
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx.make<Scope>(parent), this) {}
 

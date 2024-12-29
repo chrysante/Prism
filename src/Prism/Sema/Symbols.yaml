@@ -32,19 +32,23 @@ symbols:
     base: Type
     abstract: true
 
-  - name: CompositeType
+  - name: ScopedType
     base: ValueType
     abstract: true
 
   - name: UserType
-    base: CompositeType
+    base: ScopedType
+    abstract: true
+
+  - name: CompositeType
+    base: UserType
     abstract: true
 
   - name: StructType
-    base: UserType
+    base: CompositeType
 
   - name: GenStructTypeInst
-    base: UserType
+    base: CompositeType
 
   - name: DynType
     base: ValueType
@@ -60,10 +64,10 @@ symbols:
     base: ValueType
 
   - name: ByteType
-    base: CompositeType
+    base: ScopedType
 
   - name: ArithmeticType
-    base: CompositeType
+    base: ScopedType
     abstract: true
 
   - name: IntType

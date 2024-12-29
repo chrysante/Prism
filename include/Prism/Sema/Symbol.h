@@ -124,6 +124,8 @@ protected:
          TypeLayout layout):
         Symbol(type, std::move(name), facet, parent), _layout(layout) {}
 
+    void setLayout(TypeLayout layout) { _layout = layout; }
+
 private:
     TypeLayout _layout;
 };
@@ -136,36 +138,62 @@ protected:
 };
 
 /// Base class of all types with a scope
-class CompositeType: public ValueType, public detail::AssocScope {
+class ScopedType: public ValueType, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
 protected:
-    CompositeType(SymbolType symType, SemaContext& ctx, std::string name,
-                  Facet const* facet, Scope* parent, TypeLayout layout);
+    ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
+               Facet const* facet, Scope* parent, TypeLayout layout);
 };
 
 /// Base class of all user defined types
-class UserType: public CompositeType {
+class UserType: public ScopedType {
+protected:
+    using ScopedType::ScopedType;
+};
+
+/// Base class of all types with non-static member variables
+class CompositeType: public UserType {
 public:
     FACET_TYPE(CompTypeDeclFacet)
 
+    /// \Returns the list of base classes in the order of declaration
+    std::span<BaseClass* const> bases() { return _bases; }
+
+    /// \overload
+    std::span<BaseClass const* const> bases() const { return _bases; }
+
+    /// \Returns the list of non-static member variables in the order of
+    /// declaration
+    std::span<MemberVar* const> memberVars() { return _memvars; }
+
+    /// \overload
+    std::span<MemberVar const* const> memberVars() const { return _memvars; }
+
 protected:
-    using CompositeType::CompositeType;
+    using UserType::UserType;
+
+private:
+    friend struct GlobalNameResolver;
+    friend struct InstantiationContext;
+
+    std::vector<BaseClass*> _bases;
+    std::vector<MemberVar*> _memvars;
 };
 
 /// User defined product type
-class StructType: public UserType {
+class StructType: public CompositeType {
 public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
                         Scope* parent,
                         TypeLayout layout = TypeLayout::Incomplete):
-        UserType(SymbolType::StructType, ctx, std::move(name), facet, parent,
-                 layout) {}
+        CompositeType(SymbolType::StructType, ctx, std::move(name), facet,
+                      parent, layout) {}
 };
 
 /// Instantiation of a struct type
-class GenStructTypeInst: public UserType {};
+class GenStructTypeInst: public CompositeType {};
 
 /// Not really sure about this. Do we even need it? And should it be a value
 /// type?
@@ -189,15 +217,15 @@ private:
 };
 
 ///
-class ByteType: public CompositeType {
+class ByteType: public ScopedType {
 public:
     ByteType(SemaContext& ctx, std::string name, Scope* parent):
-        CompositeType(SymbolType::ByteType, ctx, std::move(name), nullptr,
-                      parent, TypeLayout(1, 1)) {}
+        ScopedType(SymbolType::ByteType, ctx, std::move(name), nullptr, parent,
+                   TypeLayout(1, 1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
-class ArithmeticType: public CompositeType {
+class ArithmeticType: public ScopedType {
 public:
     /// \Returns the number of bits of this type
     size_t bitwidth() const { return layout().size() * 8; }
@@ -205,8 +233,8 @@ public:
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        CompositeType(symType, ctx, std::move(name), nullptr, parent,
-                      { bitwidth / 8, bitwidth / 8 }) {
+        ScopedType(symType, ctx, std::move(name), nullptr, parent,
+                   { bitwidth / 8, bitwidth / 8 }) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
 };
