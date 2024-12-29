@@ -304,7 +304,21 @@ static DependencyNode* buildDependencyGraph(MonotonicBufferResource& alloc,
     return nullptr;
 }
 
-static void instantiateSymbol(Symbol* symbol) {}
+namespace {
+
+struct InstantiationContext: AnalysisBase {
+    void instantiate(Symbol&) {}
+
+    void instantiate(StructType& type) {}
+};
+
+} // namespace
+
+static void instantiateSymbol(SemaContext& ctx, IssueHandler& iss,
+                              Symbol* symbol) {
+    InstantiationContext instctx{ ctx, iss };
+    visit(*symbol, [&](auto& symbol) { instctx.instantiate(symbol); });
+}
 
 static std::unique_ptr<TypeDefCycle> makeCycleError(
     std::span<Symbol const* const> cycle) {
@@ -346,7 +360,7 @@ Target* prism::constructTarget(MonotonicBufferResource& resource,
         iss.push(makeCycleError(order.symbols));
         return target;
     }
-    for (auto* symbol: order.symbols)
-        instantiateSymbol(symbol);
+    for (auto* symbol: order.symbols | ranges::views::reverse)
+        instantiateSymbol(ctx, iss, symbol);
     return target;
 }

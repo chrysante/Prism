@@ -115,8 +115,17 @@ private:
 };
 
 class Type: public Symbol {
+public:
+    /// \Returns the memory layout of this type
+    TypeLayout layout() const { return _layout; }
+
 protected:
-    using Symbol::Symbol;
+    Type(SymbolType type, std::string name, Facet const* facet, Scope* parent,
+         TypeLayout layout):
+        Symbol(type, std::move(name), facet, parent), _layout(layout) {}
+
+private:
+    TypeLayout _layout;
 };
 
 /// Base class of types that contain "values" as opposed to references and
@@ -133,7 +142,7 @@ public:
 
 protected:
     CompositeType(SymbolType symType, SemaContext& ctx, std::string name,
-                  Facet const* facet, Scope* parent);
+                  Facet const* facet, Scope* parent, TypeLayout layout);
 };
 
 /// Base class of all user defined types
@@ -149,8 +158,10 @@ protected:
 class StructType: public UserType {
 public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
-                        Scope* parent):
-        UserType(SymbolType::StructType, ctx, std::move(name), facet, parent) {}
+                        Scope* parent,
+                        TypeLayout layout = TypeLayout::Incomplete):
+        UserType(SymbolType::StructType, ctx, std::move(name), facet, parent,
+                 layout) {}
 };
 
 /// Instantiation of a struct type
@@ -163,7 +174,8 @@ public:
     explicit FunctionType(Facet const* facet, Scope* parent,
                           Type const* retType,
                           utl::small_vector<Type const*> params):
-        ValueType(SymbolType::FunctionType, {}, facet, parent),
+        ValueType(SymbolType::FunctionType, {}, facet, parent,
+                  TypeLayout::Incomplete),
         _retType(retType),
         _params(std::move(params)) {}
 
@@ -181,21 +193,22 @@ class ByteType: public CompositeType {
 public:
     ByteType(SemaContext& ctx, std::string name, Scope* parent):
         CompositeType(SymbolType::ByteType, ctx, std::move(name), nullptr,
-                      parent) {}
+                      parent, TypeLayout(1, 1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
 class ArithmeticType: public CompositeType {
 public:
-    size_t bitwidth() const { return _bitwidth; }
+    /// \Returns the number of bits of this type
+    size_t bitwidth() const { return layout().size() * 8; }
 
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        CompositeType(symType, ctx, std::move(name), nullptr, parent) {}
-
-private:
-    size_t _bitwidth;
+        CompositeType(symType, ctx, std::move(name), nullptr, parent,
+                      { bitwidth / 8, bitwidth / 8 }) {
+        PRISM_ASSERT(bitwidth % 8 == 0);
+    }
 };
 
 ///
@@ -242,7 +255,7 @@ class ReferenceType: public Type {
 public:
     explicit ReferenceType(QualType referred):
         Type(SymbolType::ReferenceType, /* name: */ {}, /* facet: */ nullptr,
-             /* scope: */ nullptr),
+             /* scope: */ nullptr, TypeLayout{ 8, 8 }),
         ref(referred) {}
 
     /// \Return the referred-to qual type, e.g., `mut i32` for a `&mut i32`
@@ -256,7 +269,8 @@ private:
 class VoidType: public Type {
 public:
     explicit VoidType(std::string name, Scope* parent):
-        Type(SymbolType::VoidType, std::move(name), nullptr, parent) {}
+        Type(SymbolType::VoidType, std::move(name), nullptr, parent,
+             TypeLayout::Incomplete) {}
 };
 
 /// Base class of `BaseClass` and `MemberVar`
@@ -340,7 +354,7 @@ public:
 protected:
     explicit DynType(SymbolType symtype, Symbol* underlying):
         ValueType(symtype, /* name: */ {}, /* facet: */ nullptr,
-                  /* parentScope: */ nullptr),
+                  /* parentScope: */ nullptr, TypeLayout::Incomplete),
         _underlying(underlying) {}
 
 private:

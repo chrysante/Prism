@@ -32,8 +32,8 @@ SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
 
 CompositeType::CompositeType(SymbolType symType, SemaContext& ctx,
                              std::string name, Facet const* facet,
-                             Scope* parent):
-    ValueType(symType, std::move(name), facet, parent),
+                             Scope* parent, TypeLayout layout):
+    ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx.make<Scope>(parent), this) {}
 
 Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,

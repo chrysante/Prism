@@ -4,7 +4,7 @@ fn foo(t: MyType) { t.mem_foo(); }
 let MyGlobal: i32;
 
 struct MyBase {
-    var i: OtherType;
+    //var i: OtherType;
 }
 
 struct MyType: MyBase {

@@ -253,6 +253,7 @@ struct SymbolPrinter {
     void printImpl(Type const& type) { str << fmtName(type); }
 
     void printImpl(UserType const& type) {
+        str << Comment(type.layout()) << '\n';
         str << fmtDecl(type) << " ";
         printBraced(type.associatedScope());
     }
