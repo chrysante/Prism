@@ -28,7 +28,7 @@ static constexpr utl::streammanip Keyword = [](std::ostream& str,
 
 static constexpr utl::streammanip Username = [](std::ostream& str,
                                                 auto const&... args) {
-    str << tfmt::format(BrightGreen, args...);
+    str << tfmt::format(BrightBlue, args...);
 };
 
 static constexpr utl::streammanip Comment = [](std::ostream& str,
@@ -341,53 +341,30 @@ struct SymbolPrinter {
 
     void printObligation(Obligation const& obl) {
         str << fmtDecl(obl.symbol(), { .primaryQualified = true }) << "\n";
-    }
-
-    void printObligations(TraitLike const& trait) {
-        buf.indented([&] {
-            str << "Obligations:\n";
-            buf.indented([&] {
-                for (auto* obl: trait.obligations())
-                    printObligation(*obl);
-            });
-        });
-    }
-
-    void printConformance(Conformance const& conf) {
-        str << fmtDecl(conf.symbol(), { .primaryQualified = true }) << " for "
-            << fmtDecl(conf.obligation()->symbol(),
-                       { .primaryQualified = true })
-            << "\n";
-    }
-
-    void printConformances(ImplLike const& impl) {
-        buf.indented([&] {
-            str << "Conformances:\n";
-            buf.indented([&] {
-                for (auto* conf: impl.conformances())
-                    printConformance(*conf);
-            });
-        });
-    }
-
-    template <typename T>
-    void printRequirements(T const& symbol) {
-        auto nextLine = [this, done = false]() mutable {
-            if (done) return;
-            str << "\n";
-            done = true;
-        };
-        if constexpr (std::derived_from<T, TraitLike>) {
-            if (options.traitObligations) {
-                nextLine();
-                printObligations(static_cast<TraitLike const&>(symbol));
-            }
+        if (obl.conformances().empty()) {
+            str << "  " << tfmt::format(BrightYellow | Bold, "Unmatched")
+                << "\n";
+            return;
         }
-        if constexpr (std::derived_from<T, ImplLike>) {
-            if (options.traitConformances) {
-                nextLine();
-                printConformances(static_cast<ImplLike const&>(symbol));
-            }
+        str << "  " << tfmt::format(BrightGreen | Bold, "Matched by:") << "\n";
+        buf.indented([&] {
+            for (auto* sym: obl.conformances())
+                str << fmtDecl(sym, { .primaryQualified = true }) << "\n";
+        });
+    }
+
+    void printObligations(InterfaceLike const& interface) {
+        buf.indented([&] {
+            for (auto& [key, list]: interface.obligations())
+                for (auto* obl: list)
+                    printObligation(*obl);
+        });
+    }
+
+    void printRequirements(InterfaceLike const& interface) {
+        if (options.traitObligations) {
+            str << "\n";
+            printObligations(interface);
         }
     }
 

@@ -91,9 +91,7 @@ static int semaPlaygroundMain(Options options) {
                                  { { { parseTree, sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout,
-          { .structureMemoryLayout = true,
-            .traitObligations = true,
-            .traitConformances = true });
+          { .structureMemoryLayout = true, .traitObligations = true });
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);
         return 1;

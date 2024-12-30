@@ -3,6 +3,7 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/IssueHandler.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/Contracts.h"
 #include "Prism/Sema/DependencyGraph.h"
@@ -13,18 +14,16 @@
 using namespace prism;
 using ranges::views::reverse;
 
-static csp::unique_ptr<Specification> clone(Specification const* spec) {
-    if (!spec) return nullptr;
-    return visit<csp::unique_ptr<Specification>>(*spec,
-                                                 []<typename T>(T const& spec) {
-        return csp::make_unique<T>(spec);
+static csp::unique_ptr<Obligation> clone(Obligation const& obl) {
+    return visit<csp::unique_ptr<Obligation>>(obl, []<class T>(T const& obl) {
+        return csp::make_unique<T>(obl);
     });
 }
 
-template <std::derived_from<Specification> S>
-static csp::unique_ptr<S> clone(S const* spec) {
-    auto c = clone(static_cast<Specification const*>(spec));
-    return csp::unique_ptr<S>(cast<S*>(c.release()));
+template <std::derived_from<Obligation> O>
+static csp::unique_ptr<O> clone(O const& obl) {
+    auto c = clone(static_cast<Obligation const&>(obl));
+    return csp::unique_ptr<O>(cast<O*>(c.release()));
 }
 
 namespace {
@@ -32,37 +31,56 @@ namespace {
 struct ConformanceAnalysisContext: AnalysisBase {
     void analyze(Symbol const&) {}
 
-    csp::unique_ptr<Obligation> analyzeObligation(Symbol* sym,
-                                                  TraitLike& trait) {
+    csp::unique_ptr<Obligation> analyzeObligation(Symbol* sym) {
         if (!sym) return nullptr;
-        return visit(*sym,
-                     [&](auto& sym) { return analyzeOblImpl(sym, trait); });
+        return visit(*sym, FN1(this, analyzeOblImpl(_1)));
     }
 
-    csp::unique_ptr<Obligation> analyzeOblImpl(Symbol const&,
-                                               TraitLike const&) {
+    csp::unique_ptr<Obligation> analyzeOblImpl(Symbol const&) {
         return nullptr;
     }
 
-    csp::unique_ptr<Obligation> analyzeOblImpl(Function& func,
-                                               TraitLike& /*trait*/) {
-        return csp::make_unique<FunctionObligation>(&func);
+    csp::unique_ptr<Obligation> analyzeOblImpl(Function& func) {
+        if (func.params().empty() || !func.params().front()->isThis())
+            return nullptr;
+        return csp::make_unique<FuncObligation>(&func, func.parentScope()
+                                                           ->assocSymbol());
     }
 
-    void analyzeObligations(TraitLike& trait, Scope* scope) {
+    void analyzeObligations(InterfaceLike& interface, Scope* scope) {
         for (auto* sym: scope->symbols())
-            if (auto obl = analyzeObligation(sym, trait))
-                trait.addObligation(std::move(obl));
+            if (auto obl = analyzeObligation(sym))
+                interface.addObligation(std::move(obl));
     }
 
-    void analyzeConformances(ImplLike&, Scope*) {}
+    void analyzeConformance(Symbol* sym, InterfaceLike& interface) {
+        if (!sym) return;
+        visit(*sym, FN1(&, analyzeConfImpl(_1, interface)));
+    }
 
-    template <typename From, typename To>
-    void copy(From& from, To& to) {
-        for (auto* obl: from.obligations())
-            to.addObligation(clone(obl));
-        for (auto* conf: from.conformances())
-            to.addConformance(clone(conf));
+    void analyzeConfImpl(Symbol const&, InterfaceLike&) {}
+
+    void analyzeConfImpl(FunctionImpl& func, InterfaceLike& interface) {
+        if (func.params().empty() || !func.params().front()->isThis()) return;
+        auto matches = interface.matchObligation(func.name(), func.signature());
+        if (matches.empty()) return;
+        if (matches.size() == 1) {
+            matches.front()->addConformance(&func);
+            return;
+        }
+        // TODO: Handle ambiguities
+        PRISM_UNIMPLEMENTED();
+    }
+
+    void analyzeConformances(InterfaceLike& interface, Scope* scope) {
+        for (auto* sym: scope->symbols())
+            analyzeConformance(sym, interface);
+    }
+
+    void inherit(InterfaceLike const& base, InterfaceLike& derived) {
+        for (auto& [key, list]: base.obligations())
+            for (auto* obl: list)
+                derived.addObligation(clone(*obl));
     }
 
     void analyze(Trait& trait) {
@@ -71,6 +89,7 @@ struct ConformanceAnalysisContext: AnalysisBase {
     }
 
     void analyze(TraitImpl& impl) {
+        inherit(*impl.trait(), impl);
         analyzeConformances(impl, impl.associatedScope());
     }
 
@@ -79,18 +98,16 @@ struct ConformanceAnalysisContext: AnalysisBase {
     }
 
     void analyze(BaseTrait& base) {
-        Symbol& parentSym = *base.parentScope()->assocSymbol();
-        if (auto* type = dyncast<CompositeType*>(&parentSym)) {
-            copy(*base.trait(), *type);
-        }
-        else if (auto* trait = dyncast<Trait*>(&parentSym)) {
-            copy(*base.trait(), *trait);
-        }
+        Symbol* parentSym = base.parentScope()->assocSymbol();
+        if (auto* type = dyncast<CompositeType*>(parentSym))
+            inherit(*base.trait(), *type);
+        else if (auto* trait = dyncast<Trait*>(parentSym))
+            inherit(*base.trait(), *trait);
     }
 
     void analyze(BaseClass& base) {
-        copy(*base.type(),
-             cast<CompositeType&>(*base.parentScope()->assocSymbol()));
+        inherit(*base.type(),
+                cast<CompositeType&>(*base.parentScope()->assocSymbol()));
     }
 };
 

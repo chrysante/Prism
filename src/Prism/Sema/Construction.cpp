@@ -161,8 +161,8 @@ struct GlobalNameResolver: InstantiationBase {
         auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
         impl._trait = analyzeFacetAs<Trait>(*this, impl.parentScope(),
                                             def->traitDeclRef());
-        impl._conf = analyzeFacetAs<UserType>(*this, impl.parentScope(),
-                                              def->conformingTypename());
+        impl._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
+                                                   def->conformingTypename());
         auto* node = getNode(impl);
         addDependency(node, impl._trait);
         addDependency(node, impl._conf);
@@ -248,7 +248,8 @@ struct GlobalNameResolver: InstantiationBase {
             analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
         auto name = sourceContext->getTokenStr(param.name());
         return ctx.make<FuncParam>(std::string(name), &param, type,
-                                   /* mut: */ false);
+                                   FuncParam::Options{ .hasMut = false,
+                                                       .isThis = false });
     }
 
     FuncParam* analyzeParamImpl(Function& func, ThisParamDeclFacet const& param,
@@ -290,11 +291,15 @@ struct GlobalNameResolver: InstantiationBase {
         }();
         if (ref) {
             auto* type = ctx.getRefType({ thisType, mut });
-            return ctx.make<FuncParam>("this", &param, type, /* mut: */ false);
+            return ctx.make<FuncParam>("this", &param, type,
+                                       FuncParam::Options{ .hasMut = false,
+                                                           .isThis = true });
         }
         else {
             return ctx.make<FuncParam>("this", &param, thisType,
-                                       mut == Mutability::Mut);
+                                       FuncParam::Options{
+                                           .hasMut = mut == Mutability::Mut,
+                                           .isThis = true });
         }
     }
 

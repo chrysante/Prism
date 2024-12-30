@@ -23,8 +23,8 @@ public:
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, Args...>
     Sym* make(Args&&... args) {
-        return cast<Sym*>(
-            addSymbol(csp::make_unique<Sym>(std::forward<Args>(args)...)));
+        auto* s = addSymbol(csp::make_unique<Sym>(std::forward<Args>(args)...));
+        return cast<Sym*>(s);
     }
 
     template <std::derived_from<Symbol> Sym, typename... Args>

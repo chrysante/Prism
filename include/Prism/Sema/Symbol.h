@@ -12,6 +12,7 @@
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Facet/FacetFwd.h>
+#include <Prism/Sema/Contracts.h>
 #include <Prism/Sema/FuncSig.h>
 #include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
@@ -159,50 +160,8 @@ protected:
     using ScopedType::ScopedType;
 };
 
-namespace detail {
-
-template <typename T>
-class InterfaceLike {
-protected:
-    InterfaceLike();
-    ~InterfaceLike();
-
-    std::span<T const* const> items() const {
-        return std::bit_cast<std::span<T const* const>>(std::span(_items));
-    }
-
-    void addItem(csp::unique_ptr<T>&& item);
-
-private:
-    std::vector<csp::unique_ptr<T>> _items;
-};
-
-} // namespace detail
-
-/// Base class for symbols that can define interfaces
-class TraitLike: detail::InterfaceLike<Obligation> {
-public:
-    /// Obligations imposed by this symbol
-    std::span<Obligation const* const> obligations() const { return items(); }
-
-    void addObligation(csp::unique_ptr<Obligation>&& obl) {
-        addItem(std::move(obl));
-    }
-};
-
-/// Base class for symbols that can conform to interfaces
-class ImplLike: detail::InterfaceLike<Conformance> {
-public:
-    /// Conformances defined by this symbol
-    std::span<Conformance const* const> conformances() const { return items(); }
-
-    void addConformance(csp::unique_ptr<Conformance>&& conf) {
-        addItem(std::move(conf));
-    }
-};
-
 /// Base class of all types with non-static member variables
-class CompositeType: public UserType, public TraitLike, public ImplLike {
+class CompositeType: public UserType, public InterfaceLike {
 public:
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -393,11 +352,7 @@ public:
                      parent) {}
 };
 
-class Trait:
-    public Symbol,
-    public TraitLike,
-    public ImplLike,
-    public detail::AssocScope {
+class Trait: public Symbol, public InterfaceLike, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
@@ -421,12 +376,15 @@ private:
     Trait* _trait;
 };
 
-class TraitImpl: public Symbol, public ImplLike, public detail::AssocScope {
+class TraitImpl:
+    public Symbol,
+    public InterfaceLike,
+    public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
     explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                       Trait* trait, UserType* conforming);
+                       Trait* trait, CompositeType* conforming);
 
     FACET_TYPE(TraitImplFacet)
 
@@ -435,16 +393,16 @@ public:
     /// \overload
     Trait const* trait() const { return _trait; }
 
-    UserType* conformingType() { return _conf; }
+    CompositeType* conformingType() { return _conf; }
 
     /// \overload
-    UserType const* conformingType() const { return _conf; }
+    CompositeType const* conformingType() const { return _conf; }
 
 private:
     friend struct GlobalNameResolver;
 
     Trait* _trait;
-    UserType* _conf;
+    CompositeType* _conf;
 };
 
 ///
@@ -523,12 +481,18 @@ private:
 /// const*`
 class FuncParam: public Symbol {
 public:
+    struct Options {
+        bool hasMut;
+        bool isThis;
+    };
+
     explicit FuncParam(std::string name, Facet const* facet, Type const* type,
-                       bool hasMut):
+                       Options options):
         Symbol(SymbolType::FuncParam, std::move(name), facet,
                /* scope: */ nullptr),
         _type(type),
-        _hasMut(hasMut) {}
+        _hasMut(options.hasMut),
+        _isThis(options.isThis) {}
 
     ///
     Type const* type() const { return _type; }
@@ -536,9 +500,13 @@ public:
     /// \Warning This only applies of `type()` is a value type
     bool hasMut() const { return _hasMut; }
 
+    /// \Returns true if this parameter is a `this`-parameter
+    bool isThis() const { return _isThis; }
+
 private:
     Type const* _type;
     bool _hasMut;
+    bool _isThis = false;
 };
 
 /// Function declaration

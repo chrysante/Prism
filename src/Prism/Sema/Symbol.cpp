@@ -36,28 +36,13 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx.make<Scope>(parent), this) {}
 
-template <typename T>
-detail::InterfaceLike<T>::InterfaceLike() = default;
-
-template <typename T>
-detail::InterfaceLike<T>::InterfaceLike::~InterfaceLike() = default;
-
-template <typename T>
-void detail::InterfaceLike<T>::addItem(csp::unique_ptr<T>&& item) {
-    _items.push_back(std::move(item));
-}
-
-template class detail::InterfaceLike<Obligation>;
-
-template class detail::InterfaceLike<Conformance>;
-
 Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
              Scope* parent):
     Symbol(SymbolType::Trait, std::move(name), facet, parent),
     AssocScope(ctx.make<Scope>(parent), this) {}
 
 TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                     Trait* trait, UserType* conforming):
+                     Trait* trait, CompositeType* conforming):
     Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
     AssocScope(ctx.make<Scope>(parent), this),
     _trait(trait),

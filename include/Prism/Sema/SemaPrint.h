@@ -12,7 +12,6 @@ namespace prism {
 struct SemaPrintOptions {
     bool structureMemoryLayout = false;
     bool traitObligations = false;
-    bool traitConformances = false;
 };
 
 ///

@@ -1,18 +1,30 @@
 #include "Prism/Sema/Contracts.h"
 
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
 
-TypeObligation::TypeObligation(Trait* trait):
-    Obligation(SpecType::TypeObligation, trait) {}
+TypeObligation::TypeObligation(Trait* trait, Symbol* owner):
+    Obligation(SpecType::TypeObligation, trait, owner) {}
 
-FunctionObligation::FunctionObligation(Function* func):
-    Obligation(SpecType::FunctionObligation, func) {}
+FuncObligation::FuncObligation(Function* func, Symbol* owner):
+    Obligation(SpecType::FuncObligation, func, owner) {}
 
-TypeConformance::TypeConformance(Trait* trait, TypeObligation* obligation):
-    Conformance(SpecType::TypeConformance, trait, obligation) {}
+Function* FuncObligation::function() const { return cast<Function*>(symbol()); }
 
-FunctionConformance::FunctionConformance(Function* func,
-                                         FunctionObligation* obligation):
-    Conformance(SpecType::FunctionConformance, func, obligation) {}
+InterfaceLike::InterfaceLike() = default;
+
+InterfaceLike::~InterfaceLike() = default;
+
+void InterfaceLike::addObligation(csp::unique_ptr<Obligation> obl) {
+    if (!obl) return;
+    bag.push_back(std::move(obl));
+    visit(*bag.back(), FN1(this, addObligationImpl(&_1)));
+}
+
+void InterfaceLike::addObligationImpl(FuncObligation* obl) {
+    auto* F = obl->function();
+    auto& list = obls[{ F->name(), F->signature() }];
+    list.push_back(obl);
+}

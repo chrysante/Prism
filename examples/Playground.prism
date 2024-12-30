@@ -4,11 +4,12 @@ trait MyBaseTrait {
 }
 
 trait MyTrait: MyBaseTrait {
-    fn foo(&this, &this) -> i32;
+    fn foo(&this) -> i32 { /* default */ }
 }
 
-struct MyStruct: MyTrait {}
+struct MyStruct {}
 
 impl MyTrait for MyStruct {
-    
+    fn bar(&this) -> i32 { 42 }
+    fn foo(&this) -> i32 { 42 }
 }
