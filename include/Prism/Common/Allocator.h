@@ -174,7 +174,9 @@ T* allocateArrayUninit(MonotonicBufferResource& alloc, size_t count) {
 /// using the allocator \p alloc and default constructs the elements
 template <typename T, typename Itr>
 std::span<T> allocateArray(MonotonicBufferResource& alloc, Itr begin, Itr end) {
-    size_t const count = std::distance(begin, end);
+    ssize_t scount = std::distance(begin, end);
+    PRISM_ASSERT(scount > 0);
+    size_t count = (size_t)scount;
     T* result = allocateArrayUninit<T>(alloc, count);
     std::uninitialized_copy(begin, end, result);
     return { result, count };
