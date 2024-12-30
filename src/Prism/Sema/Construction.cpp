@@ -264,7 +264,9 @@ Symbol* GlobalNameResolver::declareBase(Scope* scope,
         addDependency(*basetrait, trait);
         return basetrait;
     }
-    PRISM_UNIMPLEMENTED();
+    // FIXME: We should expect types or traits but we have no interface for that
+    iss.push<BadSymRef>(sourceContext, decl.type(), base, SymbolType::Trait);
+    return nullptr;
 }
 
 MemberVar* GlobalNameResolver::declareMemberVar(Scope* scope,
