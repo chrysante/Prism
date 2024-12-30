@@ -109,6 +109,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/Symbol.h
     include/Prism/Sema/Symbol.def
     include/Prism/Sema/SemaFwd.h
+    include/Prism/Sema/TypeLayout.h
     include/Prism/Sema/QualType.h
 
     include/Prism/Source/SourceContext.h
@@ -157,6 +158,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
     src/Prism/Sema/SemaFwd.cpp
+    src/Prism/Sema/TypeLayout.cpp
     src/Prism/Sema/QualType.cpp
 
     src/Prism/Source/SourceContext.cpp
