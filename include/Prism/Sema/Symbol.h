@@ -132,6 +132,18 @@ public:
 
     explicit GenericContext(SemaContext& ctx, Facet const* facet,
                             Scope* parent);
+
+    ///
+    std::span<Symbol* const> params() { return _params; }
+
+    /// \overload
+    std::span<Symbol const* const> params() const { return _params; }
+
+    ///
+    void addParam(Symbol* param) { _params.push_back(param); }
+
+private:
+    utl::small_vector<Symbol*> _params;
 };
 
 class Type: public Symbol {

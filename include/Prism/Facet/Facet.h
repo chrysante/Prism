@@ -158,13 +158,6 @@ private:
     }
 };
 
-/// Generic list facet
-class ListFacet: public NonTerminalFacet {
-public:
-    explicit ListFacet(std::span<Facet const* const> params):
-        NonTerminalFacet(FacetType::ListFacet, params) {}
-};
-
 #define PRISM_DEFINE_LIST_FACET(Name, ElemType, ElemsName)                     \
     class Name: public NonTerminalFacet {                                      \
     public:                                                                    \
@@ -178,6 +171,9 @@ public:
                 NonTerminalFacet::children());                                 \
         }                                                                      \
     };
+
+/// Generic list facet
+PRISM_DEFINE_LIST_FACET(ListFacet, Facet, elems)
 
 /// Statement list facet
 PRISM_DEFINE_LIST_FACET(StmtListFacet, StmtFacet, elems)

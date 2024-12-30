@@ -77,22 +77,22 @@ struct GloablDeclDeclare: InstantiationBase {
         declareChildren(file->associatedScope(), facet.decls());
     }
 
-    void declare(Facet const* facet, Scope* scope) {
+    Symbol* declare(Facet const* facet, Scope* scope) {
         if (!facet) return;
-        visit(*facet, FN1(&, doDeclare(_1, scope)));
+        return visit(*facet, FN1(&, doDeclare(_1, scope)));
     }
 
-    void doDeclare(Facet const&, Scope const*) {}
+    Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
 
-    void doDeclare(FuncDefFacet const& facet, Scope* parent) {
+    Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent) {
         parent = makeGenContextIfNecessary(facet.genParams(), parent);
         if (facet.body() && isa<CompoundFacet>(facet.body()))
-            ctx.make<FunctionImpl>(getName(facet), &facet, parent);
+            return ctx.make<FunctionImpl>(getName(facet), &facet, parent);
         else
-            ctx.make<Function>(getName(facet), &facet, parent);
+            return ctx.make<Function>(getName(facet), &facet, parent);
     }
 
-    void doDeclare(CompTypeDeclFacet const& facet, Scope* parent) {
+    Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent) {
         parent = makeGenContextIfNecessary(facet.genParams(), parent);
         auto* typeOrTrait = [&]() -> Symbol* {
             switch (facet.declarator().kind) {
@@ -105,21 +105,24 @@ struct GloablDeclDeclare: InstantiationBase {
             }
         }();
         declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
+        return typeOrTrait;
     }
 
-    void doDeclare(TraitImplFacet const& facet, Scope* parent) {
+    Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent) {
         auto* impl = ctx.make<TraitImpl>(&facet, parent, nullptr, nullptr);
         declareChildren(impl->associatedScope(),
                         cast<TraitImplTypeFacet const*>(facet.definition())
                             ->body()
                             ->elems());
+        return impl;
     }
 
-    void doDeclare(GenParamDeclFacet const& facet, Scope* parent) {
+    Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent) {
         auto* trait =
             analyzeFacetAs<Trait>(*this, parent, facet.requirements());
         auto name = sourceContext->getTokenStr(facet.name());
-        ctx.make<GenericTypeParam>(std::string(name), &facet, parent, trait);
+        return ctx.make<GenericTypeParam>(std::string(name), &facet, parent,
+                                          trait);
     }
 
     Scope* makeGenContextIfNecessary(GenParamListFacet const* genParams,
@@ -132,8 +135,9 @@ struct GloablDeclDeclare: InstantiationBase {
                                    Scope* parent) {
         auto* context = ctx.make<GenericContext>(genParams, parent);
         auto* genScope = context->associatedScope();
-        for (auto* param: genParams->children()) {
-            declare(param, genScope);
+        for (auto* paramFacet: genParams->children()) {
+            auto* param = declare(paramFacet, genScope);
+            context->addParam(param);
         }
         return context;
     }
