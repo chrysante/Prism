@@ -33,7 +33,7 @@ static constexpr utl::streammanip Username = [](std::ostream& str,
 
 static constexpr utl::streammanip Comment = [](std::ostream& str,
                                                auto const&... args) {
-    str << tfmt::format(BrightGrey, "// ", args...);
+    str << tfmt::format(BrightGrey | Italic, "// ", args...);
 };
 
 static constexpr utl::streammanip Null = [](std::ostream& str) {
@@ -287,12 +287,19 @@ struct SymbolPrinter {
         for (auto* sym: scope->symbols()) {
             (isBuiltinSymbol(*sym) ? builtins : userDefined).push_back(sym);
         }
-        printChildren(builtins, { "\n", "\n\n" });
+        str << Keyword("target") << " " << target.name() << "\n\n";
+        str << Comment("Builtins:") << "\n";
+        printChildren(builtins, { ", ", "\n\n" });
         printChildren(userDefined, DeclOpt);
     }
 
+    void printImpl(Library const& lib) {
+        str << Keyword("library") << " " << lib.name() << " ";
+        printBraced(lib.associatedScope());
+    }
+
     void printImpl(SourceFile const& file) {
-        str << Comment(file.name()) << "\n\n";
+        str << Comment("Source file \"", file.name(), "\":") << "\n\n";
         printChildren(file.associatedScope(), DeclOpt);
     }
 

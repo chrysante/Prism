@@ -23,9 +23,10 @@ Scope const* Symbol::associatedScope() const {
     });
 }
 
-Module::Module(SymbolType type, SemaContext& ctx, std::string name):
-    Symbol(type, std::move(name), nullptr, nullptr),
-    AssocScope(ctx.make<Scope>(nullptr), this) {}
+Module::Module(SymbolType type, SemaContext& ctx, std::string name,
+               Facet const* facet, Scope* parent):
+    Symbol(type, std::move(name), facet, parent),
+    AssocScope(ctx.make<Scope>(parent), this) {}
 
 SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
                        Scope* parent, SourceContext const& sourceCtx):

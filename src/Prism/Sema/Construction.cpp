@@ -38,6 +38,12 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
 #include "Prism/Sema/Builtins.def"
 }
 
+static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
+    auto& core = *ctx.make<Library>("core", globalScope);
+    auto* coreScope = core.associatedScope();
+    (void)coreScope;
+}
+
 namespace {
 
 struct InstantiationBase: AnalysisBase {
@@ -397,6 +403,7 @@ ConstructionResult prism::constructTarget(
     std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx, target->associatedScope());
+    makeCoreLibrary(ctx, target->associatedScope());
     declareGlobals(ctx, iss, target->associatedScope(), input);
     auto dependencies =
         resolveGlobalNames(resource, ctx, iss, target->associatedScope());

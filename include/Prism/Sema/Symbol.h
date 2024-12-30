@@ -94,7 +94,8 @@ public:
     using AssocScope::associatedScope;
 
 protected:
-    Module(SymbolType type, SemaContext& ctx, std::string name);
+    Module(SymbolType type, SemaContext& ctx, std::string name,
+           Facet const* facet = nullptr, Scope* parent = nullptr);
 };
 
 class Target: public Module {
@@ -105,8 +106,8 @@ public:
 
 class Library: public Module {
 public:
-    explicit Library(SemaContext& ctx, std::string name):
-        Module(SymbolType::Library, ctx, std::move(name)) {}
+    explicit Library(SemaContext& ctx, std::string name, Scope* parent):
+        Module(SymbolType::Library, ctx, std::move(name), nullptr, parent) {}
 };
 
 class SourceFile: public Symbol, public detail::AssocScope {
