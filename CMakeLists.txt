@@ -87,6 +87,8 @@ set(PRISM_HEADER_FILES
 
     include/Prism/Facet/Facet.h
 
+    include/Prism/Invocation/Invocation.h
+
     include/Prism/Lexer/Lexer.h
     include/Prism/Lexer/LexicalIssue.h
     
@@ -133,6 +135,8 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/Filters.py
 
     src/Prism/Facet/Facet.cpp
+
+    src/Prism/Invocation/Invocation.cpp
 
     src/Prism/Lexer/Lexer.cpp
     src/Prism/Lexer/LexicalIssue.cpp

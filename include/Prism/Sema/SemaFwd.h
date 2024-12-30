@@ -17,7 +17,7 @@ class Scope;
 
 struct SourceFilePair {
     SourceFileFacet const* facet;
-    SourceContext const& context;
+    SourceContext const* context;
 };
 
 enum class ValueCat { LValue, RValue };

@@ -88,7 +88,7 @@ struct GlobalDeclDeclare: InstantiationBase {
 } // namespace
 
 void GlobalDeclDeclare::run(std::span<SourceFilePair const> input) {
-    ranges::for_each(input, FN1(&, declareFile(*_1.facet, _1.context)));
+    ranges::for_each(input, FN1(&, declareFile(*_1.facet, *_1.context)));
 }
 
 void GlobalDeclDeclare::declareChildren(Scope* scope, auto const& children) {

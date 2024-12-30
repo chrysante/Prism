@@ -14,6 +14,7 @@ namespace prism {
 
 class SourceContext;
 
+/// TODO: Separate the interfaces for consumers and users of issues
 class IssueHandler {
     auto view() const { return list | std::views::transform(Dereference); }
 
