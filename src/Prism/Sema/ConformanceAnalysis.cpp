@@ -138,17 +138,6 @@ struct ConformanceAnalysisContext: AnalysisBase {
 
 } // namespace
 
-static SourceContext const* getSourceContext(Symbol const* sym) {
-    if (!sym) return nullptr;
-    auto* scope = sym->parentScope();
-    while (scope) {
-        if (auto* sourceFile = dyncast<SourceFile const*>(scope->assocSymbol()))
-            return &sourceFile->sourceContext();
-        scope = scope->parent();
-    }
-    return nullptr;
-}
-
 static void analyzeConformance(SemaContext& ctx, IssueHandler& iss,
                                Symbol* sym) {
     ConformanceAnalysisContext confCtx{ ctx, iss, getSourceContext(sym) };
