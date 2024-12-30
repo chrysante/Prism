@@ -1,3 +1,6 @@
+#ifndef PRISM_INVOCATION_INVOCATION_H
+#define PRISM_INVOCATION_INVOCATION_H
+
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -57,3 +60,5 @@ private:
 };
 
 } // namespace prism
+
+#endif // PRISM_INVOCATION_INVOCATION_H
