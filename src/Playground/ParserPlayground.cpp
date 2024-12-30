@@ -49,7 +49,7 @@ static int const INIT = [] {
 static void printTokenStream(std::string_view source) {
     SourceContext ctx({}, source);
     DiagnosticHandler diagHandler;
-    Lexer L(source, diagHandler);
+    Lexer L(ctx, diagHandler);
     while (true) {
         auto tok = L.next();
         if (tok.kind == TokenKind::End) {
@@ -60,7 +60,6 @@ static void printTokenStream(std::string_view source) {
 }
 
 static int parserPlaygroundMain(Options options) {
-
     std::filesystem::path filepath = "examples/Playground.prism";
     std::fstream file(filepath);
     if (!file) {
