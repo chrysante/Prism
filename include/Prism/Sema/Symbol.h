@@ -73,18 +73,15 @@ namespace detail {
 
 class AssocScope {
 public:
-    Scope* associatedScope() { return s; }
+    Scope* associatedScope() { return _scope; }
 
-    Scope const* associatedScope() const { return s; }
+    Scope const* associatedScope() const { return _scope; }
 
 protected:
-    explicit AssocScope(Scope* s, Symbol* This): s(s) {
-        PRISM_ASSERT(s);
-        s->_assocSymbol = This;
-    }
+    explicit AssocScope(SemaContext& ctx, Scope* scope, Symbol* This);
 
 private:
-    Scope* s;
+    Scope* _scope;
 };
 
 } // namespace detail
@@ -125,13 +122,11 @@ private:
     SourceContext const& sourceCtx;
 };
 
-///
-class GenericContext: public Symbol, public detail::AssocScope {
+/// Types, traits and functions have a generic context if they are generic
+class GenericContext {
 public:
-    using AssocScope::associatedScope;
-
-    explicit GenericContext(SemaContext& ctx, Facet const* facet,
-                            Scope* parent);
+    explicit GenericContext(utl::small_vector<Symbol*> params):
+        _params(std::move(params)) {}
 
     ///
     std::span<Symbol* const> params() { return _params; }
@@ -139,12 +134,28 @@ public:
     /// \overload
     std::span<Symbol const* const> params() const { return _params; }
 
-    ///
-    void addParam(Symbol* param) { _params.push_back(param); }
-
 private:
     utl::small_vector<Symbol*> _params;
 };
+
+namespace detail {
+
+class GenContextBase {
+public:
+    /// \Returns the generic context if it exists
+    GenericContext const* genericContext() const {
+        if (_ctx) return &*_ctx;
+        return nullptr;
+    }
+
+protected:
+    void setGenCtx(std::optional<GenericContext> ctx) { _ctx = std::move(ctx); }
+
+private:
+    std::optional<GenericContext> _ctx;
+};
+
+} // namespace detail
 
 class Type: public Symbol {
 public:
@@ -195,7 +206,8 @@ public:
 
 protected:
     ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
-               Facet const* facet, Scope* parent, TypeLayout layout);
+               Facet const* facet, Scope* parent, Scope* scope,
+               TypeLayout layout);
 };
 
 /// Base class of all user defined types
@@ -205,7 +217,10 @@ protected:
 };
 
 /// Base class of all types with non-static member variables
-class CompositeType: public UserType, public InterfaceLike {
+class CompositeType:
+    public UserType,
+    public InterfaceLike,
+    public detail::GenContextBase {
 public:
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -260,10 +275,13 @@ private:
 class StructType: public CompositeType {
 public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
-                        Scope* parent,
+                        Scope* parent, Scope* scope,
+                        std::optional<GenericContext> genContext,
                         TypeLayout layout = TypeLayout::Incomplete):
         CompositeType(SymbolType::StructType, ctx, std::move(name), facet,
-                      parent, layout) {}
+                      parent, scope, layout) {
+        setGenCtx(std::move(genContext));
+    }
 };
 
 /// Instantiation of a struct type
@@ -295,7 +313,7 @@ class ByteType: public ScopedType {
 public:
     explicit ByteType(SemaContext& ctx, std::string name, Scope* parent):
         ScopedType(SymbolType::ByteType, ctx, std::move(name), nullptr, parent,
-                   TypeLayout(1)) {}
+                   nullptr, TypeLayout(1)) {}
 };
 
 ///
@@ -303,7 +321,7 @@ class BoolType: public ScopedType {
 public:
     explicit BoolType(SemaContext& ctx, std::string name, Scope* parent):
         ScopedType(SymbolType::BoolType, ctx, std::move(name), nullptr, parent,
-                   TypeLayout(1)) {}
+                   nullptr, TypeLayout(1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
@@ -315,7 +333,7 @@ public:
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        ScopedType(symType, ctx, std::move(name), nullptr, parent,
+        ScopedType(symType, ctx, std::move(name), nullptr, parent, nullptr,
                    TypeLayout(bitwidth / 8)) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
@@ -419,12 +437,17 @@ public:
                      parent) {}
 };
 
-class Trait: public Symbol, public InterfaceLike, public detail::AssocScope {
+class Trait:
+    public Symbol,
+    public InterfaceLike,
+    public detail::AssocScope,
+    public detail::GenContextBase {
 public:
     using AssocScope::associatedScope;
 
     explicit Trait(SemaContext& ctx, std::string name, Facet const* facet,
-                   Scope* parent);
+                   Scope* parent, Scope* scope,
+                   std::optional<GenericContext> genContext);
 };
 
 class BaseTrait: public Symbol {
@@ -446,12 +469,14 @@ private:
 class TraitImpl:
     public Symbol,
     public InterfaceLike,
-    public detail::AssocScope {
+    public detail::AssocScope,
+    public detail::GenContextBase {
 public:
     using AssocScope::associatedScope;
 
     explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                       Trait* trait, CompositeType* conforming);
+                       Scope* scope, Trait* trait, CompositeType* conforming,
+                       std::optional<GenericContext> genContext);
 
     FACET_TYPE(TraitImplFacet)
 
@@ -619,17 +644,22 @@ private:
 };
 
 /// Function implementation
-class FunctionImpl: public Function, public detail::AssocScope {
+class FunctionImpl:
+    public Function,
+    public detail::AssocScope,
+    detail::GenContextBase {
 public:
     using AssocScope::associatedScope;
 
     explicit FunctionImpl(SemaContext& ctx, std::string name,
-                          Facet const* facet, Scope* parent,
+                          Facet const* facet, Scope* parent, Scope* scope,
+                          std::optional<GenericContext> genContext,
                           utl::small_vector<FuncParam*>&& params,
                           Type const* retType);
 
     explicit FunctionImpl(SemaContext& ctx, std::string name,
-                          Facet const* facet, Scope* parent);
+                          Facet const* facet, Scope* parent, Scope* scope,
+                          std::optional<GenericContext> genContext);
 
     FACET_TYPE(FuncDefFacet)
 };

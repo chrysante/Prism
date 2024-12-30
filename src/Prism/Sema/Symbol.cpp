@@ -23,26 +23,28 @@ Scope const* Symbol::associatedScope() const {
     });
 }
 
+detail::AssocScope::AssocScope(SemaContext& ctx, Scope* scope, Symbol* This):
+    _scope(scope) {
+    if (!_scope) _scope = ctx.make<Scope>(This->parentScope());
+    _scope->_assocSymbol = This;
+}
+
 Module::Module(SymbolType type, SemaContext& ctx, std::string name,
                Facet const* facet, Scope* parent):
     Symbol(type, std::move(name), facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this) {}
+    AssocScope(ctx, nullptr, this) {}
 
 SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
                        Scope* parent, SourceContext const& sourceCtx):
     Symbol(SymbolType::SourceFile, std::move(name), facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this),
+    AssocScope(ctx, nullptr, this),
     sourceCtx(sourceCtx) {}
 
-GenericContext::GenericContext(SemaContext& ctx, Facet const* facet,
-                               Scope* parent):
-    Symbol(SymbolType::GenericContext, /* name: */ {}, facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this) {}
-
 ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
-                       Facet const* facet, Scope* parent, TypeLayout layout):
+                       Facet const* facet, Scope* parent, Scope* scope,
+                       TypeLayout layout):
     ValueType(symType, std::move(name), facet, parent, layout),
-    AssocScope(ctx.make<Scope>(parent), this) {}
+    AssocScope(ctx, scope, this) {}
 
 void CompositeType::setTraitImpl(TraitImpl& impl) {
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
@@ -50,16 +52,22 @@ void CompositeType::setTraitImpl(TraitImpl& impl) {
 }
 
 Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
-             Scope* parent):
+             Scope* parent, Scope* scope,
+             std::optional<GenericContext> genContext):
     Symbol(SymbolType::Trait, std::move(name), facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this) {}
+    AssocScope(ctx, scope, this) {
+    setGenCtx(std::move(genContext));
+}
 
 TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                     Trait* trait, CompositeType* conforming):
+                     Scope* scope, Trait* trait, CompositeType* conforming,
+                     std::optional<GenericContext> genContext):
     Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this),
+    AssocScope(ctx, scope, this),
     _trait(trait),
-    _conf(conforming) {}
+    _conf(conforming) {
+    setGenCtx(std::move(genContext));
+}
 
 Function::Function(std::string name, Facet const* facet, Scope* parent,
                    utl::small_vector<FuncParam*>&& params, Type const* retType):
@@ -71,19 +79,22 @@ Function::Function(std::string name, Facet const* facet, Scope* parent):
     Symbol(SymbolType::Function, std::move(name), facet, parent) {}
 
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
-                           Facet const* facet, Scope* parent,
+                           Facet const* facet, Scope* parent, Scope* scope,
+                           std::optional<GenericContext> genContext,
                            utl::small_vector<FuncParam*>&& params,
                            Type const* retType):
     Function(std::move(name), facet, parent, std::move(params), retType),
-    AssocScope(ctx.make<Scope>(parent), this) {
+    AssocScope(ctx, scope, this) {
     setSymbolType(SymbolType::FunctionImpl);
+    setGenCtx(std::move(genContext));
 }
 
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
-                           Facet const* facet, Scope* parent):
-    Function(std::move(name), facet, parent),
-    AssocScope(ctx.make<Scope>(parent), this) {
+                           Facet const* facet, Scope* parent, Scope* scope,
+                           std::optional<GenericContext> genContext):
+    Function(std::move(name), facet, parent), AssocScope(ctx, scope, this) {
     setSymbolType(SymbolType::FunctionImpl);
+    setGenCtx(std::move(genContext));
 }
 
 static std::string valueAsStrImpl(APInt const& value, IntType const* type,

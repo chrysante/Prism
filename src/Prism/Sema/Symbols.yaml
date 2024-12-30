@@ -15,9 +15,6 @@ symbols:
   - name: SourceFile
     base: Symbol
 
-  - name: GenericContext
-    base: Symbol
-
   - name: FuncParam
     base: Symbol
 

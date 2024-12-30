@@ -37,7 +37,8 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
                              globalScope __VA_OPT__(, ) __VA_ARGS__);
 #include "Prism/Sema/Builtins.def"
     ctx.makeBuiltin<Trait>(BuiltinSymbol::Type, "type",
-                           /* facet: */ nullptr, globalScope);
+                           /* facet: */ nullptr, globalScope, nullptr,
+                           std::nullopt);
 }
 
 static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
@@ -78,28 +79,33 @@ struct GloablDeclDeclare: InstantiationBase {
     }
 
     Symbol* declare(Facet const* facet, Scope* scope) {
-        if (!facet) return;
+        if (!facet) return nullptr;
         return visit(*facet, FN1(&, doDeclare(_1, scope)));
     }
 
     Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
 
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent) {
-        parent = makeGenContextIfNecessary(facet.genParams(), parent);
+        auto [context, scope] = makeGenContext(facet.genParams(), parent);
         if (facet.body() && isa<CompoundFacet>(facet.body()))
-            return ctx.make<FunctionImpl>(getName(facet), &facet, parent);
-        else
-            return ctx.make<Function>(getName(facet), &facet, parent);
+            return ctx.make<FunctionImpl>(getName(facet), &facet, parent, scope,
+                                          std::move(context));
+        if (context)
+            PRISM_UNIMPLEMENTED(); // Can function declarations have generic
+                                   // parameters?!
+        return ctx.make<Function>(getName(facet), &facet, parent);
     }
 
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent) {
-        parent = makeGenContextIfNecessary(facet.genParams(), parent);
+        auto [context, scope] = makeGenContext(facet.genParams(), parent);
         auto* typeOrTrait = [&]() -> Symbol* {
             switch (facet.declarator().kind) {
             case TokenKind::Struct:
-                return ctx.make<StructType>(getName(facet), &facet, parent);
+                return ctx.make<StructType>(getName(facet), &facet, parent,
+                                            scope, std::move(context));
             case TokenKind::Trait:
-                return ctx.make<Trait>(getName(facet), &facet, parent);
+                return ctx.make<Trait>(getName(facet), &facet, parent, scope,
+                                       std::move(context));
             default:
                 PRISM_UNREACHABLE();
             }
@@ -109,7 +115,9 @@ struct GloablDeclDeclare: InstantiationBase {
     }
 
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent) {
-        auto* impl = ctx.make<TraitImpl>(&facet, parent, nullptr, nullptr);
+        auto [context, scope] = makeGenContext(facet.genParams(), parent);
+        auto* impl = ctx.make<TraitImpl>(&facet, parent, scope, nullptr,
+                                         nullptr, std::move(context));
         declareChildren(impl->associatedScope(),
                         cast<TraitImplTypeFacet const*>(facet.definition())
                             ->body()
@@ -125,21 +133,22 @@ struct GloablDeclDeclare: InstantiationBase {
                                           trait);
     }
 
-    Scope* makeGenContextIfNecessary(GenParamListFacet const* genParams,
-                                     Scope* parent) {
-        if (!genParams) return parent;
-        return makeGenContext(genParams, parent)->associatedScope();
-    }
+    struct GenCtxAnaResult {
+        std::optional<GenericContext> context;
+        Scope* scope;
+    };
 
-    GenericContext* makeGenContext(GenParamListFacet const* genParams,
+    /// Creates a generic context if \p genParams is not null. In this case a
+    /// scope for the generic symbol is created. Otherwise `{ std::nullopt,
+    /// nullptr }` is returned and the respective symbol creates its own scope.
+    GenCtxAnaResult makeGenContext(GenParamListFacet const* genParams,
                                    Scope* parent) {
-        auto* context = ctx.make<GenericContext>(genParams, parent);
-        auto* genScope = context->associatedScope();
-        for (auto* paramFacet: genParams->children()) {
-            auto* param = declare(paramFacet, genScope);
-            context->addParam(param);
-        }
-        return context;
+        if (!genParams) return {};
+        auto* scope = ctx.make<Scope>(parent);
+        return { GenericContext(genParams->children() |
+                                transform(FN1(&, declare(_1, scope))) |
+                                ToSmallVector<>),
+                 scope };
     }
 };
 
@@ -192,8 +201,6 @@ struct GlobalNameResolver: InstantiationBase {
             declareGlobalVar(sourceFile.associatedScope(), *decl);
         resolveChildren(sourceFile);
     }
-
-    void doResolve(GenericContext& genContext) { resolveChildren(genContext); }
 
     void doResolve(TraitImpl& impl) {
         auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());

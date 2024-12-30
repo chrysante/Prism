@@ -31,10 +31,16 @@ struct S: Foo {
 
 */
 
-trait [To: type] ConvTo {
+trait [To: type] ConvertibleTo {
     fn convert(&this) -> To;
 }
 
-fn foo(arg: i32) {}
+// fn [T: ConvertibleTo(i32)] foo(arg: T) {}
 
-fn [To: type] foo(arg: To) {}
+//struct S {}
+//
+//impl ConvertibleTo(i32) for S {
+//    fn convert(&this) -> i32 { return 42; }
+//}
+
+//fn test() { foo(S{}); }

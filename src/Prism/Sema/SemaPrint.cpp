@@ -324,10 +324,6 @@ struct SymbolPrinter {
 
     void printImpl(Value const& value) { str << valueDecl(value); }
 
-    void printImpl(GenericContext const& genContext) {
-        printChildren(genContext.associatedScope(), StmtOpt);
-    }
-
     void printImpl(GenericTypeParam const& param) {
         str << Keyword("genparam") << " " << fmtName(param) << ": "
             << fmtName(param.trait());

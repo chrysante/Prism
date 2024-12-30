@@ -106,10 +106,6 @@ Symbol* AnaContext::analyzeCall(Symbol& sym, std::span<Symbol* const> args) {
     return visit(sym, FN1(&, doAnalyzeCall(_1, args)));
 }
 
-static GenericContext const* getGenCtx(Symbol const& symbol) {
-    return dyncast<GenericContext const*>(symbol.parentScope()->assocSymbol());
-}
-
 static bool conformsTo(ValueType const&, Trait const& trait) {
     if (trait.name() == "type") // Ugh, how to we fix this?!
         return true;            // All types conform to the `type` trait
@@ -117,7 +113,7 @@ static bool conformsTo(ValueType const&, Trait const& trait) {
 }
 
 Symbol* AnaContext::doAnalyzeCall(Trait& trait, std::span<Symbol* const> args) {
-    auto* genContext = getGenCtx(trait);
+    auto* genContext = trait.genericContext();
     if (!genContext) PRISM_UNIMPLEMENTED();
     auto params = genContext->params();
     if (args.size() != params.size()) PRISM_UNIMPLEMENTED();
