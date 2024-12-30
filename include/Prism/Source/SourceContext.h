@@ -40,10 +40,9 @@ public:
                            std::string_view source):
         p(std::move(filepath)), src(source) {}
 
-    SourceLocation getSourceLocation(uint32_t index) const {
-        buildSourceLocationMapLazy();
-        return (*locMap)[index];
-    }
+    SourceLocation getSourceLocation(uint32_t index) const;
+
+    FullSourceRange getFullSourceRange(SourceRange range) const;
 
     std::filesystem::path const& filepath() const { return p; }
 

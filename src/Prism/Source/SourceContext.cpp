@@ -28,3 +28,15 @@ SourceLocation SourceLocationMap::operator[](uint32_t index) const {
              .line = itr->second,
              .column = index - lineBeginIdx };
 }
+
+SourceLocation SourceContext::getSourceLocation(uint32_t index) const {
+    buildSourceLocationMapLazy();
+    return (*locMap)[index];
+}
+
+FullSourceRange SourceContext::getFullSourceRange(SourceRange range) const {
+    auto [index, len] = range;
+    auto begin = getSourceLocation(index);
+    auto end = getSourceLocation(index + len);
+    return FullSourceRange{ this, begin, end };
+}

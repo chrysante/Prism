@@ -39,10 +39,7 @@ struct VolatileList: std::span<T> {
 struct ParserBase {
     explicit ParserBase(MonotonicBufferResource& alloc,
                         SourceContext const& sourceCtx, IssueHandler& iss):
-        alloc(alloc),
-        sourceCtx(sourceCtx),
-        iss(iss),
-        lexer(sourceCtx.source(), iss) {}
+        alloc(alloc), sourceCtx(sourceCtx), iss(iss), lexer(sourceCtx, iss) {}
 
     // MARK: Facet allocation
     template <typename T, typename... Args>
@@ -98,13 +95,14 @@ struct ParserBase {
     // MARK: Issue
     ///
     template <std::derived_from<Issue> I, typename... Args>
-        requires std::constructible_from<I, Args&&...>
+        requires std::constructible_from<I, SourceContext const&, Args&&...>
     void raise(Args&&... args) {
-        iss.push<I>(std::forward<Args>(args)...);
+        iss.push<I>(sourceCtx, std::forward<Args>(args)...);
     }
 
     template <std::derived_from<Issue> I, typename... Args>
-        requires std::constructible_from<I, Token, Args&&...>
+        requires std::constructible_from<I, SourceContext const&, Token,
+                                         Args&&...>
     auto Raise(Args&&... args) {
         return [... args = std::forward<Args>(args), this](Token token) {
             raise<I>(token, args...);

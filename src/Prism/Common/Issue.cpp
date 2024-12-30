@@ -17,6 +17,21 @@ void Issue::format(std::ostream& str, SourceContext const* ctx) const {
     formatImpl(fmt, ctx);
 }
 
+std::optional<FullSourceRange> Issue::sourceRange() const {
+    auto* ctx = sourceContext();
+    if (!ctx) return std::nullopt;
+    return ctx->getFullSourceRange(_sourceRange);
+}
+
+Issue::Issue(Kind kind, std::optional<SourceRange> sourceRange,
+             SourceContext const* context):
+    _kind(kind),
+    _sourceRange(sourceRange.value_or(SourceRange{})),
+    _sourceContext(context) {
+    PRISM_ASSERT((bool)context == sourceRange.has_value(),
+                 "We must have a source range iff. we have a context");
+}
+
 static auto fmt(Issue::Kind kind) {
     return utl::streammanip([=](std::ostream& str) {
         using enum Issue::Kind;
@@ -87,12 +102,13 @@ void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
     str << fmt(kind());
     auto range = sourceRange();
     PRISM_ASSERT(!range || ctx);
-    if (range) str << fmt(ctx->getSourceLocation(range->index)) << " ";
+    if (range) str << fmt(range->begin) << " ";
     header(str, ctx);
     str << "\n";
     if (range) {
-        treeFmt.writeDetails(children().empty(),
-                             [&] { printSourceRange(*ctx, *range, str); });
+        treeFmt.writeDetails(children().empty(), [&] {
+            printSourceRange(*ctx, range->slim(), str);
+        });
     }
     treeFmt.writeChildren(children(), [&](Issue const* child) {
         child->formatImpl(treeFmt, ctx);

@@ -49,6 +49,10 @@ PRISM_DEFINE_ENUM_FUNCTIONS(BuiltinSymbol)
 
 bool isBuiltinSymbol(Symbol const& symbol);
 
+/// \Returns the source context in which this symbol is defined or null if it's
+/// compiler defined
+SourceContext const* getSourceContext(Symbol const* sym);
+
 } // namespace prism
 
 #endif // PRISM_SEMA_SEMAFWD_H

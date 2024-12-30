@@ -82,7 +82,7 @@ static std::ostream& operator<<(std::ostream& str, VarType const& type) {
     std::visit(csp::overload{
         [&](FacetType type) { str << type; },
         [&](TokenKind type) { str << type; },
-        [&](NullNodeT type) { str << "null"; }
+        [&](NullNodeT) { str << "null"; }
     }, type); // clang-format on
     return str;
 }
@@ -130,13 +130,11 @@ static SourceContext gCtx;
 static IssueHandler gIssueHandler;
 
 static bool matchIssue(ExpectedIssue const& expIss,
-                       utl::hashset<Issue const*>& issues,
-                       SourceContext const& ctx) {
+                       utl::hashset<Issue const*>& issues) {
     for (auto itr = issues.begin(); itr != issues.end(); ++itr) {
         auto& issue = **itr;
         if (!expIss.checkType(&issue)) continue;
-        auto sourceLoc =
-            ctx.getSourceLocation(issue.sourceRange().value().index);
+        auto sourceLoc = issue.sourceRange().value().begin;
         if (sourceLoc.line != expIss.line) continue;
         if (expIss.column && sourceLoc.column != *expIss.column) continue;
         issues.erase(itr);
@@ -150,7 +148,7 @@ bool AstRefNode::verifyIssues() const {
                   ranges::to<utl::hashset<Issue const*>>;
     bool result = true;
     for (auto* expIssue: expectedIssues) {
-        if (!matchIssue(*expIssue, issues, gCtx)) {
+        if (!matchIssue(*expIssue, issues)) {
             result = false;
             gIssueMatchErrors.push_back([=](std::ostream& str) {
                 str << "Failed to match expected issue: " << *expIssue

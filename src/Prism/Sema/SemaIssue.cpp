@@ -44,14 +44,16 @@ static std::optional<SourceRange> getSourceRange(Facet const* facet) {
 
 SemaIssue::SemaIssue(Issue::Kind kind, SourceContext const* ctx,
                      Facet const* facet):
-    Issue(kind, getSourceRange(facet)), ctx(ctx), fct(facet) {}
+    Issue(kind, getSourceRange(facet), ctx), fct(facet) {}
 
-SemaNote* SemaIssue::addNote(Facet const* facet, utl::vstreammanip<> impl) {
-    return addChild<SemaNote>(sourceContext(), facet, std::move(impl));
+SemaNote* SemaIssue::addNote(SourceContext const* sourceContext,
+                             Facet const* facet, utl::vstreammanip<> impl) {
+    return addChild<SemaNote>(sourceContext, facet, std::move(impl));
 }
 
-SemaHint* SemaIssue::addHint(Facet const* facet, utl::vstreammanip<> impl) {
-    return addChild<SemaHint>(sourceContext(), facet, std::move(impl));
+SemaHint* SemaIssue::addHint(SourceContext const* sourceContext,
+                             Facet const* facet, utl::vstreammanip<> impl) {
+    return addChild<SemaHint>(sourceContext, facet, std::move(impl));
 }
 
 SemaMessage::SemaMessage(Issue::Kind kind, SourceContext const* ctx,
@@ -120,7 +122,7 @@ static void TypeDefCycleNotes(TypeDefCycle& issue,
                     << " through member " << formatName(*mid);
             };
         };
-        issue.addNote(sym->facet(), fmt());
+        issue.addNote(getSourceContext(sym), sym->facet(), fmt());
     }
     issue.addHint([=](std::ostream& str) {
         str << "Use pointer members to break strong dependencies";

@@ -23,7 +23,8 @@ Token Lexer::next() {
             if (errBegin) {
                 uint16_t errLen = utl::narrow_cast<uint16_t>(begin - *errBegin);
                 iss.push<LexicalIssue>(LexicalIssue::InvalidCharacterSequence,
-                                       SourceRange{ *errBegin, errLen });
+                                       SourceRange{ *errBegin, errLen },
+                                       sourceContext);
             }
             return *tok;
         }
@@ -159,7 +160,8 @@ std::optional<Token> Lexer::lexStringLiteralImpl(TokenKind kind,
         if (!valid() || current() == '\n') {
             iss.push<LexicalIssue>(LexicalIssue::UnterminatedStringLiteral,
                                    SourceRange{ begin,
-                                                (uint32_t)(index - begin) });
+                                                (uint32_t)(index - begin) },
+                                   sourceContext);
             return Token{ kind, (uint16_t)(index - begin), begin };
         }
         if (current(index - 1) != '\\' && match(endDelim))
@@ -185,7 +187,8 @@ std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
         if (!valid() || !std::invoke(isValidChar, current())) {
             iss.push<LexicalIssue>(LexicalIssue::InvalidNumericLiteral,
                                    SourceRange{ begin,
-                                                (uint32_t)prefix.size() });
+                                                (uint32_t)prefix.size() },
+                                   sourceContext);
             return std::nullopt;
         }
     }

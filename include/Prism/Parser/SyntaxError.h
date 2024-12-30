@@ -12,8 +12,8 @@ namespace prism {
 /// Base class of all syntax issues
 class SyntaxError: public Issue {
 protected:
-    explicit SyntaxError(Token tok):
-        Issue(Issue::Error, tok.getSourceRange()) {}
+    explicit SyntaxError(SourceContext const& sourceContext, Token tok):
+        Issue(Issue::Error, tok.getSourceRange(), &sourceContext) {}
 };
 
 } // namespace prism
@@ -35,10 +35,12 @@ namespace prism {
 #define SYNTAX_ISSUE_DEF(Name, Base, CtorArgs, FmtImpl)                        \
     class Name: public Base {                                                  \
     public:                                                                    \
-        explicit Name(PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
+        explicit Name(SourceContext const& sourceContext,                      \
+                      PRISM_FOR_EACH(PRISM_PARAM_DECLARE, PRISM_COMMA,         \
                                      PRISM_REMOVE_PARENS CtorArgs)):           \
-            Base(tok) PRISM_FOR_EACH(PRISM_PARAM_INIT, PRISM_NONE,             \
-                                     PRISM_REMOVE_PARENS CtorArgs) {}          \
+            Base(sourceContext, tok)                                           \
+                PRISM_FOR_EACH(PRISM_PARAM_INIT, PRISM_NONE,                   \
+                               PRISM_REMOVE_PARENS CtorArgs) {}                \
                                                                                \
     private:                                                                   \
         void header(std::ostream& os,                                          \

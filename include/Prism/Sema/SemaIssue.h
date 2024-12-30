@@ -24,30 +24,39 @@ public:
         return dyncast<F const*>(facet());
     }
 
-    ///
-    SourceContext const* sourceContext() const { return ctx; }
-
     /// Adds a descriptive note
-    SemaNote* addNote(Facet const* facet, utl::vstreammanip<> impl);
+    SemaNote* addNote(Facet const* facet, utl::vstreammanip<> impl) {
+        return addNote(sourceContext(), facet, std::move(impl));
+    }
+
+    /// \overload Use this overload to provide a facet if the original
+    /// diagnonistic has no source context
+    SemaNote* addNote(SourceContext const* sourceContext, Facet const* facet,
+                      utl::vstreammanip<> impl);
 
     /// \overload
     SemaNote* addNote(utl::vstreammanip<> impl) {
-        return addNote(nullptr, std::move(impl));
+        return addNote(nullptr, nullptr, std::move(impl));
     }
 
     /// Adds a hint
-    SemaHint* addHint(Facet const* facet, utl::vstreammanip<> impl);
+    SemaHint* addHint(Facet const* facet, utl::vstreammanip<> impl) {
+        return addHint(sourceContext(), facet, std::move(impl));
+    }
+
+    /// \overload
+    SemaHint* addHint(SourceContext const* sourceContext, Facet const* facet,
+                      utl::vstreammanip<> impl);
 
     /// \overload
     SemaHint* addHint(utl::vstreammanip<> impl) {
-        return addHint(nullptr, std::move(impl));
+        return addHint(nullptr, nullptr, std::move(impl));
     }
 
 protected:
     SemaIssue(Issue::Kind kind, SourceContext const* ctx, Facet const* facet);
 
 private:
-    SourceContext const* ctx;
     Facet const* fct;
 };
 

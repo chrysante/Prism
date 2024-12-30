@@ -32,11 +32,11 @@ public:
     ///
     Kind kind() const { return _kind; }
 
+    /// \Returns the source context in which this diagnostic was generated
+    SourceContext const* sourceContext() const { return _sourceContext; }
+
     /// \Returns the position in the source code where this issue occurred
-    std::optional<SourceRange> sourceRange() const {
-        if (_hasSourceRange) return _sourceRange;
-        return std::nullopt;
-    }
+    std::optional<FullSourceRange> sourceRange() const;
 
     /// \Returns a view over the child issues
     auto children() const {
@@ -58,10 +58,8 @@ public:
     }
 
 protected:
-    explicit Issue(Kind kind, std::optional<SourceRange> sourceRange):
-        _kind(kind),
-        _hasSourceRange(sourceRange.has_value()),
-        _sourceRange(sourceRange.value_or(SourceRange{})) {}
+    explicit Issue(Kind kind, std::optional<SourceRange> sourceRange,
+                   SourceContext const* context);
 
 private:
     /// A single line message that sums up the issue
@@ -70,8 +68,8 @@ private:
     void formatImpl(TreeFormatter& fmt, SourceContext const* ctx) const;
 
     Kind _kind;
-    bool _hasSourceRange;
     SourceRange _sourceRange;
+    SourceContext const* _sourceContext;
     std::vector<std::unique_ptr<Issue>> _children;
 };
 

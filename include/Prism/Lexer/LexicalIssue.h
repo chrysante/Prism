@@ -21,7 +21,8 @@ public:
 #undef X
     };
 
-    explicit LexicalIssue(Reason reason, SourceRange sourceRange);
+    explicit LexicalIssue(Reason reason, SourceRange sourceRange,
+                          SourceContext const& sourceContext);
 
     Reason reason() const { return _reason; }
 
