@@ -4,6 +4,7 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/IssueHandler.h"
+#include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
@@ -69,13 +70,9 @@ struct ConformanceAnalysisContext: AnalysisBase {
             matches.front()->addConformance(&func, SpecAddMode::Define);
             return;
         }
-        auto* issue =
-            iss.push<AmbiguousConformance>(sourceContext, func.facet(), &func);
-        for (auto* sym: matches | transform(FN1(_1->symbol())))
-            issue->addNote(sym->facet(), [=](std::ostream& str) {
-                str << "Declaration matches "
-                    << formatDecl(sym, { .primaryQualified = true });
-            });
+        iss.push<AmbiguousConformance>(sourceContext, func.facet(), &func,
+                                       matches |
+                                           ToSmallVector<Obligation const*>);
     }
 
     void analyzeConformances(InterfaceLike& interface, Scope* scope) {
@@ -95,45 +92,17 @@ struct ConformanceAnalysisContext: AnalysisBase {
     }
 
     void verifyComplete(InterfaceLike const& interface, Symbol const& symbol) {
-        if (interface.isComplete()) return;
-        auto* issue =
-            iss.push<IncompleteImpl>(sourceContext, symbol.facet(), &symbol);
-        for (auto& [key, list]: interface.obligations()) {
-            for (auto* obl: list) {
-                auto confs = obl->conformances();
-                auto* sym = obl->symbol();
-                if (confs.empty()) {
-                    issue->addNote(sym->facet(), [=](std::ostream& str) {
-                        str << "Missing implementation for "
-                            << formatDecl(sym, { .primaryQualified = true });
-                    });
-                    continue;
-                }
-                if (confs.size() == 1) continue;
-                auto* note =
-                    issue->addNote(sym->facet(), [=](std::ostream& str) {
-                    str << "Multiple implementations for "
-                        << formatDecl(sym, { .primaryQualified = true });
-                });
-                for (auto* conf: confs)
-                    note->addNote(conf->facet(), [=](std::ostream& str) {
-                        str << "Implemented by "
-                            << formatDecl(conf, { .primaryQualified = true });
-                    });
-            }
-        }
+        if (!interface.isComplete())
+            iss.push<IncompleteImpl>(sourceContext, symbol.facet(), &symbol,
+                                     interface);
     }
 
     void analyze(TraitImpl& impl) {
         if (!impl.trait() || !impl.conformingType()) return;
         if (auto* existing = impl.conformingType()->findTraitImpl(impl.trait()))
         {
-            auto* issue = iss.push<DuplicateTraitImpl>(sourceContext,
-                                                       impl.Symbol::facet(),
-                                                       &impl);
-            issue->addNote(existing->Symbol::facet(), [=](std::ostream& str) {
-                str << "Existing implementation is here";
-            });
+            iss.push<DuplicateTraitImpl>(sourceContext, impl.Symbol::facet(),
+                                         &impl, existing);
             return;
         }
         inherit(*impl.trait(), impl);

@@ -13,18 +13,7 @@ explicit {{ issue.name }}(
         {{ comma_if_members }}
     {%- endif %}
         {{- issue.members | map('issue_member_ctor_param') | join(', ') -}}
-    ): SemaIssue(
-            Issue::{{ issue.kind }},
-    {% if not issue.no_source %}
-            ctx, facet
-    {% else %}
-            nullptr, nullptr
-    {% endif %}
-        )
-        {{ comma_if_members }}
-    {{- issue.members | map('issue_member_ctor_init') | join(', ') -}}
-        {}
-
+    );
 {% endmacro %}
 
 {% macro define_issue_class(issue) %}
@@ -39,7 +28,9 @@ private:
     void header(std::ostream& str, SourceContext const* ctx) const override;
 
     {% for member in issue.members %}
+        {% if not member.ctor_only %}
     {{ member.type }} {{ member.name }};
+        {% endif %}
     {% endfor %}
     
 {% endif %}

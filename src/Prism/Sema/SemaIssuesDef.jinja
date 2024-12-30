@@ -1,15 +1,39 @@
 
-{% macro define_issue_class(issue) %}
+{% macro define_ctor(issue) %}
+
+{{ issue.name }}::{{ issue.name }}(
+    {% if not issue.no_source -%}
+    SourceContext const* ctx, Facet const* facet
+        {% if issue.members %},{% endif %}
+    {%- endif %}
+        {{- issue.members | map('issue_member_ctor_param') | join(', ') -}}
+    ): SemaIssue(
+            Issue::{{ issue.kind }},
+    {% if not issue.no_source %}
+            ctx, facet
+    {% else %}
+            nullptr, nullptr
+    {% endif %}
+        )
+        {% set init_members = issue.members | rejectattr('ctor_only') | list %}
+        {% if init_members %},{% endif %}
+    {{- init_members | map('issue_member_ctor_init') | join(', ') -}}
+        { {{ issue.ctor_body }} }
+
+{% endmacro %}
+
+{% macro define_header(issue) %}
     {% if not issue.abstract %}
-void {{ issue.name }}::header(std::ostream& str, [[maybe_unused]] SourceContext const* ctx) const {
+void {{ issue.name }}::header(std::ostream& str,
+                              [[maybe_unused]] SourceContext const* ctx) const {
     {{ issue.header }}
 }
     {% endif %}
 {% endmacro %}
 
-
 {% for issue in issues %}
 {% if not issue.decl_only %}
-{{ define_issue_class(issue) }}
+{{ define_ctor(issue) }}
+{{ define_header(issue) }}
 {% endif %}
 {% endfor %}

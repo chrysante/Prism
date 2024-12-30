@@ -390,33 +390,6 @@ static void instantiateSymbol(SemaContext& ctx, IssueHandler& iss,
     visit(*symbol, [&](auto& symbol) { instctx.instantiate(symbol); });
 }
 
-static std::unique_ptr<TypeDefCycle> makeCycleError(
-    std::span<Symbol const* const> cycle) {
-    auto error = std::make_unique<TypeDefCycle>();
-    for (auto itr = cycle.begin(); itr < cycle.end() - 1; ++itr) {
-        auto* sym = *itr;
-        auto fmt = [&]() -> std::function<void(std::ostream&)> {
-            auto* dep = *std::next(itr);
-            if (!isa<MemberSymbol>(dep) || std::next(itr) >= cycle.end() - 1)
-                return FN1(=, _1 << formatName(*sym) << " depends on "
-                                 << formatName(*dep));
-            ++itr;
-            auto* mid = *itr;
-            dep = *std::next(itr);
-            if (isa<BaseClass>(mid))
-                return FN1(=, _1 << formatName(*sym) << " depends on "
-                                 << formatName(*dep) << " through inheritance");
-            return FN1(=, _1 << formatName(*sym) << " depends on "
-                             << formatName(*dep) << " through member "
-                             << formatName(*mid));
-        }();
-        error->addNote(sym->facet(), std::move(fmt));
-    }
-    error->addHint(
-        FN1(=, _1 << "Use pointer members to break strong dependencies"));
-    return error;
-}
-
 ConstructionResult prism::constructTarget(
     MonotonicBufferResource& resource, SemaContext& ctx, IssueHandler& iss,
     std::span<SourceFilePair const> input) {
@@ -427,7 +400,7 @@ ConstructionResult prism::constructTarget(
         resolveGlobalNames(resource, ctx, iss, target->associatedScope());
     dependencies.topsort();
     if (dependencies.hasCycle()) {
-        iss.push(makeCycleError(dependencies.getCycle()));
+        iss.push<TypeDefCycle>(dependencies.getCycle());
         return ConstructionResult::Fatal(target);
     }
     for (auto* symbol: dependencies.getTopoOrder() | ranges::views::reverse)

@@ -14,21 +14,6 @@
 
 using namespace prism;
 
-static Facet const* getDeclName(Facet const* facet) {
-    if (!facet) return nullptr;
-    return visit(*facet, [](auto const& facet) -> Facet const* {
-        if constexpr (requires { facet.nameFacet(); }) {
-            return facet.nameFacet();
-        }
-        else if constexpr (requires { facet.name(); }) {
-            return facet.name();
-        }
-        else {
-            return &facet;
-        }
-    });
-}
-
 namespace {
 
 struct AnaContext: AnalysisBase {
@@ -46,15 +31,7 @@ struct AnaContext: AnalysisBase {
         auto name = sourceContext->getTokenStr(id.token());
         auto symbols = unqualifiedLookup(scope, name);
         if (!symbols.success()) {
-            auto* issue = iss.push<UndeclaredID>(sourceContext, &id);
-            if (auto* similar = symbols.similar()) {
-                auto* note =
-                    issue->addNote(FN1(=, _1 << "Did you mean \'"
-                                             << formatName(*similar) << "\'?"));
-                if (auto* nameFct = getDeclName(similar->facet()))
-                    note->addNote(nameFct, FN1(=, _1 << formatName(*similar)
-                                                     << " declared here"));
-            }
+            iss.push<UndeclaredID>(sourceContext, &id, symbols.similar());
             return nullptr;
         }
         if (symbols.isSingleSymbol()) return symbols.singleSymbol();

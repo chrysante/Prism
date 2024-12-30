@@ -21,9 +21,5 @@ trait Foo: Foo1, Foo2 {
 struct S {}
 
 impl Foo for S {
-    fn bar(&this) {}
-}
-
-impl Foo for S {
-    fn bar(&this) {}
+///    fn bar(&this) {}
 }

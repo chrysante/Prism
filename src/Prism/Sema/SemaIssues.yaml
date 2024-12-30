@@ -3,6 +3,10 @@ issues:
   - name: UndeclaredID
     base: SemaIssue
     kind: Error
+    members:
+      - name: similar
+        type: Symbol const*
+    ctor_body: UndeclaredIDNotes(*this, similar);
     header: >
       str << "Use of undeclared identifier '" << getID(facet(), sourceContext())
           << "'";
@@ -12,6 +16,11 @@ issues:
     kind: Error
     comment: 'Cyclic structure definition'
     no_source: true
+    members:
+      - name: cycle
+        type: std::span<Symbol const* const>
+        ctor_only: true
+    ctor_body: TypeDefCycleNotes(*this, cycle);
     header: >
       str << "Detected a cycle in a type definition:";
 
@@ -39,6 +48,10 @@ issues:
     members:
       - name: sym
         type: Symbol const*
+      - name: matches
+        type: std::span<Obligation const* const>
+        ctor_only: true
+    ctor_body: AmbiguousConformanceNotes(*this, matches);
     header: >
       str << "Ambiguous conformance of "
           << formatDecl(sym, { .primaryQualified = true });
@@ -49,6 +62,10 @@ issues:
     members:
       - name: impl
         type: Symbol const*
+      - name: interface
+        type: InterfaceLike const&
+        ctor_only: true
+    ctor_body: IncompleteImplNotes(*this, interface);
     header: >
       str << "Incomplete trait implementation " << formatDecl(impl);
 
@@ -58,5 +75,9 @@ issues:
     members:
       - name: impl
         type: Symbol const*
+      - name: existing
+        type: Symbol const*
+        ctor_only: true
+    ctor_body: DuplicateTraitImplNotes(*this, existing);
     header: >
       str << "Duplicate trait implementation " << formatDecl(impl);

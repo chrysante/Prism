@@ -11,6 +11,8 @@ namespace prism {
 
 class SourceFileFacet;
 class SourceContext;
+class Obligation;
+class InterfaceLike;
 
 struct SourceFilePair {
     SourceFileFacet const* facet;
