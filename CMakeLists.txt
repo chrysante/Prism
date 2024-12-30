@@ -60,6 +60,7 @@ endfunction()
 
 CPMAddPackage("gh:chrysante/csp#main")
 CPMAddPackage("gh:chrysante/utility#main")
+CPMAddPackage("gh:chrysante/APMath#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
 CPMAddPackage("gh:chrysante/graphgen#main")
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
@@ -230,6 +231,7 @@ target_link_libraries(Prism
     range-v3 
     csp 
     utility
+    APMath
     magic_enum
   PRIVATE
     termfmt

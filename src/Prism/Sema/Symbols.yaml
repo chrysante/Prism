@@ -122,6 +122,13 @@ symbols:
 
   - name: FuncArg
     base: Value
+  
+  - name: LiteralValue
+    base: Value
+    abstract: true
+
+  - name: IntLiteral
+    base: LiteralValue
 
   - name: Variable
     base: Value
@@ -129,9 +136,9 @@ symbols:
   - name: ValueAlias
     base: Value
 
-  - name: Computation
+  - name: Instruction
     base: Value
     abstract: true
 
-  - name: ArithmeticComputation
+  - name: RetInst
     base: Value

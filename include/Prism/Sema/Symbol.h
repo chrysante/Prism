@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <APMath/APInt.h>
 #include <utl/hashtable.hpp>
 #include <utl/vector.hpp>
 
@@ -32,6 +33,7 @@ class SourceContext;
 class SemaContext;
 class Obligation;
 class Conformance;
+using APMath::APInt;
 
 class Symbol {
 public:
@@ -590,9 +592,22 @@ public:
     FACET_TYPE(ParamDeclFacet)
 };
 
-class GenericValueArg: public Value {};
+class LiteralValue: public Value {
+protected:
+    using Value::Value;
+};
 
-class GenericTypeArg: public ValueType {};
+class IntLiteral: public LiteralValue {
+public:
+    explicit IntLiteral(Facet const* facet, APInt value, IntType const* type);
+
+    APInt const& value() const { return _value; }
+
+    std::string valueAsString(int base = 10) const;
+
+private:
+    APInt _value;
+};
 
 class Variable: public Value {
 public:
@@ -608,7 +623,7 @@ class ValueAlias: public Value {
 public:
 };
 
-class Computation: public Value {
+class Instruction: public Value {
 public:
     std::span<Value* const> operands() { return _operands; }
 
@@ -624,7 +639,7 @@ public:
     }
 
 protected:
-    Computation(SymbolType symType, std::string name, Facet const* facet,
+    Instruction(SymbolType symType, std::string name, Facet const* facet,
                 Scope* parent, QualType type, ValueCat valueCat,
                 utl::small_vector<Value*, 2> operands):
         Value(symType, std::move(name), facet, parent, type, valueCat),
@@ -634,28 +649,12 @@ private:
     utl::small_vector<Value*, 2> _operands;
 };
 
-class ArithmeticComputation: public Computation {
+class RetInst: public Instruction {
 public:
-    explicit ArithmeticComputation(std::string name, Facet const* facet,
-                                   Scope* parent, ArithmeticOperation operation,
-                                   Value* RHS, Value* LHS):
-        Computation(SymbolType::ArithmeticComputation, std::move(name), facet,
-                    parent, LHS->type(), ValueCat::RValue, { LHS, RHS }),
-        op(operation) {
-        PRISM_ASSERT(LHS->type().get() == RHS->type().get(),
-                     "Operands must have the same type");
-    }
+    explicit RetInst(Scope* parent, Facet const* facet, Value* retval);
 
-    ArithmeticOperation operation() const { return op; }
-
-    Value* RHS() { return operandAt(0); }
-    Value const* RHS() const { return operandAt(0); }
-
-    Value* LHS() { return operandAt(1); }
-    Value const* LHS() const { return operandAt(1); }
-
-private:
-    ArithmeticOperation op;
+    Value* retval() { return operandAt(0); }
+    Value const* retval() const { return operandAt(0); }
 };
 
 } // namespace prism

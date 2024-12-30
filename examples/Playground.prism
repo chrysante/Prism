@@ -1,4 +1,4 @@
-
+/*
 trait FooBase {
     fn foo(&this);
     fn bar(&this);
@@ -25,4 +25,9 @@ struct Base {
 struct S: Foo {
     fn bar(&this) { barImpl() }
     fn barImpl(&this) {}
+}
+*/
+
+fn foo() {
+    return 42;
 }

@@ -12,7 +12,19 @@ namespace prism {
 /// Const/mutable qualified value type
 class QualType {
 public:
+    QualType(): QualType(nullptr, {}) {}
+
     QualType(ValueType const* type, Mutability mut): p(type, (unsigned)mut) {}
+
+    /// Static constructor for const qualtypes
+    static QualType Const(ValueType const* type) {
+        return QualType(type, Mutability::Const);
+    }
+
+    /// Static constructor for mutable qualtypes
+    static QualType Mut(ValueType const* type) {
+        return QualType(type, Mutability::Mut);
+    }
 
     /// \Return the type pointer
     ValueType const* get() const { return p.pointer(); }

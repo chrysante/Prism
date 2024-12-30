@@ -386,6 +386,15 @@ struct SymbolPrinter {
     void printImpl(MemberSymbol const& member) { str << fmtDecl(member); }
 
     void printImpl(BaseTrait const& base) { str << fmtDecl(base); }
+
+    void printImpl(IntLiteral const& lit) {
+        str << tfmt::format(tfmt::Yellow, lit.valueAsString());
+    }
+
+    void printImpl(RetInst const& ret) {
+        str << Keyword("return") << " ";
+        if (ret.retval()) print(ret.retval());
+    }
 };
 
 } // namespace

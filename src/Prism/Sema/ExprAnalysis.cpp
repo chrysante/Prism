@@ -38,6 +38,13 @@ struct AnaContext: AnalysisBase {
         PRISM_UNIMPLEMENTED();
     }
 
+    IntLiteral* analyzeIntLiteral(TerminalFacet const& term, int base) {
+        auto str = sourceContext->getTokenStr(term.token());
+        auto value = APInt::parse(str, base, 32);
+        if (!value) PRISM_UNIMPLEMENTED();
+        return ctx.make<IntLiteral>(&term, *std::move(value), ctx.getInt32());
+    }
+
     Symbol* analyzeImpl(TerminalFacet const& term) {
         switch (term.token().kind) {
 #define SEMA_BUILTIN_TYPE(Name, Spelling, SymType, ...)                        \
@@ -46,6 +53,12 @@ struct AnaContext: AnalysisBase {
 #include "Prism/Sema/Builtins.def"
         case TokenKind::Identifier:
             return analyzeID(term);
+        case TokenKind::IntLiteralBin:
+            return analyzeIntLiteral(term, 2);
+        case TokenKind::IntLiteralDec:
+            return analyzeIntLiteral(term, 10);
+        case TokenKind::IntLiteralHex:
+            return analyzeIntLiteral(term, 16);
         default:
             PRISM_UNIMPLEMENTED();
         }

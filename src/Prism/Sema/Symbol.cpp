@@ -1,5 +1,7 @@
 #include "Prism/Sema/Symbol.h"
 
+#include <utl/strcat.hpp>
+
 #include "Prism/Sema/Contracts.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
@@ -77,3 +79,25 @@ FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
     AssocScope(ctx.make<Scope>(parent), this) {
     setSymbolType(SymbolType::FunctionImpl);
 }
+
+static std::string valueAsStrImpl(APInt const& value, IntType const* type,
+                                  int base = 10) {
+    if (type && type->isSigned())
+        return value.signedToString(base);
+    else
+        return value.toString(base);
+}
+
+IntLiteral::IntLiteral(Facet const* facet, APInt value, IntType const* type):
+    LiteralValue(SymbolType::IntLiteral,
+                 utl::strcat("int-lit: ", valueAsStrImpl(value, type)), facet,
+                 /* parent-scope: */ nullptr, QualType::Const(type), RValue),
+    _value(std::move(value)) {}
+
+std::string IntLiteral::valueAsString(int base) const {
+    return valueAsStrImpl(value(), cast<IntType const*>(type().get()), base);
+}
+
+RetInst::RetInst(Scope* parent, Facet const* facet, Value* retval):
+    Instruction(SymbolType::RetInst, /* name: */ {}, facet, parent, {},
+                ValueCat::RValue, { retval }) {}
