@@ -51,3 +51,12 @@ issues:
         type: Symbol const*
     header: >
       str << "Incomplete trait implementation " << formatDecl(impl);
+
+  - name: DuplicateTraitImpl
+    base: SemaIssue
+    kind: Error
+    members:
+      - name: impl
+        type: Symbol const*
+    header: >
+      str << "Duplicate trait implementation " << formatDecl(impl);

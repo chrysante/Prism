@@ -36,6 +36,11 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx.make<Scope>(parent), this) {}
 
+void CompositeType::setTraitImpl(TraitImpl& impl) {
+    auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
+    PRISM_ASSERT(success, "Duplicate implementation");
+}
+
 Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
              Scope* parent):
     Symbol(SymbolType::Trait, std::move(name), facet, parent),

@@ -23,3 +23,7 @@ struct S {}
 impl Foo for S {
     fn bar(&this) {}
 }
+
+impl Foo for S {
+    fn bar(&this) {}
+}

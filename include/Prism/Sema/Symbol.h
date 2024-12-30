@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <utl/hashtable.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Assert.h>
@@ -178,6 +179,21 @@ public:
     /// \overload
     std::span<MemberVar const* const> memberVars() const { return _memvars; }
 
+    /// \Returns the implementation for \p trait if it exists
+    TraitImpl* findTraitImpl(Trait const* trait) {
+        return const_cast<TraitImpl*>(
+            std::as_const(*this).findTraitImpl(trait));
+    }
+
+    /// \overload
+    TraitImpl const* findTraitImpl(Trait const* trait) const {
+        auto itr = _traitImpls.find(trait);
+        return itr != _traitImpls.end() ? itr->second : nullptr;
+    }
+
+    ///
+    void setTraitImpl(TraitImpl& impl);
+
 protected:
     using UserType::UserType;
 
@@ -187,6 +203,7 @@ private:
 
     std::vector<BaseClass*> _bases;
     std::vector<MemberVar*> _memvars;
+    utl::hashmap<Trait const*, TraitImpl*> _traitImpls;
 };
 
 /// User defined product type

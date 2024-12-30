@@ -125,9 +125,21 @@ struct ConformanceAnalysisContext: AnalysisBase {
     }
 
     void analyze(TraitImpl& impl) {
+        if (!impl.trait() || !impl.conformingType()) return;
+        if (auto* existing = impl.conformingType()->findTraitImpl(impl.trait()))
+        {
+            auto* issue = iss.push<DuplicateTraitImpl>(sourceContext,
+                                                       impl.Symbol::facet(),
+                                                       &impl);
+            issue->addNote(existing->Symbol::facet(), [=](std::ostream& str) {
+                str << "Existing implementation is here";
+            });
+            return;
+        }
         inherit(*impl.trait(), impl);
         analyzeConformances(impl, impl.associatedScope());
         verifyComplete(impl, impl);
+        impl.conformingType()->setTraitImpl(impl);
     }
 
     void analyze(CompositeType& type) {
