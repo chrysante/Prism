@@ -21,17 +21,32 @@ void print(Symbol const& symbol, std::ostream& ostream,
 /// Prints to `std::cerr`
 void print(Symbol const& symbol);
 
+/// Options for declaration formatting
+struct FmtDeclOptions {
+    bool primaryQualified = false;
+    bool secondaryQualified = false;
+};
+
 /// \Returns a stream manipulator writing the declaration of \p symbol
-utl::vstreammanip<> formatDecl(Symbol const& symbol);
+utl::vstreammanip<> formatDecl(Symbol const& symbol,
+                               FmtDeclOptions options = {});
 
 /// \overload for pointers
-utl::vstreammanip<> formatDecl(Symbol const* symbol);
+utl::vstreammanip<> formatDecl(Symbol const* symbol,
+                               FmtDeclOptions options = {});
+
+/// Options for name formatting
+struct FmtNameOptions {
+    bool qualified = false;
+};
 
 /// \Returns a stream manipulator writing the name of \p symbol
-utl::vstreammanip<> formatName(Symbol const& symbol);
+utl::vstreammanip<> formatName(Symbol const& symbol,
+                               FmtNameOptions options = {});
 
 /// \overload for pointers
-utl::vstreammanip<> formatName(Symbol const* symbol);
+utl::vstreammanip<> formatName(Symbol const* symbol,
+                               FmtNameOptions options = {});
 
 } // namespace prism
 

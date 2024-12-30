@@ -44,13 +44,6 @@ static bool isUser(Symbol const& sym) {
     return isa<UserType>(sym) || isa<Trait>(sym);
 }
 
-namespace {
-
-struct FmtNameOptions {
-    bool qualified = false;
-};
-
-} // namespace
 static void fmtName(QualType type, std::ostream& str,
                     FmtNameOptions options = {});
 static void fmtName(Symbol const* symbol, std::ostream& str,
@@ -124,29 +117,20 @@ static auto fmtName(Symbol const& symbol, FmtNameOptions options = {}) {
     return fmtName(&symbol, options);
 }
 
-namespace {
+static FmtDeclOptions asSecondary(FmtDeclOptions in) {
+    return {
+        .primaryQualified = in.secondaryQualified,
+        .secondaryQualified = in.secondaryQualified,
+    };
+}
 
-struct FmtDeclOptions {
-    bool primaryQualified = false;
-    bool secondaryQualified = false;
+static FmtNameOptions asPrimaryName(FmtDeclOptions in) {
+    return { .qualified = in.primaryQualified };
+}
 
-    FmtDeclOptions asSecondary() const {
-        return {
-            .primaryQualified = secondaryQualified,
-            .secondaryQualified = secondaryQualified,
-        };
-    }
-
-    FmtNameOptions asPrimaryName() const {
-        return { .qualified = primaryQualified };
-    }
-
-    FmtNameOptions asSecondaryName() const {
-        return { .qualified = secondaryQualified };
-    }
-};
-
-} // namespace
+static FmtNameOptions asSecondaryName(FmtDeclOptions in) {
+    return { .qualified = in.secondaryQualified };
+}
 
 static void fmtDecl(Symbol const* symbol, std::ostream& str,
                     FmtDeclOptions options);
@@ -157,64 +141,61 @@ static void fmtDeclImpl(Symbol const&, std::ostream& str, FmtDeclOptions) {
 
 static void fmtDeclImpl(Function const& func, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("fn") << " " << fmtName(func, options.asPrimaryName())
-        << "(";
+    str << Keyword("fn") << " " << fmtName(func, asPrimaryName(options)) << "(";
     for (bool first = true; auto* param: func.params()) {
         if (!first) str << ", ";
         first = false;
-        fmtDecl(param, str, options.asSecondary());
+        fmtDecl(param, str, asSecondary(options));
     }
-    str << ") -> " << fmtName(func.retType(), options.asSecondaryName());
+    str << ") -> " << fmtName(func.retType(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(FuncParam const& param, std::ostream& str,
                         FmtDeclOptions options) {
     str << fmtName(param) << ": "
-        << fmtName(param.type(), options.asSecondaryName());
+        << fmtName(param.type(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(StructType const& type, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("struct") << " " << fmtName(type, options.asPrimaryName());
+    str << Keyword("struct") << " " << fmtName(type, asPrimaryName(options));
 }
 
 static void fmtDeclImpl(Trait const& trait, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("trait") << " " << fmtName(trait, options.asPrimaryName());
+    str << Keyword("trait") << " " << fmtName(trait, asPrimaryName(options));
 }
 
 static void fmtDeclImpl(TraitImpl const& impl, std::ostream& str,
                         FmtDeclOptions options) {
     str << Keyword("impl") << " "
-        << fmtName(impl.trait(), options.asPrimaryName()) << " "
+        << fmtName(impl.trait(), asPrimaryName(options)) << " "
         << Keyword("for") << " "
-        << fmtName(impl.conformingType(), options.asSecondaryName());
+        << fmtName(impl.conformingType(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(Variable const& var, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("var") << " " << fmtName(var, options.asPrimaryName())
-        << ": " << fmtName(var.type(), options.asSecondaryName());
+    str << Keyword("var") << " " << fmtName(var, asPrimaryName(options)) << ": "
+        << fmtName(var.type(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(BaseClass const& base, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("base_class") << " "
-        << fmtName(base, options.asPrimaryName()) << ": "
-        << fmtName(base.type(), options.asSecondaryName());
+    str << Keyword("base_class") << " " << fmtName(base, asPrimaryName(options))
+        << ": " << fmtName(base.type(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(BaseTrait const& base, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("base_trait") << " "
-        << fmtName(base, options.asPrimaryName()) << ": "
-        << fmtName(base.trait(), options.asSecondaryName());
+    str << Keyword("base_trait") << " " << fmtName(base, asPrimaryName(options))
+        << ": " << fmtName(base.trait(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(MemberVar const& var, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("memvar") << " " << fmtName(var, options.asPrimaryName())
-        << ": " << fmtName(var.type(), options.asSecondaryName());
+    str << Keyword("memvar") << " " << fmtName(var, asPrimaryName(options))
+        << ": " << fmtName(var.type(), asSecondaryName(options));
 }
 
 static void fmtDecl(Symbol const* symbol, std::ostream& str,
@@ -346,7 +327,8 @@ struct SymbolPrinter {
                 << "\n";
             return;
         }
-        str << "  " << tfmt::format(BrightGreen | Bold, "Matched by:") << "\n";
+        auto color = obl.singleConformance() ? BrightGreen : BrightYellow;
+        str << "  " << tfmt::format(color | Bold, "Matched by:") << "\n";
         buf.indented([&] {
             for (auto* sym: obl.conformances())
                 str << fmtDecl(sym, { .primaryQualified = true }) << "\n";
@@ -414,18 +396,22 @@ void prism::print(Symbol const& symbol, std::ostream& str,
 
 void prism::print(Symbol const& symbol) { print(symbol, std::cerr); }
 
-utl::vstreammanip<> prism::formatDecl(Symbol const& symbol) {
-    return [&](std::ostream& str) { fmtDecl(&symbol, str); };
+utl::vstreammanip<> prism::formatDecl(Symbol const& symbol,
+                                      FmtDeclOptions options) {
+    return [&, options](std::ostream& str) { fmtDecl(&symbol, str, options); };
 }
 
-utl::vstreammanip<> prism::formatDecl(Symbol const* symbol) {
-    return [=](std::ostream& str) { fmtDecl(symbol, str); };
+utl::vstreammanip<> prism::formatDecl(Symbol const* symbol,
+                                      FmtDeclOptions options) {
+    return [=](std::ostream& str) { fmtDecl(symbol, str, options); };
 }
 
-utl::vstreammanip<> prism::formatName(Symbol const& symbol) {
-    return [&](std::ostream& str) { fmtName(&symbol, str); };
+utl::vstreammanip<> prism::formatName(Symbol const& symbol,
+                                      FmtNameOptions options) {
+    return [&, options](std::ostream& str) { fmtName(&symbol, str, options); };
 }
 
-utl::vstreammanip<> prism::formatName(Symbol const* symbol) {
-    return [=](std::ostream& str) { fmtName(symbol, str); };
+utl::vstreammanip<> prism::formatName(Symbol const* symbol,
+                                      FmtNameOptions options) {
+    return [=](std::ostream& str) { fmtName(symbol, str, options); };
 }

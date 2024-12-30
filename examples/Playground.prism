@@ -1,15 +1,25 @@
 
-trait MyBaseTrait {
-    fn bar(&this) -> i32;
+trait FooBase {
+    fn foo(&this);
+    fn bar(&this);
 }
 
-trait MyTrait: MyBaseTrait {
-    fn foo(&this) -> i32 { /* default */ }
+trait Foo1: FooBase {
+    fn foo(&this) {}
+    fn bar(&this) {}
 }
 
-struct MyStruct {}
+trait Foo2: FooBase {
+    fn foo(&this) {}
+    fn bar(&this) {}
+}
 
-impl MyTrait for MyStruct {
-    fn bar(&this) -> i32 { 42 }
-    fn foo(&this) -> i32 { 42 }
+trait Foo: Foo1, Foo2 {
+    fn foo(&this) {}
+}
+
+struct S {}
+
+impl Foo for S {
+    fn bar(&this) {}
 }

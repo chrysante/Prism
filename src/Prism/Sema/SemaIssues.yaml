@@ -32,3 +32,22 @@ issues:
     kind: Error
     header: >
       str << "'this' must be the first parameter";
+
+  - name: AmbiguousConformance
+    base: SemaIssue
+    kind: Error
+    members:
+      - name: sym
+        type: Symbol const*
+    header: >
+      str << "Ambiguous conformance of "
+          << formatDecl(sym, { .primaryQualified = true });
+ 
+  - name: IncompleteImpl
+    base: SemaIssue
+    kind: Error
+    members:
+      - name: impl
+        type: Symbol const*
+    header: >
+      str << "Incomplete trait implementation " << formatDecl(impl);

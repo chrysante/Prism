@@ -36,6 +36,8 @@ PRISM_DEFINE_RTTI(prism::FuncObligation, prism::SpecType::FuncObligation,
 
 namespace prism {
 
+enum class SpecAddMode { Inherit, Define };
+
 /// Denotes an definition obligation defined by a trait or base class for a
 /// derived class or a conforming type
 class Obligation {
@@ -52,7 +54,7 @@ public:
 
     std::span<Symbol* const> conformances() const { return _conf; }
 
-    void addConformance(Symbol* sym) { _conf.push_back(sym); }
+    void addConformance(Symbol* sym, SpecAddMode mode);
 
 protected:
     explicit Obligation(SpecType type, Symbol* symbol, Symbol* owner):
@@ -104,13 +106,16 @@ public:
         return {};
     }
 
-    void addObligation(csp::unique_ptr<Obligation> obl);
+    void addObligation(csp::unique_ptr<Obligation> obl, SpecAddMode);
 
     auto const& obligations() const { return obls; }
 
+    /// \Returns true if all obligations are unambiguously implemented
+    bool isComplete() const;
+
 private:
-    void addObligationImpl(TypeObligation*) {}
-    void addObligationImpl(FuncObligation* obl);
+    bool addObligationImpl(TypeObligation*, SpecAddMode) { return false; }
+    bool addObligationImpl(FuncObligation* obl, SpecAddMode mode);
 
     utl::hashmap<FuncObligationKey, utl::small_ptr_vector<FuncObligation*>>
         obls;
