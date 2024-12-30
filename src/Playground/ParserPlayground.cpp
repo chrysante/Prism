@@ -9,7 +9,7 @@
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
 
-#include <Prism/Common/IssueHandler.h>
+#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Common/TreeFormatter.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Lexer/Lexer.h>
@@ -48,8 +48,8 @@ static int const INIT = [] {
 [[maybe_unused]]
 static void printTokenStream(std::string_view source) {
     SourceContext ctx({}, source);
-    IssueHandler issueHandler;
-    Lexer L(source, issueHandler);
+    DiagnosticHandler diagHandler;
+    Lexer L(source, diagHandler);
     while (true) {
         auto tok = L.next();
         if (tok.kind == TokenKind::End) {
@@ -72,21 +72,21 @@ static int parserPlaygroundMain(Options options) {
     std::string source = std::move(sstr).str();
     MonotonicBufferResource alloc;
     SourceContext sourceContext(filepath, source);
-    IssueHandler issueHandler;
+    DiagnosticHandler diagHandler;
     auto* tree = [&]() -> Facet const* {
         switch (options.mode) {
         case Mode::Program:
-            return parseSourceFile(alloc, sourceContext, issueHandler);
+            return parseSourceFile(alloc, sourceContext, diagHandler);
         case Mode::Expr:
-            return parseExpr(alloc, sourceContext, issueHandler);
+            return parseExpr(alloc, sourceContext, diagHandler);
         case Mode::Type:
-            return parseTypeSpec(alloc, sourceContext, issueHandler);
+            return parseTypeSpec(alloc, sourceContext, diagHandler);
         }
     }();
     TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
     print(tree, fmt, { &sourceContext });
-    if (!issueHandler.empty()) {
-        issueHandler.print(sourceContext);
+    if (!diagHandler.empty()) {
+        diagHandler.print(sourceContext);
         return 1;
     }
     return 0;

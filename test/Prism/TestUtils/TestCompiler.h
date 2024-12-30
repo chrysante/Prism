@@ -7,40 +7,41 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/Diagnostic.h"
+#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Functional.h"
-#include "Prism/Common/Issue.h"
-#include "Prism/Common/IssueHandler.h"
 #include "Prism/Invocation/Invocation.h"
 
 namespace prism {
 
-class IssueChecker {
+class DiagnosticChecker {
 public:
-    static IssueChecker Make(std::string source,
-                             InvocationStage until = InvocationStage::Sema);
+    static DiagnosticChecker Make(
+        std::string source, InvocationStage until = InvocationStage::Sema);
 
-    template <std::derived_from<Issue> I>
-    I const* findOnLine(int line) {
-        return findImpl<I>(invocation.getIssueHandler(), onLineFn<I>(line));
+    template <std::derived_from<Diagnostic> D>
+    D const* findOnLine(int line) {
+        return findImpl<D>(invocation.getDiagnosticHandler(),
+                           onLineFn<D>(line));
     }
 
-    template <std::derived_from<Issue> I>
-    I const* findOnLine(Issue const& issue, int line) {
-        return findImpl<I>(issue.children() |
+    template <std::derived_from<Diagnostic> D>
+    D const* findOnLine(Diagnostic const& diag, int line) {
+        return findImpl<D>(diag.children() |
                                ranges::views::transform(Dereference),
-                           onLineFn<I>(line));
+                           onLineFn<D>(line));
     }
 
-    template <std::derived_from<Issue> I>
-    I const* find() {
-        return findImpl<I>(invocation.getIssueHandler(), Isa<I>);
+    template <std::derived_from<Diagnostic> D>
+    D const* find() {
+        return findImpl<D>(invocation.getDiagnosticHandler(), Isa<D>);
     }
 
-    template <std::derived_from<Issue> I>
-    I const* find(Issue const& issue) {
-        return findImpl<I>(issue.children() |
+    template <std::derived_from<Diagnostic> D>
+    D const* find(Diagnostic const& diag) {
+        return findImpl<D>(diag.children() |
                                ranges::views::transform(Dereference),
-                           Isa<I>);
+                           Isa<D>);
     }
 
 private:
@@ -48,20 +49,20 @@ private:
     static constexpr auto Isa =
         [](auto& p) { return dynamic_cast<T const*>(&p) != nullptr; };
 
-    template <typename I>
+    template <typename D>
     static auto onLineFn(int line) {
         PRISM_ASSERT(line > 0);
-        return [=](auto& issue) {
-            if (!Isa<I>(issue)) return false;
-            auto range = issue.sourceRange();
+        return [=](auto& diag) {
+            if (!Isa<D>(diag)) return false;
+            auto range = diag.sourceRange();
             return range && range->begin.line + 1 == (uint32_t)line;
         };
     }
 
-    template <std::derived_from<Issue> I>
-    I const* findImpl(auto&& rng, auto condition) {
+    template <std::derived_from<Diagnostic> D>
+    D const* findImpl(auto&& rng, auto condition) {
         auto itr = ranges::find_if(rng, condition);
-        return itr != ranges::end(rng) ? dynamic_cast<I const*>(&*itr) :
+        return itr != ranges::end(rng) ? dynamic_cast<D const*>(&*itr) :
                                          nullptr;
     }
 

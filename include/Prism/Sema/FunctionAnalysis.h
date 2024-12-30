@@ -7,15 +7,15 @@ namespace prism {
 
 class MonotonicBufferResource;
 class SemaContext;
-class IssueHandler;
+class DiagnosticHandler;
 
 /// Semantically analyzes the function \p func
 void analyzeFunction(MonotonicBufferResource&, SemaContext& ctx,
-                     IssueHandler& iss, FunctionImpl& func);
+                     DiagnosticHandler& diagHandler, FunctionImpl& func);
 
 /// Semantically analyzes all global functions in \p target
 void analyzeTargetFunctions(MonotonicBufferResource&, SemaContext& ctx,
-                            IssueHandler& iss, Target& target);
+                            DiagnosticHandler& diagHandler, Target& target);
 
 } // namespace prism
 

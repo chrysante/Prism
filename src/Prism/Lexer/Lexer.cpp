@@ -8,7 +8,7 @@
 #include <utl/utility.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Lexer/LexicalIssue.h"
+#include "Prism/Lexer/LexicalDiagnostic.h"
 
 using namespace prism;
 
@@ -22,9 +22,9 @@ Token Lexer::next() {
         if (auto tok = nextImpl()) {
             if (errBegin) {
                 uint16_t errLen = utl::narrow_cast<uint16_t>(begin - *errBegin);
-                iss.push<LexicalIssue>(LexicalIssue::InvalidCharacterSequence,
-                                       SourceRange{ *errBegin, errLen },
-                                       sourceContext);
+                diagHandler.push<LexicalDiagnostic>(
+                    LexicalDiagnostic::InvalidCharacterSequence,
+                    SourceRange{ *errBegin, errLen }, sourceContext);
             }
             return *tok;
         }
@@ -158,10 +158,9 @@ std::optional<Token> Lexer::lexStringLiteralImpl(TokenKind kind,
     if (!match(beginDelim)) return std::nullopt;
     while (true) {
         if (!valid() || current() == '\n') {
-            iss.push<LexicalIssue>(LexicalIssue::UnterminatedStringLiteral,
-                                   SourceRange{ begin,
-                                                (uint32_t)(index - begin) },
-                                   sourceContext);
+            diagHandler.push<LexicalDiagnostic>(
+                LexicalDiagnostic::UnterminatedStringLiteral,
+                SourceRange{ begin, (uint32_t)(index - begin) }, sourceContext);
             return Token{ kind, (uint16_t)(index - begin), begin };
         }
         if (current(index - 1) != '\\' && match(endDelim))
@@ -185,10 +184,9 @@ std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
     if (!prefix.empty()) {
         if (!match(prefix)) return std::nullopt;
         if (!valid() || !std::invoke(isValidChar, current())) {
-            iss.push<LexicalIssue>(LexicalIssue::InvalidNumericLiteral,
-                                   SourceRange{ begin,
-                                                (uint32_t)prefix.size() },
-                                   sourceContext);
+            diagHandler.push<LexicalDiagnostic>(
+                LexicalDiagnostic::InvalidNumericLiteral,
+                SourceRange{ begin, (uint32_t)prefix.size() }, sourceContext);
             return std::nullopt;
         }
     }

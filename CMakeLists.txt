@@ -75,8 +75,8 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/DebugGraphGen.h
     include/Prism/Common/Functional.h
     include/Prism/Common/IndentingStreambuf.h
-    include/Prism/Common/Issue.h
-    include/Prism/Common/IssueHandler.h
+    include/Prism/Common/Diagnostic.h
+    include/Prism/Common/DiagnosticHandler.h
     include/Prism/Common/MacroUtils.h
     include/Prism/Common/MacroUtilsUndef.h
     include/Prism/Common/PrettyName.h
@@ -90,7 +90,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Invocation/Invocation.h
 
     include/Prism/Lexer/Lexer.h
-    include/Prism/Lexer/LexicalIssue.h
+    include/Prism/Lexer/LexicalDiagnostic.h
     
     include/Prism/Parser/Parser.h
     include/Prism/Parser/SyntaxError.h
@@ -108,7 +108,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/NameLookup.h
     include/Prism/Sema/Scope.h
     include/Prism/Sema/SemaContext.h
-    include/Prism/Sema/SemaIssue.h
+    include/Prism/Sema/SemaDiagnostic.h
     include/Prism/Sema/SemaPrint.h
     include/Prism/Sema/Symbol.h
     include/Prism/Sema/Symbol.def
@@ -126,8 +126,8 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/Allocator.cpp
     src/Prism/Common/DebugGraphGen.cpp
     src/Prism/Common/IndentingStreambuf.cpp
-    src/Prism/Common/Issue.cpp
-    src/Prism/Common/IssueHandler.cpp
+    src/Prism/Common/Diagnostic.cpp
+    src/Prism/Common/DiagnosticHandler.cpp
     src/Prism/Common/PrettyName.cpp
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
@@ -139,7 +139,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Invocation/Invocation.cpp
 
     src/Prism/Lexer/Lexer.cpp
-    src/Prism/Lexer/LexicalIssue.cpp
+    src/Prism/Lexer/LexicalDiagnostic.cpp
     
     src/Prism/Parser/Grammar.txt
     src/Prism/Parser/LinearParser.h
@@ -161,7 +161,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/FunctionAnalysis.cpp
     src/Prism/Sema/NameLookup.cpp
     src/Prism/Sema/SemaContext.cpp
-    src/Prism/Sema/SemaIssue.cpp
+    src/Prism/Sema/SemaDiagnostic.cpp
     src/Prism/Sema/SemaPrint.cpp
     src/Prism/Sema/Scope.cpp
     src/Prism/Sema/Symbol.cpp
@@ -183,7 +183,7 @@ set(PRISM_TEST_FILES
     test/Prism/Parser/ParserTestUtils.h
     test/Prism/Parser/ParserTestUtils.cpp
     
-    test/Prism/Sema/SemaIssues.t.cpp
+    test/Prism/Sema/SemaDiagnostics.t.cpp
     
     test/Prism/TestUtils/TestCompiler.h
     test/Prism/TestUtils/TestCompiler.cpp
@@ -218,15 +218,15 @@ add_code_generator(Prism
                    src/Prism/Sema/SemaFilters.py)
 
 add_code_generator(Prism
-                   src/Prism/Sema/SemaIssues.yaml
-                   src/Prism/Sema/SemaIssuesDecl.jinja
-                   include/Prism/Sema/SemaIssues.inl
+                   src/Prism/Sema/SemaDiagnostics.yaml
+                   src/Prism/Sema/SemaDiagnosticsDecl.jinja
+                   include/Prism/Sema/SemaDiagnostics.inl
                    src/Prism/Sema/SemaFilters.py)
 
 add_code_generator(Prism
-                  src/Prism/Sema/SemaIssues.yaml
-                  src/Prism/Sema/SemaIssuesDef.jinja
-                  src/Prism/Sema/SemaIssuesDef.inl
+                  src/Prism/Sema/SemaDiagnostics.yaml
+                  src/Prism/Sema/SemaDiagnosticsDef.jinja
+                  src/Prism/Sema/SemaDiagnosticsDef.inl
                   src/Prism/Sema/SemaFilters.py)
 
 target_sources(Prism 

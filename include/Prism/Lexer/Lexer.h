@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-#include <Prism/Common/IssueHandler.h>
+#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Source/SourceContext.h>
 #include <Prism/Source/Token.h>
 
@@ -13,9 +13,10 @@ namespace prism {
 
 struct Lexer {
 
-    explicit Lexer(SourceContext const& sourceContext, IssueHandler& iss):
+    explicit Lexer(SourceContext const& sourceContext,
+                   DiagnosticHandler& diagHandler):
         sourceContext(sourceContext),
-        iss(iss),
+        diagHandler(diagHandler),
         source(sourceContext.source()) {}
 
     Token next();
@@ -50,7 +51,7 @@ private:
     std::string_view tokenSource(uint32_t begin, uint32_t end) const;
 
     SourceContext const& sourceContext;
-    IssueHandler& iss;
+    DiagnosticHandler& diagHandler;
     std::string_view source;
     uint32_t index = 0;
 };

@@ -33,12 +33,14 @@ struct FuncAnaCtx: AnalysisBase {
 } // namespace
 
 void prism::analyzeFunction(MonotonicBufferResource&, SemaContext& ctx,
-                            IssueHandler& iss, FunctionImpl& func) {
-    FuncAnaCtx{ { ctx, iss, getSourceContext(&func) }, func }.run();
+                            DiagnosticHandler& diagHandler,
+                            FunctionImpl& func) {
+    FuncAnaCtx{ { ctx, diagHandler, getSourceContext(&func) }, func }.run();
 }
 
 void prism::analyzeTargetFunctions(MonotonicBufferResource& resource,
-                                   SemaContext& ctx, IssueHandler& iss,
+                                   SemaContext& ctx,
+                                   DiagnosticHandler& diagHandler,
                                    Target& target) {
     auto dfs = [&](auto& dfs, Scope* scope) -> void {
         for (auto* sym: scope->symbols()) {
@@ -46,7 +48,7 @@ void prism::analyzeTargetFunctions(MonotonicBufferResource& resource,
                 isa<Trait>(sym) || isa<TraitImpl>(sym))
                 dfs(dfs, sym->associatedScope());
             if (auto* func = dyncast<FunctionImpl*>(sym))
-                analyzeFunction(resource, ctx, iss, *func);
+                analyzeFunction(resource, ctx, diagHandler, *func);
         }
     };
     dfs(dfs, target.associatedScope());

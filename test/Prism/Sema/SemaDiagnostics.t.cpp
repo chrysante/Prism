@@ -1,19 +1,19 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/TestUtils/TestCompiler.h"
 
 using namespace prism;
 
 TEST_CASE("UndeclaredID", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 fn foo(arg: Bar) {}
 )");
     CHECK(c.findOnLine<UndeclaredID>(2));
 }
 
 TEST_CASE("TypeDefCycle", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 struct Foo { var bar: Bar; }
 struct Bar { var foo: Foo; }
 )");
@@ -24,7 +24,7 @@ struct Bar { var foo: Foo; }
 }
 
 TEST_CASE("BadSymRef", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 struct S: 0 {}
 fn foo() { return i32; }
 fn foo() -> Global { return ; }
@@ -36,7 +36,7 @@ let Global: i32;
 }
 
 TEST_CASE("ThisParamBadPosition", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 struct S {  fn foo(n: i32, &this); }
 trait T {  fn foo(n: i32, &this); }
 )");
@@ -45,7 +45,7 @@ trait T {  fn foo(n: i32, &this); }
 }
 
 TEST_CASE("AmbiguousConformance", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 trait T1 { fn foo(&this); }
 trait T2 { fn foo(&this); }
 trait T: T1, T2 { fn foo(&this) {} }
@@ -56,7 +56,7 @@ struct S: T1, T2 { fn foo(&this) {} }
 }
 
 TEST_CASE("IncompleteImpl", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 trait T { fn foo(&this); }
 struct S: T {}
 struct U {}
@@ -67,7 +67,7 @@ impl T for U {}
 }
 
 TEST_CASE("DuplicateTraitImpl", "[sema]") {
-    auto c = IssueChecker::Make(R"(
+    auto c = DiagnosticChecker::Make(R"(
 trait T {}
 struct S: T {}
 impl T for S {}

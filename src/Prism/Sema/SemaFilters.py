@@ -33,14 +33,14 @@ def build_inheritance_tree(symbols):
 
     return render_tree(root.get('name', None))
 
-def issue_member_ctor_param(member):
+def diag_member_ctor_param(member):
     return f"{member['type']} {member['name']}";
 
-def issue_member_ctor_init(member):
+def diag_member_ctor_init(member):
     return f"{member['name']}({member['name']})";
 
 filters = {
-    'issue_member_ctor_param': issue_member_ctor_param,
-    'issue_member_ctor_init': issue_member_ctor_init,
+    'diag_member_ctor_param': diag_member_ctor_param,
+    'diag_member_ctor_init': diag_member_ctor_init,
     'build_inheritance_tree': build_inheritance_tree
 }

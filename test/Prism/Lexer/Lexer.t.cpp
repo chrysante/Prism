@@ -1,7 +1,7 @@
 #include <ostream>
 
 #include <Prism/Lexer/Lexer.h>
-#include <Prism/Lexer/LexicalIssue.h>
+#include <Prism/Lexer/LexicalDiagnostic.h>
 #include <Prism/Source/SourceContext.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -38,7 +38,7 @@ fn test(aParam: int, b: f64) -> void {
 }
 )";
     SourceContext ctx({}, source);
-    IssueHandler H;
+    DiagnosticHandler H;
     Lexer L(ctx, H);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Fn, 1, 0, 2 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 1, 3, 4 });
@@ -69,7 +69,7 @@ TEST_CASE("Integration no spaces", "[lexer]") {
     auto source = R"(
 fn test(aParam:int,b:f64)->void{return;})";
     SourceContext ctx({}, source);
-    IssueHandler H;
+    DiagnosticHandler H;
     Lexer L(ctx, H);
     CHECK(L.next().kind == TokenKind::Fn);
     CHECK(L.next().kind == TokenKind::Identifier);
@@ -95,7 +95,7 @@ fn test(aParam:int,b:f64)->void{return;})";
 
 static Token getSingle(std::string_view source) {
     SourceContext ctx({}, source);
-    IssueHandler H;
+    DiagnosticHandler H;
     Lexer L(ctx, H);
     auto tok = L.next();
     REQUIRE(L.next().kind == TokenKind::End);
@@ -138,27 +138,29 @@ TEST_CASE("Unterminated string literals", "[lexer]") {
 id return
 )";
     SourceContext ctx({}, source);
-    IssueHandler H;
+    DiagnosticHandler H;
     Lexer L(ctx, H);
     CHECK(L.next().kind == TokenKind::StringLiteral);
     CHECK(L.next().kind == TokenKind::Identifier);
     CHECK(L.next().kind == TokenKind::Return);
 
     REQUIRE(H.size() == 1);
-    auto& err = dynamic_cast<LexicalIssue const&>(H.front());
-    CHECK(err.reason() == LexicalIssue::UnterminatedStringLiteral);
+    auto& err = dynamic_cast<LexicalDiagnostic const&>(H.front());
+    CHECK(err.reason() == LexicalDiagnostic::UnterminatedStringLiteral);
 }
 
 TEST_CASE("Errors", "[lexer]") {
     auto source = "#```abc`";
     SourceContext ctx({}, source);
-    IssueHandler H;
+    DiagnosticHandler H;
     Lexer L(ctx, H);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 0, 4, 3 });
     L.next();
     REQUIRE(H.size() == 2);
-    auto errRng1 = dynamic_cast<LexicalIssue const&>(H.front()).sourceRange();
+    auto errRng1 =
+        dynamic_cast<LexicalDiagnostic const&>(H.front()).sourceRange();
     CHECK(errRng1.value().slim() == SourceRange{ 0, 4 });
-    auto errRng2 = dynamic_cast<LexicalIssue const&>(H.back()).sourceRange();
+    auto errRng2 =
+        dynamic_cast<LexicalDiagnostic const&>(H.back()).sourceRange();
     CHECK(errRng2.value().slim() == SourceRange{ 7, 1 });
 }

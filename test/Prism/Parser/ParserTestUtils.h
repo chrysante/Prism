@@ -22,56 +22,57 @@ extern MonotonicBufferResource gAlloc;
 
 }
 
-class Issue;
-class IssueHandler;
+class Diagnostic;
+class DiagnosticHandler;
 
 std::ostream& operator<<(std::ostream& str, Facet const& facet);
 
-class ExpectedIssue {
+class ExpectedDiagnostic {
 public:
-    virtual ~ExpectedIssue() = default;
+    virtual ~ExpectedDiagnostic() = default;
 
-    virtual bool checkType(Issue const* issue) const = 0;
+    virtual bool checkType(Diagnostic const* diag) const = 0;
 
     uint32_t line;
     std::optional<uint32_t> column;
 
 protected:
-    ExpectedIssue(uint32_t line, std::optional<uint32_t> column):
+    ExpectedDiagnostic(uint32_t line, std::optional<uint32_t> column):
         line(line), column(column) {}
 
 private:
     friend std::ostream& operator<<(std::ostream& str,
-                                    ExpectedIssue const& issue) {
-        issue.format(str);
+                                    ExpectedDiagnostic const& diag) {
+        diag.format(str);
         return str;
     }
 
     virtual void format(std::ostream& str) const = 0;
 };
 
-template <typename IssueType>
-class ExpectedIssueImpl: public ExpectedIssue {
+template <typename DiagnosticType>
+class ExpectedDiagnosticImpl: public ExpectedDiagnostic {
 public:
-    explicit ExpectedIssueImpl(uint32_t line, std::optional<uint32_t> column):
-        ExpectedIssue(line, column) {}
+    explicit ExpectedDiagnosticImpl(uint32_t line,
+                                    std::optional<uint32_t> column):
+        ExpectedDiagnostic(line, column) {}
 
-    bool checkType(Issue const* issue) const override {
-        return dynamic_cast<IssueType const*>(issue) != nullptr;
+    bool checkType(Diagnostic const* diag) const override {
+        return dynamic_cast<DiagnosticType const*>(diag) != nullptr;
     }
 
     void format(std::ostream& str) const override {
         str << "L: " << line << " ";
         if (column) str << "C: " << *column << " ";
-        str << getDemangledName<IssueType>();
+        str << getDemangledName<DiagnosticType>();
     }
 };
 
-template <std::derived_from<Issue> IssueType>
-ExpectedIssue const& IssueOnLine(
+template <std::derived_from<Diagnostic> DiagnosticType>
+ExpectedDiagnostic const& DiagnosticOnLine(
     uint32_t line, std::optional<uint32_t> column = std::nullopt) {
-    return *allocate<ExpectedIssueImpl<IssueType>>(internal::gAlloc, line,
-                                                   column);
+    return *allocate<ExpectedDiagnosticImpl<DiagnosticType>>(internal::gAlloc,
+                                                             line, column);
 }
 
 enum class NullNodeT : int;
@@ -87,12 +88,15 @@ struct VarType: std::variant<FacetType, TokenKind, NullNodeT> {
 class AstRefNode {
 public:
     AstRefNode(VarType type, std::span<AstRefNode const* const> children):
-        type(type), children(children), expectedIssues(&internal::gAlloc) {}
+        type(type),
+        children(children),
+        expectedDiagnostics(&internal::gAlloc) {}
 
 private:
     friend bool operator==(Facet const& facet, AstRefNode const* ref);
 
-    friend AstRefNode* operator>>(AstRefNode* node, ExpectedIssue const& e);
+    friend AstRefNode* operator>>(AstRefNode* node,
+                                  ExpectedDiagnostic const& e);
 
     bool compare(Facet const* node, Facet const* parent, size_t index) const;
 
@@ -102,14 +106,14 @@ private:
     bool compareChildren(Facet const* node, Facet const* parent,
                          size_t index) const;
 
-    bool verifyIssues() const;
+    bool verifyDiagnostics() const;
 
     VarType type;
     std::span<AstRefNode const* const> children;
     std::vector<
-        ExpectedIssue const*,
-        ResourceAllocator<ExpectedIssue const*, MonotonicBufferResource>>
-        expectedIssues;
+        ExpectedDiagnostic const*,
+        ResourceAllocator<ExpectedDiagnostic const*, MonotonicBufferResource>>
+        expectedDiagnostics;
 };
 
 /// Helper class for concise construction of reference trees

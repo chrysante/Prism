@@ -16,7 +16,7 @@
 #include <utl/vector.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/IssueHandler.h"
+#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
 #include "Prism/Parser/SyntaxError.h"
@@ -38,8 +38,12 @@ struct VolatileList: std::span<T> {
 /// Generic parsing functionality that is independent of the language grammar
 struct ParserBase {
     explicit ParserBase(MonotonicBufferResource& alloc,
-                        SourceContext const& sourceCtx, IssueHandler& iss):
-        alloc(alloc), sourceCtx(sourceCtx), iss(iss), lexer(sourceCtx, iss) {}
+                        SourceContext const& sourceCtx,
+                        DiagnosticHandler& diagHandler):
+        alloc(alloc),
+        sourceCtx(sourceCtx),
+        diagHandler(diagHandler),
+        lexer(sourceCtx, diagHandler) {}
 
     // MARK: Facet allocation
     template <typename T, typename... Args>
@@ -92,15 +96,15 @@ struct ParserBase {
     /// \Returns the next token in the stream and consumes it
     Token eat();
 
-    // MARK: Issue
+    // MARK: Diagnostic
     ///
-    template <std::derived_from<Issue> I, typename... Args>
+    template <std::derived_from<Diagnostic> I, typename... Args>
         requires std::constructible_from<I, SourceContext const&, Args&&...>
     void raise(Args&&... args) {
-        iss.push<I>(sourceCtx, std::forward<Args>(args)...);
+        diagHandler.push<I>(sourceCtx, std::forward<Args>(args)...);
     }
 
-    template <std::derived_from<Issue> I, typename... Args>
+    template <std::derived_from<Diagnostic> I, typename... Args>
         requires std::constructible_from<I, SourceContext const&, Token,
                                          Args&&...>
     auto Raise(Args&&... args) {
@@ -134,7 +138,7 @@ private:
 
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
-    IssueHandler& iss;
+    DiagnosticHandler& diagHandler;
     Lexer lexer;
     std::vector<Token> tokens;
     uint32_t tokenIndex = 0;

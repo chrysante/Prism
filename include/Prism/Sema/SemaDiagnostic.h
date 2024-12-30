@@ -1,9 +1,9 @@
-#ifndef PRISM_SEMA_SEMAISSUE_H
-#define PRISM_SEMA_SEMAISSUE_H
+#ifndef PRISM_SEMA_SEMADIAGNOSTIC_H
+#define PRISM_SEMA_SEMADIAGNOSTIC_H
 
 #include <utl/streammanip.hpp>
 
-#include <Prism/Common/Issue.h>
+#include <Prism/Common/Diagnostic.h>
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema/SemaFwd.h>
 
@@ -12,10 +12,10 @@ namespace prism {
 class SemaNote;
 class SemaHint;
 
-/// Base class of a sema issues
-class SemaIssue: public Issue {
+/// Base class of all sema diagnostics
+class SemaDiagnostic: public Diagnostic {
 public:
-    /// \Returns the source facet where the issue occured
+    /// \Returns the source facet where the diag occured
     Facet const* facet() const { return fct; }
 
     /// \overload
@@ -54,15 +54,16 @@ public:
     }
 
 protected:
-    SemaIssue(Issue::Kind kind, SourceContext const* ctx, Facet const* facet);
+    SemaDiagnostic(Diagnostic::Kind kind, SourceContext const* ctx,
+                   Facet const* facet);
 
 private:
     Facet const* fct;
 };
 
-class SemaMessage: public SemaIssue {
+class SemaMessage: public SemaDiagnostic {
 protected:
-    explicit SemaMessage(Issue::Kind kind, SourceContext const* ctx,
+    explicit SemaMessage(Diagnostic::Kind kind, SourceContext const* ctx,
                          Facet const* facet, utl::vstreammanip<> impl);
 
 private:
@@ -76,7 +77,7 @@ class SemaNote: public SemaMessage {
 public:
     explicit SemaNote(SourceContext const* ctx, Facet const* facet,
                       utl::vstreammanip<> impl):
-        SemaMessage(Issue::Note, ctx, facet, std::move(impl)) {}
+        SemaMessage(Diagnostic::Note, ctx, facet, std::move(impl)) {}
 };
 
 ///
@@ -84,11 +85,11 @@ class SemaHint: public SemaMessage {
 public:
     explicit SemaHint(SourceContext const* ctx, Facet const* facet,
                       utl::vstreammanip<> impl):
-        SemaMessage(Issue::Hint, ctx, facet, std::move(impl)) {}
+        SemaMessage(Diagnostic::Hint, ctx, facet, std::move(impl)) {}
 };
 
 } // namespace prism
 
-#include <Prism/Sema/SemaIssues.inl>
+#include <Prism/Sema/SemaDiagnostics.inl>
 
-#endif // PRISM_SEMA_SEMAISSUE_H
+#endif // PRISM_SEMA_SEMADIAGNOSTIC_H

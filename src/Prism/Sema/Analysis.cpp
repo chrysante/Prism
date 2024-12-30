@@ -7,13 +7,13 @@
 using namespace prism;
 
 Target* prism::analyzeModule(MonotonicBufferResource& resource,
-                             SemaContext& ctx, IssueHandler& iss,
+                             SemaContext& ctx, DiagnosticHandler& diagHandler,
                              std::span<SourceFilePair const> input) {
-    auto constr = constructTarget(resource, ctx, iss, input);
+    auto constr = constructTarget(resource, ctx, diagHandler, input);
     if (constr.haveFatalError) return constr.target;
     auto* target = constr.target;
     auto& dependencies = constr.dependencyGraph.value();
-    analyzeConformances(resource, ctx, iss, *target, dependencies);
-    analyzeTargetFunctions(resource, ctx, iss, *target);
+    analyzeConformances(resource, ctx, diagHandler, *target, dependencies);
+    analyzeTargetFunctions(resource, ctx, diagHandler, *target);
     return target;
 }

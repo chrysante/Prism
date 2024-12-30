@@ -9,7 +9,7 @@
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
 
-#include <Prism/Common/IssueHandler.h>
+#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Common/TreeFormatter.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Parser/Parser.h>
@@ -79,19 +79,19 @@ static int semaPlaygroundMain(Options options) {
     std::string source = std::move(sstr).str();
     MonotonicBufferResource alloc;
     SourceContext sourceContext(filepath, source);
-    IssueHandler issueHandler;
-    auto* parseTree = parseSourceFile(alloc, sourceContext, issueHandler);
+    DiagnosticHandler diagHandler;
+    auto* parseTree = parseSourceFile(alloc, sourceContext, diagHandler);
     if (options.printFacets) {
         TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
         header(std::cout, "Parse Tree");
         print(parseTree, fmt, { &sourceContext });
     }
-    if (!issueHandler.empty()) {
-        issueHandler.print(sourceContext);
+    if (!diagHandler.empty()) {
+        diagHandler.print(sourceContext);
         return 1;
     }
     SemaContext ctx;
-    auto* target = analyzeModule(alloc, ctx, issueHandler,
+    auto* target = analyzeModule(alloc, ctx, diagHandler,
                                  { { { parseTree, &sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout,
@@ -99,8 +99,8 @@ static int semaPlaygroundMain(Options options) {
             .traitObligations = options.printConformances });
     if (options.printScopes)
         printScopeHierarchy(target->associatedScope(), std::cout);
-    if (!issueHandler.empty()) {
-        issueHandler.print(sourceContext);
+    if (!diagHandler.empty()) {
+        diagHandler.print(sourceContext);
         return 1;
     }
     return 0;

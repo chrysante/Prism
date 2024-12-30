@@ -1,7 +1,7 @@
 
-issues:
+diags:
   - name: UndeclaredID
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     members:
       - name: similar
@@ -12,7 +12,7 @@ issues:
           << "'";
 
   - name: TypeDefCycle
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     comment: 'Cyclic structure definition'
     no_source: true
@@ -25,7 +25,7 @@ issues:
       str << "Detected a cycle in a type definition:";
 
   - name: BadSymRef
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     members:
       - name: providedSymbol
@@ -37,13 +37,13 @@ issues:
           << formatName(providedSymbol);
 
   - name: ThisParamBadPosition
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     header: >
       str << "'this' must be the first parameter";
 
   - name: AmbiguousConformance
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     members:
       - name: sym
@@ -57,7 +57,7 @@ issues:
           << formatDecl(sym, { .primaryQualified = true });
  
   - name: IncompleteImpl
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     members:
       - name: impl
@@ -75,7 +75,7 @@ issues:
      
 
   - name: DuplicateTraitImpl
-    base: SemaIssue
+    base: SemaDiagnostic
     kind: Error
     members:
       - name: impl

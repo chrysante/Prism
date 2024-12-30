@@ -1,7 +1,7 @@
 #ifndef PRISM_PARSER_SYNTAXERROR_H
 #define PRISM_PARSER_SYNTAXERROR_H
 
-#include <Prism/Common/Issue.h>
+#include <Prism/Common/Diagnostic.h>
 #include <Prism/Source/SourceLocation.h>
 #include <Prism/Source/Token.h>
 
@@ -9,16 +9,16 @@
 
 namespace prism {
 
-/// Base class of all syntax issues
-class SyntaxError: public Issue {
+/// Base class of all syntax diags
+class SyntaxError: public Diagnostic {
 protected:
     explicit SyntaxError(SourceContext const& sourceContext, Token tok):
-        Issue(Issue::Error, tok.getSourceRange(), &sourceContext) {}
+        Diagnostic(Diagnostic::Error, tok.getSourceRange(), &sourceContext) {}
 };
 
 } // namespace prism
 
-// Definition of all derived syntax issue classes. The classes are defined in a
+// Definition of all derived syntax diag classes. The classes are defined in a
 // concise manner in SyntaxError.def
 
 #define PRISM_PARAM_DECLARE(...)             PRISM_PARAM_DECLARE_IMPL __VA_ARGS__

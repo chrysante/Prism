@@ -141,22 +141,22 @@ struct Parser: LinearParser {
 
 SourceFileFacet const* prism::parseSourceFile(MonotonicBufferResource& alloc,
                                               SourceContext const& sourceCtx,
-                                              IssueHandler& iss) {
-    Parser parser(alloc, sourceCtx, iss);
+                                              DiagnosticHandler& diagHandler) {
+    Parser parser(alloc, sourceCtx, diagHandler);
     return parser.parseSourceFile();
 }
 
 Facet const* prism::parseExpr(MonotonicBufferResource& alloc,
                               SourceContext const& sourceCtx,
-                              IssueHandler& iss) {
-    Parser parser(alloc, sourceCtx, iss);
+                              DiagnosticHandler& diagHandler) {
+    Parser parser(alloc, sourceCtx, diagHandler);
     return parser.parseExpr();
 }
 
 Facet const* prism::parseTypeSpec(MonotonicBufferResource& alloc,
                                   SourceContext const& sourceCtx,
-                                  IssueHandler& iss) {
-    Parser parser(alloc, sourceCtx, iss);
+                                  DiagnosticHandler& diagHandler) {
+    Parser parser(alloc, sourceCtx, diagHandler);
     return parser.parseTypeSpec();
 }
 

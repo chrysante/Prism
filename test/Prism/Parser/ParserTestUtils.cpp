@@ -11,8 +11,8 @@
 #include <utl/hashtable.hpp>
 #include <utl/strcat.hpp>
 
+#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Common/Functional.h>
-#include <Prism/Common/IssueHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 
@@ -51,7 +51,7 @@ struct std::hash<TreeErrorKey> {
 };
 
 static std::unordered_map<TreeErrorKey, std::string> gErrorMap;
-std::vector<std::function<void(std::ostream&)>> gIssueMatchErrors;
+std::vector<std::function<void(std::ostream&)>> gDiagnosticMatchErrors;
 
 static bool validate(bool value, TreeErrorKey key, auto&&... message) {
     if (value) return true;
@@ -70,7 +70,7 @@ std::ostream& prism::operator<<(std::ostream& str, Facet const& facet) {
         }
     };
     print(&facet, str, { .nodeCallback = callback });
-    for (auto& err: gIssueMatchErrors)
+    for (auto& err: gDiagnosticMatchErrors)
         err(str);
     return str;
 }
@@ -127,53 +127,53 @@ bool AstRefNode::compareChildren(Facet const* node, Facet const* parent,
 MonotonicBufferResource internal::gAlloc;
 using internal::gAlloc;
 static SourceContext gCtx;
-static IssueHandler gIssueHandler;
+static DiagnosticHandler gDiagnosticHandler;
 
-static bool matchIssue(ExpectedIssue const& expIss,
-                       utl::hashset<Issue const*>& issues) {
-    for (auto itr = issues.begin(); itr != issues.end(); ++itr) {
-        auto& issue = **itr;
-        if (!expIss.checkType(&issue)) continue;
-        auto sourceLoc = issue.sourceRange().value().begin;
+static bool matchDiagnostic(ExpectedDiagnostic const& expIss,
+                            utl::hashset<Diagnostic const*>& diags) {
+    for (auto itr = diags.begin(); itr != diags.end(); ++itr) {
+        auto& diag = **itr;
+        if (!expIss.checkType(&diag)) continue;
+        auto sourceLoc = diag.sourceRange().value().begin;
         if (sourceLoc.line != expIss.line) continue;
         if (expIss.column && sourceLoc.column != *expIss.column) continue;
-        issues.erase(itr);
+        diags.erase(itr);
         return true;
     }
     return false;
 }
 
-bool AstRefNode::verifyIssues() const {
-    auto issues = gIssueHandler | ranges::views::transform(AddressOf) |
-                  ranges::to<utl::hashset<Issue const*>>;
+bool AstRefNode::verifyDiagnostics() const {
+    auto diags = gDiagnosticHandler | ranges::views::transform(AddressOf) |
+                 ranges::to<utl::hashset<Diagnostic const*>>;
     bool result = true;
-    for (auto* expIssue: expectedIssues) {
-        if (!matchIssue(*expIssue, issues)) {
+    for (auto* expDiagnostic: expectedDiagnostics) {
+        if (!matchDiagnostic(*expDiagnostic, diags)) {
             result = false;
-            gIssueMatchErrors.push_back([=](std::ostream& str) {
-                str << "Failed to match expected issue: " << *expIssue
+            gDiagnosticMatchErrors.push_back([=](std::ostream& str) {
+                str << "Failed to match expected diag: " << *expDiagnostic
                     << std::endl;
             });
         }
     }
-    for (auto* issue: issues) {
-        gIssueMatchErrors.push_back([=](std::ostream& str) {
-            str << "Unexpected issue: ";
-            issue->format(str, &gCtx);
+    for (auto* diag: diags) {
+        gDiagnosticMatchErrors.push_back([=](std::ostream& str) {
+            str << "Unexpected diag: ";
+            diag->format(str, &gCtx);
             str << std::endl;
         });
     }
-    return result && issues.empty();
+    return result && diags.empty();
 }
 
 bool prism::operator==(Facet const& facet, AstRefNode const* ref) {
     gErrorMap.clear();
-    gIssueMatchErrors.clear();
-    return ref->compare(&facet, nullptr, 0) && ref->verifyIssues();
+    gDiagnosticMatchErrors.clear();
+    return ref->compare(&facet, nullptr, 0) && ref->verifyDiagnostics();
 }
 
-AstRefNode* prism::operator>>(AstRefNode* node, ExpectedIssue const& e) {
-    node->expectedIssues.push_back(&e);
+AstRefNode* prism::operator>>(AstRefNode* node, ExpectedDiagnostic const& e) {
+    node->expectedDiagnostics.push_back(&e);
     return node;
 }
 
@@ -202,18 +202,18 @@ AstRefNode* prism::operator>>(VarType type, Tree children) {
 
 SourceFileFacet const* prism::parseFile(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gIssueHandler.clear();
-    return parseSourceFile(gAlloc, gCtx, gIssueHandler);
+    gDiagnosticHandler.clear();
+    return parseSourceFile(gAlloc, gCtx, gDiagnosticHandler);
 }
 
 Facet const* prism::parseExpr(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gIssueHandler.clear();
-    return parseExpr(gAlloc, gCtx, gIssueHandler);
+    gDiagnosticHandler.clear();
+    return parseExpr(gAlloc, gCtx, gDiagnosticHandler);
 }
 
 Facet const* prism::parseTypeSpec(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gIssueHandler.clear();
-    return parseTypeSpec(gAlloc, gCtx, gIssueHandler);
+    gDiagnosticHandler.clear();
+    return parseTypeSpec(gAlloc, gCtx, gDiagnosticHandler);
 }

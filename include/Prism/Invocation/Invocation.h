@@ -9,7 +9,7 @@ namespace prism {
 
 class SourceFileFacet;
 class Target;
-class IssueHandler;
+class DiagnosticHandler;
 
 namespace detail {
 struct InvImpl;
@@ -46,7 +46,7 @@ public:
     /// MARK: - Retrieval
 
     ///
-    IssueHandler const& getIssueHandler() const;
+    DiagnosticHandler const& getDiagnosticHandler() const;
 
     /// \Returns the parse tree of the source file \p filepath
     SourceFileFacet const* getParseTree(

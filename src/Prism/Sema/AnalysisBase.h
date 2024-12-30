@@ -4,14 +4,14 @@
 namespace prism {
 
 class SemaContext;
-class IssueHandler;
+class DiagnosticHandler;
 class SourceContext;
 class Symbol;
 
 class AnalysisBase {
 public:
     SemaContext& ctx;
-    IssueHandler& iss;
+    DiagnosticHandler& diagHandler;
     SourceContext const* sourceContext = nullptr;
 };
 

@@ -1,9 +1,9 @@
-#ifndef PRISM_LEXER_LEXICALISSUE_H
-#define PRISM_LEXER_LEXICALISSUE_H
+#ifndef PRISM_LEXER_LEXICALDIAGNOSTIC_H
+#define PRISM_LEXER_LEXICALDIAGNOSTIC_H
 
 #include <string_view>
 
-#include <Prism/Common/Issue.h>
+#include <Prism/Common/Diagnostic.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {
@@ -13,7 +13,7 @@ namespace prism {
     X(UnterminatedStringLiteral, Error)                                        \
     X(InvalidNumericLiteral, Error)
 
-class LexicalIssue: public Issue {
+class LexicalDiagnostic: public Diagnostic {
 public:
     enum Reason {
 #define X(Name, ...) Name,
@@ -21,8 +21,8 @@ public:
 #undef X
     };
 
-    explicit LexicalIssue(Reason reason, SourceRange sourceRange,
-                          SourceContext const& sourceContext);
+    explicit LexicalDiagnostic(Reason reason, SourceRange sourceRange,
+                               SourceContext const& sourceContext);
 
     Reason reason() const { return _reason; }
 
@@ -34,4 +34,4 @@ private:
 
 } // namespace prism
 
-#endif // PRISM_LEXER_LEXICALISSUE_H
+#endif // PRISM_LEXER_LEXICALDIAGNOSTIC_H

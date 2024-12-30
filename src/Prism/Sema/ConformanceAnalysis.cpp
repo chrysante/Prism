@@ -3,7 +3,7 @@
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 
-#include "Prism/Common/IssueHandler.h"
+#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
@@ -11,7 +11,7 @@
 #include "Prism/Sema/Contracts.h"
 #include "Prism/Sema/DependencyGraph.h"
 #include "Prism/Sema/SemaContext.h"
-#include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/Sema/SemaPrint.h"
 #include "Prism/Sema/Symbol.h"
 #include "Prism/Source/SourceContext.h"
@@ -71,9 +71,10 @@ struct ConformanceAnalysisContext: AnalysisBase {
             matches.front()->addConformance(&func, SpecAddMode::Define);
             return;
         }
-        iss.push<AmbiguousConformance>(sourceContext, func.facet(), &func,
-                                       matches |
-                                           ToSmallVector<Obligation const*>);
+        diagHandler
+            .push<AmbiguousConformance>(sourceContext, func.facet(), &func,
+                                        matches |
+                                            ToSmallVector<Obligation const*>);
     }
 
     void analyzeConformances(InterfaceLike& interface, Scope* scope) {
@@ -103,14 +104,15 @@ struct ConformanceAnalysisContext: AnalysisBase {
             return itr != conf->baseTraits().end() ? *itr : nullptr;
         }();
         if (existing) {
-            iss.push<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
-                                         existing);
+            diagHandler.push<DuplicateTraitImpl>(sourceContext, impl.facet(),
+                                                 &impl, existing);
             return;
         }
         inheritObligations(*trait, impl);
         analyzeConformances(impl, impl.associatedScope());
         if (!impl.isComplete())
-            iss.push<IncompleteImpl>(sourceContext, impl.facet(), &impl, impl);
+            diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
+                                             impl);
         conf->setTraitImpl(impl);
     }
 
@@ -118,7 +120,8 @@ struct ConformanceAnalysisContext: AnalysisBase {
         analyzeObligations(type, type.associatedScope());
         analyzeConformances(type, type.associatedScope());
         if (!type.isCompleteForTraits())
-            iss.push<IncompleteImpl>(sourceContext, type.facet(), &type, type);
+            diagHandler.push<IncompleteImpl>(sourceContext, type.facet(), &type,
+                                             type);
     }
 
     void analyze(BaseTrait& base) {
@@ -138,16 +141,17 @@ struct ConformanceAnalysisContext: AnalysisBase {
 
 } // namespace
 
-static void analyzeConformance(SemaContext& ctx, IssueHandler& iss,
+static void analyzeConformance(SemaContext& ctx, DiagnosticHandler& diagHandler,
                                Symbol* sym) {
-    ConformanceAnalysisContext confCtx{ ctx, iss, getSourceContext(sym) };
+    ConformanceAnalysisContext confCtx{ ctx, diagHandler,
+                                        getSourceContext(sym) };
     visit(*sym, [&](auto& sym) { confCtx.analyze(sym); });
 }
 
 void prism::analyzeConformances(MonotonicBufferResource&, SemaContext& ctx,
-                                IssueHandler& iss, Target&,
+                                DiagnosticHandler& diagHandler, Target&,
                                 DependencyGraph const& dependencies) {
     for (auto* sym: dependencies.getTopoOrder() | reverse) {
-        analyzeConformance(ctx, iss, sym);
+        analyzeConformance(ctx, diagHandler, sym);
     }
 }

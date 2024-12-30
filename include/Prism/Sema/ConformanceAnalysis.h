@@ -7,12 +7,12 @@ namespace prism {
 
 class MonotonicBufferResource;
 class SemaContext;
-class IssueHandler;
+class DiagnosticHandler;
 class DependencyGraph;
 
 /// Analysis trait and base class conformances
 void analyzeConformances(MonotonicBufferResource& resource, SemaContext& ctx,
-                         IssueHandler& iss, Target& target,
+                         DiagnosticHandler& diagHandler, Target& target,
                          DependencyGraph const& dependencyGraph);
 
 } // namespace prism

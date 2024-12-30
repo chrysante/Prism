@@ -1,5 +1,5 @@
-#ifndef PRISM_COMMON_ISSUE_H
-#define PRISM_COMMON_ISSUE_H
+#ifndef PRISM_COMMON_DIAGNOSTIC_H
+#define PRISM_COMMON_DIAGNOSTIC_H
 
 #include <concepts>
 #include <cstdint>
@@ -20,11 +20,11 @@ class SourceContext;
 class TreeFormatter;
 
 /// Base class of all issues
-class Issue {
+class Diagnostic {
 public:
     enum Kind { Error, Warning, Note, Hint };
 
-    virtual ~Issue() = default;
+    virtual ~Diagnostic() = default;
 
     /// Formats this issue to \p os
     void format(std::ostream& os, SourceContext const* ctx) const;
@@ -44,13 +44,13 @@ public:
     }
 
     /// Adds a child issue
-    Issue* addChild(std::unique_ptr<Issue> child) {
+    Diagnostic* addChild(std::unique_ptr<Diagnostic> child) {
         _children.push_back(std::move(child));
         return _children.back().get();
     }
 
     /// \overload
-    template <std::derived_from<Issue> I, typename... Args>
+    template <std::derived_from<Diagnostic> I, typename... Args>
         requires std::constructible_from<I, Args...>
     I* addChild(Args&&... args) {
         return static_cast<I*>(
@@ -58,8 +58,8 @@ public:
     }
 
 protected:
-    explicit Issue(Kind kind, std::optional<SourceRange> sourceRange,
-                   SourceContext const* context);
+    explicit Diagnostic(Kind kind, std::optional<SourceRange> sourceRange,
+                        SourceContext const* context);
 
 private:
     /// A single line message that sums up the issue
@@ -70,9 +70,9 @@ private:
     Kind _kind;
     SourceRange _sourceRange;
     SourceContext const* _sourceContext;
-    std::vector<std::unique_ptr<Issue>> _children;
+    std::vector<std::unique_ptr<Diagnostic>> _children;
 };
 
 } // namespace prism
 
-#endif // PRISM_COMMON_ISSUE_H
+#endif // PRISM_COMMON_DIAGNOSTIC_H

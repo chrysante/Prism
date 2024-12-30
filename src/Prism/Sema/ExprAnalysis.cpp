@@ -4,8 +4,8 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Functional.h"
-#include "Prism/Common/IssueHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
@@ -13,7 +13,7 @@
 #include "Prism/Sema/NameLookup.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
-#include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/Sema/SemaPrint.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -44,7 +44,8 @@ struct AnaContext: AnalysisBase {
 
 void detail::pushBadSymRef(AnalysisBase const& context, Facet const* facet,
                            Symbol* symbol, SymbolType expected) {
-    context.iss.push<BadSymRef>(context.sourceContext, facet, symbol, expected);
+    context.diagHandler.push<BadSymRef>(context.sourceContext, facet, symbol,
+                                        expected);
 }
 
 Symbol* prism::analyzeFacet(AnalysisBase const& context, Scope* scope,
@@ -80,7 +81,7 @@ Symbol* AnaContext::analyzeID(TerminalFacet const& id) {
     auto name = sourceContext->getTokenStr(id.token());
     auto symbols = unqualifiedLookup(scope, name);
     if (!symbols.success()) {
-        iss.push<UndeclaredID>(sourceContext, &id, symbols.similar());
+        diagHandler.push<UndeclaredID>(sourceContext, &id, symbols.similar());
         return nullptr;
     }
     if (symbols.isSingleSymbol()) return symbols.singleSymbol();

@@ -8,22 +8,24 @@
 
 namespace prism {
 
-class IssueHandler;
+class DiagnosticHandler;
 class SourceContext;
 
 /// Parses a single source file and returns the constructed source file facet
 SourceFileFacet const* parseSourceFile(MonotonicBufferResource& alloc,
                                        SourceContext const& sourceCtx,
-                                       IssueHandler& iss);
+                                       DiagnosticHandler& diagHandler);
 
 /// Parses a single expression facet.
 /// This function is only exposed for testing
 Facet const* parseExpr(MonotonicBufferResource& alloc,
-                       SourceContext const& sourceCtx, IssueHandler& iss);
+                       SourceContext const& sourceCtx,
+                       DiagnosticHandler& diagHandler);
 
 /// This function is only exposed for testing
 Facet const* parseTypeSpec(MonotonicBufferResource& alloc,
-                           SourceContext const& sourceCtx, IssueHandler& iss);
+                           SourceContext const& sourceCtx,
+                           DiagnosticHandler& diagHandler);
 
 } // namespace prism
 

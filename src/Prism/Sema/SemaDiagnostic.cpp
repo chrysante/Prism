@@ -1,4 +1,4 @@
-#include "Prism/Sema/SemaIssue.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 
 #include <ostream>
 #include <string_view>
@@ -42,23 +42,25 @@ static std::optional<SourceRange> getSourceRange(Facet const* facet) {
     return SourceRange{ beginIndex, endIndex - beginIndex };
 }
 
-SemaIssue::SemaIssue(Issue::Kind kind, SourceContext const* ctx,
-                     Facet const* facet):
-    Issue(kind, getSourceRange(facet), ctx), fct(facet) {}
+SemaDiagnostic::SemaDiagnostic(Diagnostic::Kind kind, SourceContext const* ctx,
+                               Facet const* facet):
+    Diagnostic(kind, getSourceRange(facet), ctx), fct(facet) {}
 
-SemaNote* SemaIssue::addNote(SourceContext const* sourceContext,
-                             Facet const* facet, utl::vstreammanip<> impl) {
+SemaNote* SemaDiagnostic::addNote(SourceContext const* sourceContext,
+                                  Facet const* facet,
+                                  utl::vstreammanip<> impl) {
     return addChild<SemaNote>(sourceContext, facet, std::move(impl));
 }
 
-SemaHint* SemaIssue::addHint(SourceContext const* sourceContext,
-                             Facet const* facet, utl::vstreammanip<> impl) {
+SemaHint* SemaDiagnostic::addHint(SourceContext const* sourceContext,
+                                  Facet const* facet,
+                                  utl::vstreammanip<> impl) {
     return addChild<SemaHint>(sourceContext, facet, std::move(impl));
 }
 
-SemaMessage::SemaMessage(Issue::Kind kind, SourceContext const* ctx,
+SemaMessage::SemaMessage(Diagnostic::Kind kind, SourceContext const* ctx,
                          Facet const* facet, utl::vstreammanip<> impl):
-    SemaIssue(kind, ctx, facet), impl(std::move(impl)) {}
+    SemaDiagnostic(kind, ctx, facet), impl(std::move(impl)) {}
 
 void SemaMessage::header(std::ostream& str, SourceContext const*) const {
     str << impl;
@@ -86,9 +88,9 @@ static Facet const* getDeclName(Facet const* facet) {
     });
 }
 
-static void UndeclaredIDNotes(UndeclaredID& issue, Symbol const* similar) {
+static void UndeclaredIDNotes(UndeclaredID& diag, Symbol const* similar) {
     if (similar) {
-        auto* note = issue.addNote([=](std::ostream& str) {
+        auto* note = diag.addNote([=](std::ostream& str) {
             str << "Did you mean \'" << formatName(*similar) << "\'?";
         });
         if (auto* nameFct = getDeclName(similar->facet()))
@@ -98,7 +100,7 @@ static void UndeclaredIDNotes(UndeclaredID& issue, Symbol const* similar) {
     }
 }
 
-static void TypeDefCycleNotes(TypeDefCycle& issue,
+static void TypeDefCycleNotes(TypeDefCycle& diag,
                               std::span<Symbol const* const> cycle) {
     for (auto itr = cycle.begin(); itr < cycle.end() - 1; ++itr) {
         auto* sym = *itr;
@@ -122,38 +124,38 @@ static void TypeDefCycleNotes(TypeDefCycle& issue,
                     << " through member " << formatName(*mid);
             };
         };
-        issue.addNote(getSourceContext(sym), sym->facet(), fmt());
+        diag.addNote(getSourceContext(sym), sym->facet(), fmt());
     }
-    issue.addHint([=](std::ostream& str) {
+    diag.addHint([=](std::ostream& str) {
         str << "Use pointer members to break strong dependencies";
     });
 }
 
 static void AmbiguousConformanceNotes(
-    AmbiguousConformance& issue, std::span<Obligation const* const> matches) {
+    AmbiguousConformance& diag, std::span<Obligation const* const> matches) {
     for (auto* sym: matches | transform(FN1(_1->symbol()))) {
-        issue.addNote(sym->facet(), [=](std::ostream& str) {
+        diag.addNote(sym->facet(), [=](std::ostream& str) {
             str << "Declaration matches "
                 << formatDecl(sym, { .primaryQualified = true });
         });
     }
 }
 
-static void IncompleteImplNotes(IncompleteImpl& issue,
+static void IncompleteImplNotes(IncompleteImpl& diag,
                                 InterfaceLike const& interface) {
     for (auto& [key, list]: interface.obligations()) {
         for (auto* obl: list) {
             auto confs = obl->conformances();
             auto* sym = obl->symbol();
             if (confs.empty()) {
-                issue.addNote(sym->facet(), [=](std::ostream& str) {
+                diag.addNote(sym->facet(), [=](std::ostream& str) {
                     str << "Missing implementation for "
                         << formatDecl(sym, { .primaryQualified = true });
                 });
                 continue;
             }
             if (confs.size() == 1) continue;
-            auto* note = issue.addNote(sym->facet(), [=](std::ostream& str) {
+            auto* note = diag.addNote(sym->facet(), [=](std::ostream& str) {
                 str << "Multiple implementations for "
                     << formatDecl(sym, { .primaryQualified = true })
                     << " must be resolved";
@@ -167,11 +169,11 @@ static void IncompleteImplNotes(IncompleteImpl& issue,
     }
 }
 
-static void DuplicateTraitImplNotes(DuplicateTraitImpl& issue,
+static void DuplicateTraitImplNotes(DuplicateTraitImpl& diag,
                                     Symbol const* existing) {
-    issue.addNote(existing->Symbol::facet(), [=](std::ostream& str) {
+    diag.addNote(existing->Symbol::facet(), [=](std::ostream& str) {
         str << "Existing implementation defined here";
     });
 }
 
-#include "Prism/Sema/SemaIssuesDef.inl"
+#include "Prism/Sema/SemaDiagnosticsDef.inl"

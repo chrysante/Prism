@@ -13,7 +13,7 @@ namespace prism {
 class SemaContext;
 class SourceContext;
 class SourceFileFacet;
-class IssueHandler;
+class DiagnosticHandler;
 
 struct ConstructionResult {
     static ConstructionResult Fatal(Target* target) {
@@ -26,7 +26,8 @@ struct ConstructionResult {
 };
 
 ConstructionResult constructTarget(MonotonicBufferResource& resource,
-                                   SemaContext& ctx, IssueHandler& issueHandler,
+                                   SemaContext& ctx,
+                                   DiagnosticHandler& diagHandler,
                                    std::span<SourceFilePair const> input);
 
 } // namespace prism

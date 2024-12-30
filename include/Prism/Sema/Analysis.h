@@ -9,11 +9,11 @@ namespace prism {
 
 class MonotonicBufferResource;
 class SemaContext;
-class IssueHandler;
+class DiagnosticHandler;
 
 /// Top-level sema function. Constructs and analyzes a module
 Target* analyzeModule(MonotonicBufferResource& resource, SemaContext& ctx,
-                      IssueHandler& issueHandler,
+                      DiagnosticHandler& diagHandler,
                       std::span<SourceFilePair const> input);
 
 } // namespace prism

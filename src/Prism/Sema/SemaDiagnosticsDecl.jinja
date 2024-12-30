@@ -1,33 +1,33 @@
 
-{% macro define_ctor(issue) %}
+{% macro define_ctor(diag) %}
 
-{% if issue.members %}
+{% if diag.members %}
 {% set comma_if_members = ', ' %}
 {% else %}
 {% set comma_if_members = '' %}
 {% endif %}
 
-explicit {{ issue.name }}(
-    {% if not issue.no_source -%}
+explicit {{ diag.name }}(
+    {% if not diag.no_source -%}
     SourceContext const* ctx, Facet const* facet
         {{ comma_if_members }}
     {%- endif %}
-        {{- issue.members | map('issue_member_ctor_param') | join(', ') -}}
+        {{- diag.members | map('diag_member_ctor_param') | join(', ') -}}
     );
 {% endmacro %}
 
-{% macro define_issue_class(issue) %}
+{% macro define_diag_class(diag) %}
 
-/// {{ issue.comment }}
-class {{ issue.name }}: public {{ issue.base }} {
-{% if not issue.abstract %}
+/// {{ diag.comment }}
+class {{ diag.name }}: public {{ diag.base }} {
+{% if not diag.abstract %}
 public:
-    {{ define_ctor(issue) }}
+    {{ define_ctor(diag) }}
 
 private:
     void header(std::ostream& str, SourceContext const* ctx) const override;
 
-    {% for member in issue.members %}
+    {% for member in diag.members %}
         {% if not member.ctor_only %}
     {{ member.type }} {{ member.name }};
         {% endif %}
@@ -40,9 +40,9 @@ private:
 
 namespace prism {
     
-    {% for issue in issues %}
-    {% if not issue.decl_only %}
-    {{ define_issue_class(issue) }}
+    {% for diag in diags %}
+    {% if not diag.decl_only %}
+    {{ define_diag_class(diag) }}
     {% endif %}
     {% endfor %}
     

@@ -2,8 +2,9 @@
 
 using namespace prism;
 
-IssueChecker IssueChecker::Make(std::string source, InvocationStage stage) {
-    IssueChecker c;
+DiagnosticChecker DiagnosticChecker::Make(std::string source,
+                                          InvocationStage stage) {
+    DiagnosticChecker c;
     auto& inv = c.invocation;
     inv.addSourceFile("test/file.prism", std::move(source));
     inv.runUntil(stage);

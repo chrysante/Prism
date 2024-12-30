@@ -10,7 +10,7 @@
 using enum prism::FacetType;
 using enum prism::TokenKind;
 
-using prism::IssueOnLine;
+using prism::DiagnosticOnLine;
 using prism::NullNode;
 using prism::parseExpr;
 using prism::parseFile;
@@ -117,7 +117,7 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         Colon,
         Identifier
-    } >> IssueOnLine<prism::ExpectedExpr>(0, 4));
+    } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 4));
 
     CHECK(*parseExpr("x ? a b") == CondFacet >> Tree{
         Identifier,
@@ -125,7 +125,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier,
         NullNode,
         Identifier
-    } >> IssueOnLine<prism::ExpectedToken>(0, 6));
+    } >> DiagnosticOnLine<prism::ExpectedToken>(0, 6));
 
     CHECK(*parseExpr("x ? a :") == CondFacet >> Tree{
         Identifier,
@@ -133,7 +133,7 @@ TEST_CASE("Conditionals", "[parser]") {
         Identifier,
         Colon,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpr>(0, 7));
+    } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 7));
 
     CHECK(*parseExpr("x ? :") == CondFacet >> Tree{
         Identifier,
@@ -141,8 +141,8 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         Colon,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpr>(0, 4)
-      >> IssueOnLine<prism::ExpectedExpr>(0, 5));
+    } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 4)
+      >> DiagnosticOnLine<prism::ExpectedExpr>(0, 5));
 
     CHECK(*parseExpr("x ?") == CondFacet >> Tree{
         Identifier,
@@ -150,9 +150,9 @@ TEST_CASE("Conditionals", "[parser]") {
         NullNode,
         NullNode,
         NullNode
-    } >> IssueOnLine<prism::ExpectedExpr>(0, 3)
-      >> IssueOnLine<prism::ExpectedToken>(0, 3)
-      >> IssueOnLine<prism::ExpectedExpr>(0, 3));
+    } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 3)
+      >> DiagnosticOnLine<prism::ExpectedToken>(0, 3)
+      >> DiagnosticOnLine<prism::ExpectedExpr>(0, 3));
 }
 
 TEST_CASE("Binary expressions", "[parser]") {
@@ -160,13 +160,13 @@ TEST_CASE("Binary expressions", "[parser]") {
         Identifier,
         Star,
         NullNode,
-    } >> IssueOnLine<prism::ExpectedExpr>(0, 4));
+    } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 4));
     
     CHECK(*parseExpr("x * = x") == BinaryFacet >> Tree{
         Identifier,
         Star,
         Identifier,
-    } >> IssueOnLine<prism::UnexpectedToken>(0, 4));
+    } >> DiagnosticOnLine<prism::UnexpectedToken>(0, 4));
 }
 
 TEST_CASE("Function types", "[parser]") {

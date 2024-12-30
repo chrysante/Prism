@@ -1,4 +1,4 @@
-#include "Prism/Common/Issue.h"
+#include "Prism/Common/Diagnostic.h"
 
 #include <iomanip>
 #include <ostream>
@@ -12,19 +12,19 @@
 using namespace prism;
 using namespace tfmt::modifiers;
 
-void Issue::format(std::ostream& str, SourceContext const* ctx) const {
+void Diagnostic::format(std::ostream& str, SourceContext const* ctx) const {
     TreeFormatter fmt(str);
     formatImpl(fmt, ctx);
 }
 
-std::optional<FullSourceRange> Issue::sourceRange() const {
+std::optional<FullSourceRange> Diagnostic::sourceRange() const {
     auto* ctx = sourceContext();
     if (!ctx) return std::nullopt;
     return ctx->getFullSourceRange(_sourceRange);
 }
 
-Issue::Issue(Kind kind, std::optional<SourceRange> sourceRange,
-             SourceContext const* context):
+Diagnostic::Diagnostic(Kind kind, std::optional<SourceRange> sourceRange,
+                       SourceContext const* context):
     _kind(kind),
     _sourceRange(sourceRange.value_or(SourceRange{})),
     _sourceContext(context) {
@@ -32,9 +32,9 @@ Issue::Issue(Kind kind, std::optional<SourceRange> sourceRange,
                  "We must have a source range iff. we have a context");
 }
 
-static auto fmt(Issue::Kind kind) {
+static auto fmt(Diagnostic::Kind kind) {
     return utl::streammanip([=](std::ostream& str) {
-        using enum Issue::Kind;
+        using enum Diagnostic::Kind;
         switch (kind) {
         case Error:
             str << tfmt::format(Bold | BrightRed, "Error:") << " ";
@@ -97,7 +97,8 @@ static void printSourceRange(SourceContext const& ctx, SourceRange range,
     });
 }
 
-void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
+void Diagnostic::formatImpl(TreeFormatter& treeFmt,
+                            SourceContext const* ctx) const {
     auto& str = treeFmt.ostream();
     str << fmt(kind());
     auto range = sourceRange();
@@ -110,7 +111,7 @@ void Issue::formatImpl(TreeFormatter& treeFmt, SourceContext const* ctx) const {
             printSourceRange(*ctx, range->slim(), str);
         });
     }
-    treeFmt.writeChildren(children(), [&](Issue const* child) {
+    treeFmt.writeChildren(children(), [&](Diagnostic const* child) {
         child->formatImpl(treeFmt, ctx);
     });
 }
