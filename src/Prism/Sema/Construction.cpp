@@ -58,80 +58,19 @@ struct InstantiationBase: AnalysisBase {
     }
 };
 
-struct GloablDeclDeclare: InstantiationBase {
+struct GlobalDeclDeclare: InstantiationBase {
     Scope* globalScope;
 
-    void run(std::span<SourceFilePair const> input) {
-        ranges::for_each(input,
-                         [&](auto& p) { declareFile(*p.facet, p.context); });
-    }
-
-    void declareChildren(Scope* scope, auto const& children) {
-        ranges::for_each(children, FN1(&, declare(_1, scope)));
-    }
-
+    void run(std::span<SourceFilePair const> input);
+    void declareChildren(Scope* scope, auto const& children);
     void declareFile(SourceFileFacet const& facet,
-                     SourceContext const& sourceContext) {
-        this->sourceContext = &sourceContext;
-        auto* file = ctx.make<SourceFile>(sourceContext.filepath().string(),
-                                          &facet, globalScope, sourceContext);
-        declareChildren(file->associatedScope(), facet.decls());
-    }
-
-    Symbol* declare(Facet const* facet, Scope* scope) {
-        if (!facet) return nullptr;
-        return visit(*facet, FN1(&, doDeclare(_1, scope)));
-    }
-
+                     SourceContext const& sourceContext);
+    Symbol* declare(Facet const* facet, Scope* scope);
     Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
-
-    Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent) {
-        auto [context, scope] = makeGenContext(facet.genParams(), parent);
-        if (facet.body() && isa<CompoundFacet>(facet.body()))
-            return ctx.make<FunctionImpl>(getName(facet), &facet, parent, scope,
-                                          std::move(context));
-        if (context)
-            PRISM_UNIMPLEMENTED(); // Can function declarations have generic
-                                   // parameters?!
-        return ctx.make<Function>(getName(facet), &facet, parent);
-    }
-
-    Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent) {
-        auto [context, scope] = makeGenContext(facet.genParams(), parent);
-        auto* typeOrTrait = [&]() -> Symbol* {
-            switch (facet.declarator().kind) {
-            case TokenKind::Struct:
-                return ctx.make<StructType>(getName(facet), &facet, parent,
-                                            scope, std::move(context));
-            case TokenKind::Trait:
-                return ctx.make<Trait>(getName(facet), &facet, parent, scope,
-                                       std::move(context));
-            default:
-                PRISM_UNREACHABLE();
-            }
-        }();
-        declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
-        return typeOrTrait;
-    }
-
-    Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent) {
-        auto [context, scope] = makeGenContext(facet.genParams(), parent);
-        auto* impl = ctx.make<TraitImpl>(&facet, parent, scope, nullptr,
-                                         nullptr, std::move(context));
-        declareChildren(impl->associatedScope(),
-                        cast<TraitImplTypeFacet const*>(facet.definition())
-                            ->body()
-                            ->elems());
-        return impl;
-    }
-
-    Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent) {
-        auto* trait =
-            analyzeFacetAs<Trait>(*this, parent, facet.requirements());
-        auto name = sourceContext->getTokenStr(facet.name());
-        return ctx.make<GenericTypeParam>(std::string(name), &facet, parent,
-                                          trait);
-    }
+    Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
+    Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
+    Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
+    Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent);
 
     struct GenCtxAnaResult {
         std::optional<GenericContext> context;
@@ -139,25 +78,99 @@ struct GloablDeclDeclare: InstantiationBase {
     };
 
     /// Creates a generic context if \p genParams is not null. In this case a
-    /// scope for the generic symbol is created. Otherwise `{ std::nullopt,
-    /// nullptr }` is returned and the respective symbol creates its own scope.
+    /// scope for the generic symbol is created. Otherwise
+    /// `{ std::nullopt, nullptr }` is returned and the respective symbol
+    /// creates its own scope.
     GenCtxAnaResult makeGenContext(GenParamListFacet const* genParams,
-                                   Scope* parent) {
-        if (!genParams) return {};
-        auto* scope = ctx.make<Scope>(parent);
-        return { GenericContext(genParams->children() |
-                                transform(FN1(&, declare(_1, scope))) |
-                                ToSmallVector<>),
-                 scope };
-    }
+                                   Scope* parent);
 };
 
 } // namespace
 
+void GlobalDeclDeclare::run(std::span<SourceFilePair const> input) {
+    ranges::for_each(input, FN1(&, declareFile(*_1.facet, _1.context)));
+}
+
+void GlobalDeclDeclare::declareChildren(Scope* scope, auto const& children) {
+    ranges::for_each(children, FN1(&, declare(_1, scope)));
+}
+
+void GlobalDeclDeclare::declareFile(SourceFileFacet const& facet,
+                                    SourceContext const& sourceContext) {
+    this->sourceContext = &sourceContext;
+    auto* file = ctx.make<SourceFile>(sourceContext.filepath().string(), &facet,
+                                      globalScope, sourceContext);
+    declareChildren(file->associatedScope(), facet.decls());
+}
+
+Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
+    if (!facet) return nullptr;
+    return visit(*facet, FN1(&, doDeclare(_1, scope)));
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
+    auto [context, scope] = makeGenContext(facet.genParams(), parent);
+    if (facet.body() && isa<CompoundFacet>(facet.body()))
+        return ctx.make<FunctionImpl>(getName(facet), &facet, parent, scope,
+                                      std::move(context));
+    if (context)
+        PRISM_UNIMPLEMENTED(); // Can function declarations have generic
+                               // parameters?!
+    return ctx.make<Function>(getName(facet), &facet, parent);
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
+                                     Scope* parent) {
+    auto [context, scope] = makeGenContext(facet.genParams(), parent);
+    auto* typeOrTrait = [&]() -> Symbol* {
+        switch (facet.declarator().kind) {
+        case TokenKind::Struct:
+            return ctx.make<StructType>(getName(facet), &facet, parent, scope,
+                                        std::move(context));
+        case TokenKind::Trait:
+            return ctx.make<Trait>(getName(facet), &facet, parent, scope,
+                                   std::move(context));
+        default:
+            PRISM_UNREACHABLE();
+        }
+    }();
+    declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
+    return typeOrTrait;
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
+                                     Scope* parent) {
+    auto [context, scope] = makeGenContext(facet.genParams(), parent);
+    auto* impl = ctx.make<TraitImpl>(&facet, parent, scope, nullptr, nullptr,
+                                     std::move(context));
+    declareChildren(impl->associatedScope(),
+                    cast<TraitImplTypeFacet const*>(facet.definition())
+                        ->body()
+                        ->elems());
+    return impl;
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(GenParamDeclFacet const& facet,
+                                     Scope* parent) {
+    auto* trait = analyzeFacetAs<Trait>(*this, parent, facet.requirements());
+    auto name = sourceContext->getTokenStr(facet.name());
+    return ctx.make<GenericTypeParam>(std::string(name), &facet, parent, trait);
+}
+
+GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenContext(
+    GenParamListFacet const* genParams, Scope* parent) {
+    if (!genParams) return {};
+    auto* scope = ctx.make<Scope>(parent);
+    return { GenericContext(genParams->children() |
+                            transform(FN1(&, declare(_1, scope))) |
+                            ToSmallVector<>),
+             scope };
+}
+
 static void declareGlobals(SemaContext& ctx, IssueHandler& iss,
                            Scope* globalScope,
                            std::span<SourceFilePair const> input) {
-    GloablDeclDeclare{ { ctx, iss }, globalScope }.run(input);
+    GlobalDeclDeclare{ { ctx, iss }, globalScope }.run(input);
 }
 
 namespace prism {
@@ -166,217 +179,237 @@ struct GlobalNameResolver: InstantiationBase {
     DependencyGraph& dependencies;
 
     DependencyNode* getNode(Symbol& sym) { return dependencies.getNode(sym); }
-
-    void addDependency(DependencyNode* node, Symbol* dependsOn) {
-        if (dependsOn && !isBuiltinSymbol(*dependsOn)) {
-            node->addDependency(getNode(*dependsOn));
-        }
-    }
-
-    void addDependency(Symbol& symbol, Symbol* dependsOn) {
-        addDependency(getNode(symbol), dependsOn);
-    }
-
-    void resolve(Symbol* symbol) {
-        if (!symbol) return;
-        visit(*symbol, [this](auto& symbol) { doResolve(symbol); });
-    }
-
+    void addDependency(DependencyNode* node, Symbol* dependsOn);
+    void addDependency(Symbol& symbol, Symbol* dependsOn);
+    void resolve(Symbol* symbol);
     void doResolve(Symbol&) {}
-
-    void declareGlobalVar(Scope* parent, VarDeclFacet const& facet) {
-        if (!facet.typespec()) {
-            PRISM_UNIMPLEMENTED();
-        }
-        auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
-        auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
-                                       QualType{ type, {} });
-        addDependency(*var, type);
-    }
-
-    void doResolve(SourceFile& sourceFile) {
-        sourceContext = &sourceFile.sourceContext();
-        auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
-        for (auto* decl: globals)
-            declareGlobalVar(sourceFile.associatedScope(), *decl);
-        resolveChildren(sourceFile);
-    }
-
-    void doResolve(TraitImpl& impl) {
-        auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
-        impl._trait = analyzeFacetAs<Trait>(*this, impl.parentScope(),
-                                            def->traitDeclRef());
-        impl._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
-                                                   def->conformingTypename());
-        auto* node = getNode(impl);
-        addDependency(node, impl._trait);
-        addDependency(node, impl._conf);
-        resolveChildren(impl);
-    }
-
-    Symbol* declareBase(Scope* scope, BaseDeclFacet const& decl) {
-        auto* base = analyzeFacet(*this, scope, decl.type());
-        if (!base) return nullptr;
-        if (auto* type = dyncast<UserType*>(base)) {
-            auto* baseclass = ctx.make<BaseClass>(&decl, scope, type);
-            addDependency(*baseclass, type);
-            return baseclass;
-        }
-        if (auto* trait = dyncast<Trait*>(base)) {
-            auto* basetrait = ctx.make<BaseTrait>(&decl, scope, trait);
-            addDependency(*basetrait, trait);
-            return basetrait;
-        }
-        PRISM_UNIMPLEMENTED();
-    }
-
-    MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl) {
-        auto* type = analyzeFacetAs<ValueType>(*this, scope, decl.typespec());
-        auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
-        addDependency(*var, type);
-        return var;
-    }
-
+    void declareGlobalVar(Scope* parent, VarDeclFacet const& facet);
+    void doResolve(SourceFile& sourceFile);
+    void doResolve(TraitImpl& impl);
+    Symbol* declareBase(Scope* scope, BaseDeclFacet const& decl);
+    MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl);
     void declareMembers(Symbol& typeOrTrait,
-                        utl::function_view<void(Symbol*)> verify) {
-        auto* scope = typeOrTrait.associatedScope();
-        auto* node = getNode(typeOrTrait);
-        auto* facet = cast<CompTypeDeclFacet const*>(typeOrTrait.facet());
-        if (!facet) return;
-        if (auto* bases = facet->bases()) {
-            for (auto* decl: bases->elems()) {
-                auto* base = declareBase(scope, *decl);
-                addDependency(node, base);
-                verify(base);
-            }
-        }
-        if (auto* body = facet->body()) {
-            for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
-                auto* var = declareMemberVar(scope, *decl);
-                addDependency(node, var);
-                verify(var);
-            }
-        }
-    }
-
-    void doResolve(CompositeType& type) {
-        declareMembers(type, [&](Symbol* sym) {
-            if (auto* basetrait = dyncast<BaseTrait*>(sym))
-                type._baseTraits.push_back(basetrait);
-            else if (auto* baseclass = dyncast<BaseClass*>(sym))
-                type._bases.push_back(baseclass);
-            else if (auto* memvar = dyncast<MemberVar*>(sym))
-                type._memvars.push_back(memvar);
-        });
-        resolveChildren(type);
-    }
-
-    void doResolve(Trait& trait) {
-        declareMembers(trait, [&](Symbol* sym) {
-            if (auto* baseclass = dyncast<BaseClass*>(sym))
-                PRISM_UNIMPLEMENTED(); // Error
-            else if (auto* memvar = dyncast<MemberVar*>(sym))
-                PRISM_UNIMPLEMENTED(); // Error
-        });
-        resolveChildren(trait);
-    }
-
+                        utl::function_view<void(Symbol*)> verify);
+    void doResolve(CompositeType& type);
+    void doResolve(Trait& trait);
     FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet,
-                            size_t index) {
-        if (!facet) return nullptr;
-        return visit(*facet, [&](auto& facet) {
-            return analyzeParamImpl(func, facet, index);
-        });
-    }
-
+                            size_t index);
     FuncParam* analyzeParamImpl(Function& func,
-                                NamedParamDeclFacet const& param,
-                                size_t /* index */) {
-        auto* type =
-            analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
-        auto name = sourceContext->getTokenStr(param.name());
-        return ctx.make<FuncParam>(std::string(name), &param, type,
-                                   FuncParam::Options{ .hasMut = false,
-                                                       .isThis = false });
-    }
-
+                                NamedParamDeclFacet const& param, size_t index);
     FuncParam* analyzeParamImpl(Function& func, ThisParamDeclFacet const& param,
-                                size_t index) {
-        if (index != 0) {
-            iss.push<ThisParamBadPosition>(sourceContext, &param);
-        }
-        Mutability mut = Mutability::Const;
-        bool dyn = false, ref = false;
-        auto* typeFacet = param.spec();
-        while (!isa<TerminalFacet>(typeFacet)) {
-            auto* prefix = cast<PrefixFacet const*>(typeFacet);
-            typeFacet = prefix->operand();
-            using enum TokenKind;
-            switch (prefix->operation().kind) {
-            case Mut:
-                mut = Mutability::Mut;
-                break;
-            case Dyn:
-                dyn = true;
-                break;
-            case Ampersand:
-                ref = true;
-                break;
-            default:
-                PRISM_UNREACHABLE();
-            }
-        }
-        PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
-                     TokenKind::This);
-        auto* parent = func.parentScope()->assocSymbol();
-        auto* thisType = [&]() -> ValueType const* {
-            if (auto* userType = dyncast<UserType*>(parent)) return userType;
-            if (auto* trait = dyncast<Trait*>(parent))
-                return ctx.getDynTraitType(trait);
-            if (auto* traitImpl = dyncast<TraitImpl*>(parent))
-                return traitImpl->conformingType();
-            PRISM_UNIMPLEMENTED();
-        }();
-        if (ref) {
-            auto* type = ctx.getRefType({ thisType, mut });
-            return ctx.make<FuncParam>("this", &param, type,
-                                       FuncParam::Options{ .hasMut = false,
-                                                           .isThis = true });
-        }
-        else {
-            return ctx.make<FuncParam>("this", &param, thisType,
-                                       FuncParam::Options{
-                                           .hasMut = mut == Mutability::Mut,
-                                           .isThis = true });
-        }
-    }
-
-    void doResolve(Function& func) {
-        if (auto* paramDecls = func.facet()->params())
-            func._params =
-                paramDecls->elems() | enumerate |
-                transform(FN1(&, analyzeParam(func, _1.second, _1.first))) |
-                ToSmallVector<>;
-        auto* retType = [&]() -> Type const* {
-            if (auto* retFacet = func.facet()->retType())
-                return analyzeFacetAs<Type>(*this, func.parentScope(),
-                                            retFacet);
-            return ctx.getVoid();
-        }();
-        func._sig = FuncSig::Compute(retType, func.params());
-    }
-
-    void resolveChildren(std::span<Symbol* const> symbols) {
-        for (auto* symbol: symbols)
-            resolve(symbol);
-    }
-
-    void resolveChildren(auto& symbol) {
-        resolveChildren(symbol.associatedScope()->symbols());
-    }
+                                size_t index);
+    void doResolve(Function& func);
+    void resolveChildren(std::span<Symbol* const> symbols);
+    void resolveChildren(auto& symbol);
 };
 
 } // namespace prism
+
+void GlobalNameResolver::addDependency(DependencyNode* node,
+                                       Symbol* dependsOn) {
+    if (dependsOn && !isBuiltinSymbol(*dependsOn)) {
+        node->addDependency(getNode(*dependsOn));
+    }
+}
+
+void GlobalNameResolver::addDependency(Symbol& symbol, Symbol* dependsOn) {
+    addDependency(getNode(symbol), dependsOn);
+}
+
+void GlobalNameResolver::resolve(Symbol* symbol) {
+    if (!symbol) return;
+    visit(*symbol, [this](auto& symbol) { doResolve(symbol); });
+}
+
+void GlobalNameResolver::declareGlobalVar(Scope* parent,
+                                          VarDeclFacet const& facet) {
+    if (!facet.typespec()) PRISM_UNIMPLEMENTED();
+    auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
+    auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
+                                   QualType{ type, {} });
+    addDependency(*var, type);
+}
+
+void GlobalNameResolver::doResolve(SourceFile& sourceFile) {
+    sourceContext = &sourceFile.sourceContext();
+    auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
+    for (auto* decl: globals)
+        declareGlobalVar(sourceFile.associatedScope(), *decl);
+    resolveChildren(sourceFile);
+}
+
+void GlobalNameResolver::doResolve(TraitImpl& impl) {
+    auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
+    impl._trait =
+        analyzeFacetAs<Trait>(*this, impl.parentScope(), def->traitDeclRef());
+    impl._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
+                                               def->conformingTypename());
+    auto* node = getNode(impl);
+    addDependency(node, impl._trait);
+    addDependency(node, impl._conf);
+    resolveChildren(impl);
+}
+
+Symbol* GlobalNameResolver::declareBase(Scope* scope,
+                                        BaseDeclFacet const& decl) {
+    auto* base = analyzeFacet(*this, scope, decl.type());
+    if (!base) return nullptr;
+    if (auto* type = dyncast<UserType*>(base)) {
+        auto* baseclass = ctx.make<BaseClass>(&decl, scope, type);
+        addDependency(*baseclass, type);
+        return baseclass;
+    }
+    if (auto* trait = dyncast<Trait*>(base)) {
+        auto* basetrait = ctx.make<BaseTrait>(&decl, scope, trait);
+        addDependency(*basetrait, trait);
+        return basetrait;
+    }
+    PRISM_UNIMPLEMENTED();
+}
+
+MemberVar* GlobalNameResolver::declareMemberVar(Scope* scope,
+                                                VarDeclFacet const& decl) {
+    auto* type = analyzeFacetAs<ValueType>(*this, scope, decl.typespec());
+    auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
+    addDependency(*var, type);
+    return var;
+}
+
+void GlobalNameResolver::declareMembers(
+    Symbol& typeOrTrait, utl::function_view<void(Symbol*)> verify) {
+    auto* scope = typeOrTrait.associatedScope();
+    auto* node = getNode(typeOrTrait);
+    auto* facet = cast<CompTypeDeclFacet const*>(typeOrTrait.facet());
+    if (!facet) return;
+    if (auto* bases = facet->bases()) {
+        for (auto* decl: bases->elems()) {
+            auto* base = declareBase(scope, *decl);
+            addDependency(node, base);
+            verify(base);
+        }
+    }
+    if (auto* body = facet->body()) {
+        for (auto* decl: body->elems() | csp::filter<VarDeclFacet>) {
+            auto* var = declareMemberVar(scope, *decl);
+            addDependency(node, var);
+            verify(var);
+        }
+    }
+}
+
+void GlobalNameResolver::doResolve(CompositeType& type) {
+    declareMembers(type, [&](Symbol* sym) {
+        if (auto* basetrait = dyncast<BaseTrait*>(sym))
+            type._baseTraits.push_back(basetrait);
+        else if (auto* baseclass = dyncast<BaseClass*>(sym))
+            type._bases.push_back(baseclass);
+        else if (auto* memvar = dyncast<MemberVar*>(sym))
+            type._memvars.push_back(memvar);
+    });
+    resolveChildren(type);
+}
+
+void GlobalNameResolver::doResolve(Trait& trait) {
+    declareMembers(trait, [&](Symbol* sym) {
+        if (auto* baseclass = dyncast<BaseClass*>(sym))
+            PRISM_UNIMPLEMENTED(); // Error
+        else if (auto* memvar = dyncast<MemberVar*>(sym))
+            PRISM_UNIMPLEMENTED(); // Error
+    });
+    resolveChildren(trait);
+}
+
+FuncParam* GlobalNameResolver::analyzeParam(Function& func,
+                                            ParamDeclFacet const* facet,
+                                            size_t index) {
+    if (!facet) return nullptr;
+    return visit(*facet, FN1(&, analyzeParamImpl(func, _1, index)));
+}
+
+FuncParam* GlobalNameResolver::analyzeParamImpl(
+    Function& func, NamedParamDeclFacet const& param, size_t /* index */) {
+    auto* type =
+        analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
+    auto name = sourceContext->getTokenStr(param.name());
+    return ctx.make<FuncParam>(std::string(name), &param, type,
+                               FuncParam::Options{ .hasMut = false,
+                                                   .isThis = false });
+}
+
+FuncParam* GlobalNameResolver::analyzeParamImpl(Function& func,
+                                                ThisParamDeclFacet const& param,
+                                                size_t index) {
+    if (index != 0) {
+        iss.push<ThisParamBadPosition>(sourceContext, &param);
+    }
+    Mutability mut = Mutability::Const;
+    bool dyn = false, ref = false;
+    auto* typeFacet = param.spec();
+    while (!isa<TerminalFacet>(typeFacet)) {
+        auto* prefix = cast<PrefixFacet const*>(typeFacet);
+        typeFacet = prefix->operand();
+        using enum TokenKind;
+        switch (prefix->operation().kind) {
+        case Mut:
+            mut = Mutability::Mut;
+            break;
+        case Dyn:
+            dyn = true;
+            break;
+        case Ampersand:
+            ref = true;
+            break;
+        default:
+            PRISM_UNREACHABLE();
+        }
+    }
+    PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
+                 TokenKind::This);
+    auto* parent = func.parentScope()->assocSymbol();
+    auto* thisType = [&]() -> ValueType const* {
+        if (auto* userType = dyncast<UserType*>(parent)) return userType;
+        if (auto* trait = dyncast<Trait*>(parent))
+            return ctx.getDynTraitType(trait);
+        if (auto* traitImpl = dyncast<TraitImpl*>(parent))
+            return traitImpl->conformingType();
+        PRISM_UNIMPLEMENTED();
+    }();
+    if (ref) {
+        auto* type = ctx.getRefType({ thisType, mut });
+        return ctx.make<FuncParam>("this", &param, type,
+                                   FuncParam::Options{ .hasMut = false,
+                                                       .isThis = true });
+    }
+    else {
+        return ctx.make<FuncParam>("this", &param, thisType,
+                                   FuncParam::Options{
+                                       .hasMut = mut == Mutability::Mut,
+                                       .isThis = true });
+    }
+}
+
+void GlobalNameResolver::doResolve(Function& func) {
+    if (auto* paramDecls = func.facet()->params())
+        func._params =
+            paramDecls->elems() | enumerate |
+            transform(FN1(&, analyzeParam(func, _1.second, _1.first))) |
+            ToSmallVector<>;
+    auto* retType = [&]() -> Type const* {
+        if (auto* retFacet = func.facet()->retType())
+            return analyzeFacetAs<Type>(*this, func.parentScope(), retFacet);
+        return ctx.getVoid();
+    }();
+    func._sig = FuncSig::Compute(retType, func.params());
+}
+
+void GlobalNameResolver::resolveChildren(std::span<Symbol* const> symbols) {
+    for (auto* symbol: symbols)
+        resolve(symbol);
+}
+
+void GlobalNameResolver::resolveChildren(auto& symbol) {
+    resolveChildren(symbol.associatedScope()->symbols());
+}
 
 static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,
                                           SemaContext& ctx, IssueHandler& iss,
@@ -395,42 +428,46 @@ struct InstantiationContext: AnalysisBase {
     using LayoutAccumulator =
         utl::function_view<TypeLayout(TypeLayout, TypeLayout)>;
 
-    static size_t align(size_t size, size_t al) {
-        if (al == 0) {
-            PRISM_ASSERT(size == 0, "Align == 0 must imply size == 0");
-            return size;
-        }
-        if (size % al == 0) return size;
-        return size + al - size % al;
-    }
-
-    TypeLayout computeLayout(CompositeType const& type, LayoutAccumulator acc) {
-        TypeLayout layout = { 0, 0, 0 };
-        auto members =
-            concat(type.baseClasses() | transform(cast<MemberSymbol const*>),
-                   type.memberVars());
-        for (auto* member: members) {
-            // For types with invalid members we report poison
-            auto* memtype = member->type();
-            if (!memtype || !memtype->layout().isComplete())
-                return TypeLayout::Poison;
-            layout = acc(layout, memtype->layout());
-        }
-        return { layout.size(), align(layout.size(), layout.alignment()),
-                 layout.alignment() };
-    }
-
-    void instantiate(StructType& type) {
-        auto layout = computeLayout(type, [](TypeLayout curr, TypeLayout next) {
-            size_t size = align(curr.size(), next.alignment()) + next.size();
-            size_t align = std::max(curr.alignment(), next.alignment());
-            return TypeLayout{ size, size, align };
-        });
-        type.setLayout(layout);
-    }
+    TypeLayout computeLayout(CompositeType const& type, LayoutAccumulator acc);
+    void instantiate(StructType& type);
 };
 
 } // namespace prism
+
+static size_t align(size_t size, size_t al) {
+    if (al == 0) {
+        PRISM_ASSERT(size == 0, "Align == 0 must imply size == 0");
+        return size;
+    }
+    if (size % al == 0) return size;
+    return size + al - size % al;
+}
+
+TypeLayout InstantiationContext::computeLayout(CompositeType const& type,
+                                               LayoutAccumulator acc) {
+    TypeLayout layout = { 0, 0, 0 };
+    auto members =
+        concat(type.baseClasses() | transform(cast<MemberSymbol const*>),
+               type.memberVars());
+    for (auto* member: members) {
+        // For types with invalid members we report poison
+        auto* memtype = member->type();
+        if (!memtype || !memtype->layout().isComplete())
+            return TypeLayout::Poison;
+        layout = acc(layout, memtype->layout());
+    }
+    return { layout.size(), align(layout.size(), layout.alignment()),
+             layout.alignment() };
+}
+
+void InstantiationContext::instantiate(StructType& type) {
+    auto layout = computeLayout(type, [](TypeLayout curr, TypeLayout next) {
+        size_t size = align(curr.size(), next.alignment()) + next.size();
+        size_t align = std::max(curr.alignment(), next.alignment());
+        return TypeLayout{ size, size, align };
+    });
+    type.setLayout(layout);
+}
 
 static void instantiateSymbol(SemaContext& ctx, IssueHandler& iss,
                               Symbol* symbol) {
