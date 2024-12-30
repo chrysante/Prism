@@ -1,5 +1,5 @@
-#ifndef PRISM_SEMA_SYMBOLFWD_H
-#define PRISM_SEMA_SYMBOLFWD_H
+#ifndef PRISM_SEMA_SEMAFWD_H
+#define PRISM_SEMA_SEMAFWD_H
 
 #include <cstdint>
 
@@ -120,4 +120,4 @@ std::ostream& operator<<(std::ostream& ostream, TypeLayout layout);
 
 } // namespace prism
 
-#endif // PRISM_SEMA_SYMBOLFWD_H
+#endif // PRISM_SEMA_SEMAFWD_H

@@ -3,7 +3,7 @@
 
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/Rtti.h>
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 

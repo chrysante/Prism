@@ -15,7 +15,7 @@
 #include <Prism/Sema/FuncSig.h>
 #include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 #define FACET_TYPE(Type)                                                       \
     template <typename T = Type>                                               \

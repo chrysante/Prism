@@ -1,7 +1,7 @@
 #ifndef PRISM_SEMA_CONFORMANCEANALYSIS_H
 #define PRISM_SEMA_CONFORMANCEANALYSIS_H
 
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 

@@ -1,4 +1,4 @@
-#include "Prism/Sema/SymbolFwd.h"
+#include "Prism/Sema/SemaFwd.h"
 
 #include <ostream>
 

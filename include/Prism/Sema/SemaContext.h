@@ -10,7 +10,7 @@
 
 #include <Prism/Sema/QualType.h>
 #include <Prism/Sema/Scope.h>
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 

@@ -6,7 +6,7 @@
 
 #include <Prism/Common/Allocator.h>
 #include <Prism/Sema/DependencyGraph.h>
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 

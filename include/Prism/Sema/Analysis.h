@@ -3,7 +3,7 @@
 
 #include <span>
 
-#include <Prism/Sema/SymbolFwd.h>
+#include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 
