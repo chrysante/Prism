@@ -18,8 +18,11 @@ trait Foo: Foo1, Foo2 {
     fn foo(&this) {}
 }
 
-struct S {}
+struct Base {
+    fn bar(&this) {}
+}
 
-impl Foo for S {
-///    fn bar(&this) {}
+struct S: Foo {
+    fn bar(&this) { barImpl() }
+    fn barImpl(&this) {}
 }

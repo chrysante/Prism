@@ -360,7 +360,7 @@ struct SymbolPrinter {
         // non-static membar variables in the order of declaration, and all
         // other symbols afterwards in arbitrary order
         auto members =
-            concat(type.bases() | transform(cast<MemberSymbol const*>),
+            concat(type.baseClasses() | transform(cast<MemberSymbol const*>),
                    type.memberVars());
         auto memSet = members | ranges::to<utl::hashset<Symbol const*>>;
         auto others = type.associatedScope()->symbols() |

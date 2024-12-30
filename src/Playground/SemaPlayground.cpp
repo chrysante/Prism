@@ -27,6 +27,7 @@ namespace {
 
 struct Options {
     bool printFacets = false;
+    bool printConformances = false;
 };
 
 } // namespace
@@ -38,6 +39,7 @@ static int const INIT = [] {
     auto* cmd =
         addSubcommand("sema", [=] { return semaPlaygroundMain(*options); });
     cmd->add_flag("--facets", options->printFacets);
+    cmd->add_flag("--print-conformances", options->printConformances);
     return 0;
 }();
 
@@ -91,7 +93,8 @@ static int semaPlaygroundMain(Options options) {
                                  { { { parseTree, sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout,
-          { .structureMemoryLayout = true, .traitObligations = true });
+          { .structureMemoryLayout = true,
+            .traitObligations = options.printConformances });
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);
         return 1;

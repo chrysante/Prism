@@ -113,6 +113,10 @@ public:
     /// \Returns true if all obligations are unambiguously implemented
     bool isComplete() const;
 
+    /// \Returns true if all obligations defined by traits are unambiguously
+    /// implemented
+    bool isCompleteForTraits() const;
+
 private:
     bool addObligationImpl(TypeObligation*, SpecAddMode) { return false; }
     bool addObligationImpl(FuncObligation* obl, SpecAddMode mode);

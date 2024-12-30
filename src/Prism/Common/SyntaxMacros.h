@@ -37,7 +37,7 @@ decltype(auto) operator->*(DoToken, F&& f) {
     PRISM_FN1_IMPL_##NumArgs(Capture, Expr)
 #define PRISM_FN1_IMPL_1(Expr, ...) PRISM_FN1_IMPL_2(, Expr)
 #define PRISM_FN1_IMPL_2(Capture, Expr)                                        \
-    [Capture](auto&& _1) -> decltype(auto) { return Expr; }
+    [Capture]([[maybe_unused]] auto&& _1) -> decltype(auto) { return Expr; }
 
 // FN2: Two arguments
 #define FN2(...) PRISM_FN2_IMPL(__VA_ARGS__, 2, 1)
@@ -45,7 +45,8 @@ decltype(auto) operator->*(DoToken, F&& f) {
     PRISM_FN2_IMPL_##NumArgs(Capture, Expr)
 #define PRISM_FN2_IMPL_1(Expr, ...) PRISM_FN2_IMPL_2(, Expr)
 #define PRISM_FN2_IMPL_2(Capture, Expr)                                        \
-    [Capture](auto&& _1, auto&& _2) -> decltype(auto) { return Expr; }
+    [Capture]([[maybe_unused]] auto&& _1,                                      \
+              [[maybe_unused]] auto&& _2) -> decltype(auto) { return Expr; }
 
 // FN3: Three arguments
 #define FN3(...) PRISM_FN3_IMPL(__VA_ARGS__, 2, 1)
@@ -53,8 +54,7 @@ decltype(auto) operator->*(DoToken, F&& f) {
     PRISM_FN3_IMPL_##NumArgs(Capture, Expr)
 #define PRISM_FN3_IMPL_1(Expr, ...) PRISM_FN3_IMPL_2(, Expr)
 #define PRISM_FN3_IMPL_2(Capture, Expr)                                        \
-    [Capture](auto&& _1, auto&& _2, auto&& _3) -> decltype(auto) {             \
-        return Expr;                                                           \
-    }
+    [Capture]([[maybe_unused]] auto&& _1, [[maybe_unused]] auto&& _2,          \
+              [[maybe_unused]] auto&& _3) -> decltype(auto) { return Expr; }
 
 #endif // PRISM_COMMON_SYNTAXMACROS_H

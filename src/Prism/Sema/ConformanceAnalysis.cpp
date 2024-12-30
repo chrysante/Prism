@@ -38,14 +38,15 @@ struct ConformanceAnalysisContext: AnalysisBase {
     void analyze(Symbol const&) {}
 
     void analyzeObligation(Symbol* sym, InterfaceLike& interface) {
-        return visit(*sym, FN1(&, analyzeOblImpl(_1, interface)));
+        return visit(*sym, FN1(&, doAnalyzeObligation(_1, interface)));
     }
 
-    void analyzeOblImpl(Symbol const&, InterfaceLike&) {}
+    void doAnalyzeObligation(Symbol const&, InterfaceLike&) {}
 
-    void analyzeOblImpl(Function& func, InterfaceLike& interface) {
+    void doAnalyzeObligation(Function& func, InterfaceLike& interface) {
         if (func.params().empty() || !func.params().front()->isThis()) return;
         auto* owner = func.parentScope()->assocSymbol();
+        if (!isa<Trait>(owner)) return;
         auto obl = csp::make_unique<FuncObligation>(&func, owner);
         interface.addObligation(std::move(obl), SpecAddMode::Define);
     }
@@ -80,7 +81,7 @@ struct ConformanceAnalysisContext: AnalysisBase {
             analyzeConformance(sym, interface);
     }
 
-    void inherit(InterfaceLike const& base, InterfaceLike& derived) {
+    void inheritObligations(InterfaceLike const& base, InterfaceLike& derived) {
         for (auto& [key, list]: base.obligations())
             for (auto* obl: list)
                 derived.addObligation(clone(*obl), SpecAddMode::Inherit);
@@ -91,41 +92,47 @@ struct ConformanceAnalysisContext: AnalysisBase {
         analyzeConformances(trait, trait.associatedScope());
     }
 
-    void verifyComplete(InterfaceLike const& interface, Symbol const& symbol) {
-        if (!interface.isComplete())
-            iss.push<IncompleteImpl>(sourceContext, symbol.facet(), &symbol,
-                                     interface);
-    }
-
     void analyze(TraitImpl& impl) {
-        if (!impl.trait() || !impl.conformingType()) return;
-        if (auto* existing = impl.conformingType()->findTraitImpl(impl.trait()))
-        {
-            iss.push<DuplicateTraitImpl>(sourceContext, impl.Symbol::facet(),
-                                         &impl, existing);
+        auto* trait = impl.trait();
+        auto* conf = impl.conformingType();
+        if (!trait || !conf) return;
+        auto* existing = [&]() -> Symbol const* {
+            if (auto* ex = conf->findTraitImpl(trait)) return ex;
+            auto itr =
+                ranges::find(conf->baseTraits(), trait, FN1(_1->trait()));
+            return itr != conf->baseTraits().end() ? *itr : nullptr;
+        }();
+        if (existing) {
+            iss.push<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
+                                         existing);
             return;
         }
-        inherit(*impl.trait(), impl);
+        inheritObligations(*trait, impl);
         analyzeConformances(impl, impl.associatedScope());
-        verifyComplete(impl, impl);
-        impl.conformingType()->setTraitImpl(impl);
+        if (!impl.isComplete())
+            iss.push<IncompleteImpl>(sourceContext, impl.facet(), &impl, impl);
+        conf->setTraitImpl(impl);
     }
 
     void analyze(CompositeType& type) {
         analyzeObligations(type, type.associatedScope());
+        analyzeConformances(type, type.associatedScope());
+        if (!type.isCompleteForTraits())
+            iss.push<IncompleteImpl>(sourceContext, type.facet(), &type, type);
     }
 
     void analyze(BaseTrait& base) {
         Symbol* parentSym = base.parentScope()->assocSymbol();
         if (auto* type = dyncast<CompositeType*>(parentSym))
-            inherit(*base.trait(), *type);
+            inheritObligations(*base.trait(), *type);
         else if (auto* trait = dyncast<Trait*>(parentSym))
-            inherit(*base.trait(), *trait);
+            inheritObligations(*base.trait(), *trait);
     }
 
     void analyze(BaseClass& base) {
-        inherit(*base.type(),
-                cast<CompositeType&>(*base.parentScope()->assocSymbol()));
+        inheritObligations(*base.type(),
+                           cast<CompositeType&>(
+                               *base.parentScope()->assocSymbol()));
     }
 };
 

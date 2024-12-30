@@ -166,11 +166,17 @@ class CompositeType: public UserType, public InterfaceLike {
 public:
     FACET_TYPE(CompTypeDeclFacet)
 
-    /// \Returns the list of base classes in the order of declaration
-    std::span<BaseClass* const> bases() { return _bases; }
+    /// \Returns the list of base traits in the order of declaration
+    std::span<BaseTrait* const> baseTraits() { return _baseTraits; }
 
     /// \overload
-    std::span<BaseClass const* const> bases() const { return _bases; }
+    std::span<BaseTrait const* const> baseTraits() const { return _baseTraits; }
+
+    /// \Returns the list of base classes in the order of declaration
+    std::span<BaseClass* const> baseClasses() { return _bases; }
+
+    /// \overload
+    std::span<BaseClass const* const> baseClasses() const { return _bases; }
 
     /// \Returns the list of non-static member variables in the order of
     /// declaration
@@ -201,6 +207,7 @@ private:
     friend struct GlobalNameResolver;
     friend struct InstantiationContext;
 
+    std::vector<BaseTrait*> _baseTraits;
     std::vector<BaseClass*> _bases;
     std::vector<MemberVar*> _memvars;
     utl::hashmap<Trait const*, TraitImpl*> _traitImpls;

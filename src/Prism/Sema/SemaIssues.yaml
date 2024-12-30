@@ -67,7 +67,12 @@ issues:
         ctor_only: true
     ctor_body: IncompleteImplNotes(*this, interface);
     header: >
-      str << "Incomplete trait implementation " << formatDecl(impl);
+      if (isa<TraitImpl>(impl))
+          str << "Incomplete trait implementation " << formatDecl(impl);
+      else
+          str << "Declaration of " << formatName(impl)
+              << " is missing implementations for a base trait";
+     
 
   - name: DuplicateTraitImpl
     base: SemaIssue

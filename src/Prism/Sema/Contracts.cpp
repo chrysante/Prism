@@ -59,9 +59,17 @@ bool InterfaceLike::addObligationImpl(FuncObligation* obl, SpecAddMode mode) {
     }
 }
 
-bool InterfaceLike::isComplete() const {
+static bool isCompleteImpl(auto& obls, auto filter) {
     for (auto& [key, list]: obls)
         for (auto* obl: list)
-            if (!obl->singleConformance()) return false;
+            if (filter(obl) && !obl->singleConformance()) return false;
     return true;
+}
+
+bool InterfaceLike::isComplete() const {
+    return isCompleteImpl(obls, FN1(true));
+}
+
+bool InterfaceLike::isCompleteForTraits() const {
+    return isCompleteImpl(obls, FN1(isa<Trait>(_1->owner())));
 }

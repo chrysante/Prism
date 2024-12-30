@@ -153,7 +153,8 @@ static void IncompleteImplNotes(IncompleteImpl& issue,
             if (confs.size() == 1) continue;
             auto* note = issue.addNote(sym->facet(), [=](std::ostream& str) {
                 str << "Multiple implementations for "
-                    << formatDecl(sym, { .primaryQualified = true });
+                    << formatDecl(sym, { .primaryQualified = true })
+                    << " must be resolved";
             });
             for (auto* conf: confs)
                 note->addNote(conf->facet(), [=](std::ostream& str) {
@@ -167,7 +168,7 @@ static void IncompleteImplNotes(IncompleteImpl& issue,
 static void DuplicateTraitImplNotes(DuplicateTraitImpl& issue,
                                     Symbol const* existing) {
     issue.addNote(existing->Symbol::facet(), [=](std::ostream& str) {
-        str << "Existing implementation is here";
+        str << "Existing implementation defined here";
     });
 }
 

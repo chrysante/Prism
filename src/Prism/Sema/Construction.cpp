@@ -215,7 +215,9 @@ struct GlobalNameResolver: InstantiationBase {
 
     void resolveImpl(CompositeType& type) {
         declareMembers(type, [&](Symbol* sym) {
-            if (auto* baseclass = dyncast<BaseClass*>(sym))
+            if (auto* basetrait = dyncast<BaseTrait*>(sym))
+                type._baseTraits.push_back(basetrait);
+            else if (auto* baseclass = dyncast<BaseClass*>(sym))
                 type._bases.push_back(baseclass);
             else if (auto* memvar = dyncast<MemberVar*>(sym))
                 type._memvars.push_back(memvar);
@@ -359,7 +361,7 @@ struct InstantiationContext: AnalysisBase {
     TypeLayout computeLayout(CompositeType const& type, LayoutAccumulator acc) {
         TypeLayout layout = { 0, 0, 0 };
         auto members =
-            concat(type.bases() | transform(cast<MemberSymbol const*>),
+            concat(type.baseClasses() | transform(cast<MemberSymbol const*>),
                    type.memberVars());
         for (auto* member: members) {
             // For types with invalid members we report poison
