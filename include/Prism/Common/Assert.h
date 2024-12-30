@@ -10,6 +10,9 @@
 #define PRISM_ASSERT_IMPL_1(condition, message) assert(condition)
 #define PRISM_ASSERT_IMPL_2(condition, message) assert(condition)
 
+#define PRISM_ASSERT_AUDIT(condition, ...)                                     \
+    PRISM_ASSERT(condition __VA_OPT__(, ) __VA_ARGS__)
+
 #define PRISM_UNREACHABLE() PRISM_ASSERT(false)
 
 #define PRISM_UNIMPLEMENTED() PRISM_ASSERT(false)

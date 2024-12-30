@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include <range/v3/algorithm.hpp>
+
 #include "Prism/Common/Assert.h"
 #include "Prism/Sema/Symbol.h"
 
@@ -83,8 +85,9 @@ utl::small_vector<Symbol const*> Scope::symbolsByApproxName(
 }
 
 void Scope::addSymbol(Symbol& symbol) {
-    auto [itr, success] = _symbols.insert(&symbol);
-    PRISM_ASSERT(success, "Symbol has already been added to this scope");
+    PRISM_ASSERT_AUDIT(!ranges::contains(_symbols, &symbol),
+                       "Symbol has already been added to this scope");
+    _symbols.push_back(&symbol);
     if (symbol.name().empty()) return;
     _names[symbol.name()].push_back(&symbol);
     _approxNames[symbol.name()].push_back(&symbol);

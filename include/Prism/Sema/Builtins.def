@@ -25,4 +25,6 @@ SEMA_BUILTIN_TYPE(Float64, "f64", FloatType, 64)
 
 #undef SEMA_BUILTIN_TYPE
 
+SEMA_BUILTIN(Type, "type", Trait)
+
 #undef SEMA_BUILTIN

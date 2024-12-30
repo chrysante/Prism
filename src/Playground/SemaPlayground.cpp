@@ -39,7 +39,7 @@ static int const INIT = [] {
     auto options = std::make_shared<Options>();
     auto* cmd =
         addSubcommand("sema", [=] { return semaPlaygroundMain(*options); });
-    cmd->add_flag("--facets", options->printFacets);
+    cmd->add_flag("--print-facets", options->printFacets);
     cmd->add_flag("--print-conformances", options->printConformances);
     cmd->add_flag("--print-scopes", options->printScopes);
     return 0;

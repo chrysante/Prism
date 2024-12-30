@@ -15,6 +15,9 @@ symbols:
   - name: SourceFile
     base: Symbol
 
+  - name: GenericContext
+    base: Symbol
+
   - name: FuncParam
     base: Symbol
 
@@ -31,6 +34,9 @@ symbols:
   - name: ValueType
     base: Type
     abstract: true
+
+  - name: GenericTypeParam
+    base: ValueType
 
   - name: ScopedType
     base: ValueType

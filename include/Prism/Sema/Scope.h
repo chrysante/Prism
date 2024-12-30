@@ -4,6 +4,7 @@
 #include <bit>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include <utl/hashtable.hpp>
 #include <utl/metric_table.hpp>
@@ -37,10 +38,10 @@ public:
     Symbol const* assocSymbol() const { return _assocSymbol; }
 
     /// \Returns a list of all symbols in this scope
-    std::span<Symbol* const> symbols() { return _symbols.values(); }
+    std::span<Symbol* const> symbols() { return _symbols; }
 
     /// \overload
-    std::span<Symbol const* const> symbols() const { return _symbols.values(); }
+    std::span<Symbol const* const> symbols() const { return _symbols; }
 
     /// \Returns all symbols named \p name in this scope
     std::span<Symbol* const> symbolsByName(std::string_view name) {
@@ -66,7 +67,7 @@ private:
 
     Scope* _parentScope = nullptr;
     Symbol* _assocSymbol = nullptr;
-    utl::hashset<Symbol*> _symbols;
+    std::vector<Symbol*> _symbols;
     utl::hashmap<std::string_view, utl::small_ptr_vector<Symbol*>> _names;
     utl::metric_map<std::string_view, utl::small_ptr_vector<Symbol*>>
         _approxNames;

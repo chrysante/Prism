@@ -36,6 +36,8 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
     ctx.makeBuiltin<SymType>(BuiltinSymbol::Name, Spelling,                    \
                              globalScope __VA_OPT__(, ) __VA_ARGS__);
 #include "Prism/Sema/Builtins.def"
+    ctx.makeBuiltin<Trait>(BuiltinSymbol::Type, "type",
+                           /* facet: */ nullptr, globalScope);
 }
 
 static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
@@ -64,8 +66,7 @@ struct GloablDeclDeclare: InstantiationBase {
     }
 
     void declareChildren(Scope* scope, auto const& children) {
-        ranges::for_each(children,
-                         [&](Facet const* facet) { declare(scope, facet); });
+        ranges::for_each(children, FN1(&, declare(_1, scope)));
     }
 
     void declareFile(SourceFileFacet const& facet,
@@ -76,22 +77,24 @@ struct GloablDeclDeclare: InstantiationBase {
         declareChildren(file->associatedScope(), facet.decls());
     }
 
-    void declare(Scope* scope, Facet const* facet) {
+    void declare(Facet const* facet, Scope* scope) {
         if (!facet) return;
-        visit(*facet, [&](auto const& facet) { declareImpl(scope, facet); });
+        visit(*facet, FN1(&, doDeclare(_1, scope)));
     }
 
-    void declareImpl(Scope*, Facet const&) {}
+    void doDeclare(Facet const&, Scope const*) {}
 
-    void declareImpl(Scope* parent, FuncDefFacet const& facet) {
+    void doDeclare(FuncDefFacet const& facet, Scope* parent) {
+        parent = makeGenContextIfNecessary(facet.genParams(), parent);
         if (facet.body() && isa<CompoundFacet>(facet.body()))
             ctx.make<FunctionImpl>(getName(facet), &facet, parent);
         else
             ctx.make<Function>(getName(facet), &facet, parent);
     }
 
-    void declareImpl(Scope* parent, CompTypeDeclFacet const& facet) {
-        auto* type = [&]() -> Symbol* {
+    void doDeclare(CompTypeDeclFacet const& facet, Scope* parent) {
+        parent = makeGenContextIfNecessary(facet.genParams(), parent);
+        auto* typeOrTrait = [&]() -> Symbol* {
             switch (facet.declarator().kind) {
             case TokenKind::Struct:
                 return ctx.make<StructType>(getName(facet), &facet, parent);
@@ -101,15 +104,38 @@ struct GloablDeclDeclare: InstantiationBase {
                 PRISM_UNREACHABLE();
             }
         }();
-        declareChildren(type->associatedScope(), facet.body()->elems());
+        declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
     }
 
-    void declareImpl(Scope* parent, TraitImplFacet const& facet) {
+    void doDeclare(TraitImplFacet const& facet, Scope* parent) {
         auto* impl = ctx.make<TraitImpl>(&facet, parent, nullptr, nullptr);
         declareChildren(impl->associatedScope(),
                         cast<TraitImplTypeFacet const*>(facet.definition())
                             ->body()
                             ->elems());
+    }
+
+    void doDeclare(GenParamDeclFacet const& facet, Scope* parent) {
+        auto* trait =
+            analyzeFacetAs<Trait>(*this, parent, facet.requirements());
+        auto name = sourceContext->getTokenStr(facet.name());
+        ctx.make<GenericTypeParam>(std::string(name), &facet, parent, trait);
+    }
+
+    Scope* makeGenContextIfNecessary(GenParamListFacet const* genParams,
+                                     Scope* parent) {
+        if (!genParams) return parent;
+        return makeGenContext(genParams, parent)->associatedScope();
+    }
+
+    GenericContext* makeGenContext(GenParamListFacet const* genParams,
+                                   Scope* parent) {
+        auto* context = ctx.make<GenericContext>(genParams, parent);
+        auto* genScope = context->associatedScope();
+        for (auto* param: genParams->children()) {
+            declare(param, genScope);
+        }
+        return context;
     }
 };
 
@@ -140,10 +166,10 @@ struct GlobalNameResolver: InstantiationBase {
 
     void resolve(Symbol* symbol) {
         if (!symbol) return;
-        visit(*symbol, [this](auto& symbol) { resolveImpl(symbol); });
+        visit(*symbol, [this](auto& symbol) { doResolve(symbol); });
     }
 
-    void resolveImpl(Symbol&) {}
+    void doResolve(Symbol&) {}
 
     void declareGlobalVar(Scope* parent, VarDeclFacet const& facet) {
         if (!facet.typespec()) {
@@ -155,7 +181,7 @@ struct GlobalNameResolver: InstantiationBase {
         addDependency(*var, type);
     }
 
-    void resolveImpl(SourceFile& sourceFile) {
+    void doResolve(SourceFile& sourceFile) {
         sourceContext = &sourceFile.sourceContext();
         auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
         for (auto* decl: globals)
@@ -163,7 +189,9 @@ struct GlobalNameResolver: InstantiationBase {
         resolveChildren(sourceFile);
     }
 
-    void resolveImpl(TraitImpl& impl) {
+    void doResolve(GenericContext& genContext) { resolveChildren(genContext); }
+
+    void doResolve(TraitImpl& impl) {
         auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
         impl._trait = analyzeFacetAs<Trait>(*this, impl.parentScope(),
                                             def->traitDeclRef());
@@ -203,6 +231,7 @@ struct GlobalNameResolver: InstantiationBase {
         auto* scope = typeOrTrait.associatedScope();
         auto* node = getNode(typeOrTrait);
         auto* facet = cast<CompTypeDeclFacet const*>(typeOrTrait.facet());
+        if (!facet) return;
         if (auto* bases = facet->bases()) {
             for (auto* decl: bases->elems()) {
                 auto* base = declareBase(scope, *decl);
@@ -219,7 +248,7 @@ struct GlobalNameResolver: InstantiationBase {
         }
     }
 
-    void resolveImpl(CompositeType& type) {
+    void doResolve(CompositeType& type) {
         declareMembers(type, [&](Symbol* sym) {
             if (auto* basetrait = dyncast<BaseTrait*>(sym))
                 type._baseTraits.push_back(basetrait);
@@ -231,7 +260,7 @@ struct GlobalNameResolver: InstantiationBase {
         resolveChildren(type);
     }
 
-    void resolveImpl(Trait& trait) {
+    void doResolve(Trait& trait) {
         declareMembers(trait, [&](Symbol* sym) {
             if (auto* baseclass = dyncast<BaseClass*>(sym))
                 PRISM_UNIMPLEMENTED(); // Error
@@ -311,7 +340,7 @@ struct GlobalNameResolver: InstantiationBase {
         }
     }
 
-    void resolveImpl(Function& func) {
+    void doResolve(Function& func) {
         if (auto* paramDecls = func.facet()->params())
             func._params =
                 paramDecls->elems() | enumerate |

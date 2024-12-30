@@ -125,6 +125,15 @@ private:
     SourceContext const& sourceCtx;
 };
 
+///
+class GenericContext: public Symbol, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    explicit GenericContext(SemaContext& ctx, Facet const* facet,
+                            Scope* parent);
+};
+
 class Type: public Symbol {
 public:
     /// \Returns the memory layout of this type
@@ -146,6 +155,25 @@ private:
 class ValueType: public Type {
 protected:
     using Type::Type;
+};
+
+///
+class GenericTypeParam: public ValueType {
+public:
+    explicit GenericTypeParam(std::string name, Facet const* facet,
+                              Scope* parent, Trait* trait):
+        ValueType(SymbolType::GenericTypeParam, std::move(name), facet, parent,
+                  TypeLayout::Incomplete),
+        _trait(trait) {}
+
+    /// \Returns the trait that this type argument conforms to
+    Trait* trait() { return _trait; }
+
+    /// \overload
+    Trait const* trait() const { return _trait; }
+
+private:
+    Trait* _trait;
 };
 
 /// Base class of all types with a scope

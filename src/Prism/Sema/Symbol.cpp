@@ -34,6 +34,11 @@ SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
     AssocScope(ctx.make<Scope>(parent), this),
     sourceCtx(sourceCtx) {}
 
+GenericContext::GenericContext(SemaContext& ctx, Facet const* facet,
+                               Scope* parent):
+    Symbol(SymbolType::GenericContext, /* name: */ {}, facet, parent),
+    AssocScope(ctx.make<Scope>(parent), this) {}
+
 ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
                        Facet const* facet, Scope* parent, TypeLayout layout):
     ValueType(symType, std::move(name), facet, parent, layout),

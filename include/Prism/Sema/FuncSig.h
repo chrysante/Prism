@@ -55,7 +55,7 @@ public:
     };
 
 private:
-    Type const* _ret;
+    Type const* _ret = nullptr;
     utl::small_vector<Type const*> _params;
 };
 

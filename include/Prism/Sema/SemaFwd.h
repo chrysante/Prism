@@ -41,7 +41,7 @@ PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)
 
 /// List of all builtins
 enum class BuiltinSymbol {
-#define SEMA_BUILTIN_TYPE(Name, ...) Name,
+#define SEMA_BUILTIN(Name, ...) Name,
 #include <Prism/Sema/Builtins.def>
 };
 

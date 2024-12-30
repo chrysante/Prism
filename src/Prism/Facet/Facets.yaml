@@ -108,7 +108,7 @@ facets:
     decl_only: true
 
   - name: GenParamDeclFacet
-    base: NonTerminalFacet
+    base: DeclFacet
     members:
       - name: name
         type: TerminalFacet

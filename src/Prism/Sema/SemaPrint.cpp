@@ -33,6 +33,11 @@ static constexpr utl::streammanip Username = [](std::ostream& str,
     str << tfmt::format(BrightBlue, args...);
 };
 
+static constexpr utl::streammanip Secondary = [](std::ostream& str,
+                                                 auto const&... args) {
+    str << tfmt::format(BrightGrey, args...);
+};
+
 static constexpr utl::streammanip Comment = [](std::ostream& str,
                                                auto const&... args) {
     str << tfmt::format(BrightGrey | Italic, "// ", args...);
@@ -91,7 +96,7 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
     }
     std::string_view name = symbol->name();
     if (name.empty()) {
-        str << tfmt::format(BrightGrey, "anon: ", get_rtti(*symbol));
+        str << Secondary("anon: ", get_rtti(*symbol));
         return;
     }
     if (isBuiltinSymbol(*symbol)) {
@@ -291,7 +296,12 @@ struct SymbolPrinter {
         }
         str << Keyword("target") << " " << target.name() << "\n\n";
         str << Comment("Builtins:") << "\n";
-        printChildren(builtins, { ", ", "\n\n" });
+        for (bool first = true; auto* builtin: builtins) {
+            if (!first) str << ", ";
+            first = false;
+            str << fmtName(builtin);
+        }
+        str << "\n\n";
         printChildren(userDefined, DeclOpt);
     }
 
@@ -308,11 +318,20 @@ struct SymbolPrinter {
     auto valueDecl(Value const& value) {
         return utl::streammanip([&](std::ostream& str) {
             str << fmtName(value) << ": " << fmtName(value.type().get()) << " "
-                << tfmt::format(BrightGrey, value.cat());
+                << Secondary(value.cat());
         });
     }
 
     void printImpl(Value const& value) { str << valueDecl(value); }
+
+    void printImpl(GenericContext const& genContext) {
+        printChildren(genContext.associatedScope(), StmtOpt);
+    }
+
+    void printImpl(GenericTypeParam const& param) {
+        str << Keyword("genparam") << " " << fmtName(param) << ": "
+            << fmtName(param.trait());
+    }
 
     void printImpl(FuncParam const& param) {
         str << fmtName(param) << ": " << fmtName(param.type());
@@ -417,9 +436,9 @@ struct ScopeHierarchyPrinter {
         }
         fmt.writeChildren(scope->symbols(), [&](Symbol const* sym) {
             std::string_view name = sym->name();
-            if (name.empty()) name = "<anon>";
-            str << name << ": " << tfmt::format(BrightGrey, get_rtti(*sym))
-                << "\n";
+            str << name;
+            if (!name.empty()) str << ": ";
+            str << Secondary(get_rtti(*sym)) << "\n";
             if (auto* scope = sym->associatedScope()) print(scope);
         });
     }

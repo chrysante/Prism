@@ -31,6 +31,10 @@ struct S: Foo {
 
 */
 
-fn foo(arg: i32) {
-    return arg;
+trait [To: type] ConvTo {
+    fn convert(&this) -> To;
 }
+
+fn foo(arg: i32) {}
+
+fn [To: type] foo(arg: To) {}

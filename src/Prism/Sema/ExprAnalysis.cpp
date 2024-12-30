@@ -47,7 +47,7 @@ struct AnaContext: AnalysisBase {
 
     Symbol* analyzeImpl(TerminalFacet const& term) {
         switch (term.token().kind) {
-#define SEMA_BUILTIN_TYPE(Name, Spelling, SymType, ...)                        \
+#define SEMA_BUILTIN(Name, Spelling, SymType, ...)                             \
     case TokenKind::Name:                                                      \
         return ctx.get##Name();
 #include "Prism/Sema/Builtins.def"
