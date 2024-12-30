@@ -321,17 +321,18 @@ struct SymbolPrinter {
     }
 
     void printObligation(Obligation const& obl) {
-        str << fmtDecl(obl.symbol(), { .primaryQualified = true }) << "\n";
+        str << fmtDecl(obl.symbol(), { .primaryQualified = true });
         if (obl.conformances().empty()) {
-            str << "  " << tfmt::format(BrightYellow | Bold, "Unmatched")
+            str << " " << tfmt::format(BrightYellow | Italic, "[unmatched]")
                 << "\n";
             return;
         }
         auto color = obl.singleConformance() ? BrightGreen : BrightYellow;
-        str << "  " << tfmt::format(color | Bold, "Matched by:") << "\n";
+        str << "\n";
         buf.indented([&] {
             for (auto* sym: obl.conformances())
-                str << fmtDecl(sym, { .primaryQualified = true }) << "\n";
+                str << tfmt::format(color | Italic, "matched by:") << " "
+                    << fmtDecl(sym, { .primaryQualified = true }) << "\n";
         });
     }
 
