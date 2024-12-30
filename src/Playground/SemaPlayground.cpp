@@ -28,6 +28,7 @@ namespace {
 struct Options {
     bool printFacets = false;
     bool printConformances = false;
+    bool printScopes = false;
 };
 
 } // namespace
@@ -40,6 +41,7 @@ static int const INIT = [] {
         addSubcommand("sema", [=] { return semaPlaygroundMain(*options); });
     cmd->add_flag("--facets", options->printFacets);
     cmd->add_flag("--print-conformances", options->printConformances);
+    cmd->add_flag("--print-scopes", options->printScopes);
     return 0;
 }();
 
@@ -95,6 +97,8 @@ static int semaPlaygroundMain(Options options) {
     print(*target, std::cout,
           { .structureMemoryLayout = true,
             .traitObligations = options.printConformances });
+    if (options.printScopes)
+        printScopeHierarchy(target->associatedScope(), std::cout);
     if (!issueHandler.empty()) {
         issueHandler.print(sourceContext);
         return 1;

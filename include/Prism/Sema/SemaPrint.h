@@ -21,6 +21,12 @@ void print(Symbol const& symbol, std::ostream& ostream,
 /// Prints to `std::cerr`
 void print(Symbol const& symbol);
 
+///
+void printScopeHierarchy(Scope const* scope, std::ostream& ostream);
+
+/// Prints to `std::cerr`
+void printScopeHierarchy(Scope const* scope);
+
 /// Options for declaration formatting
 struct FmtDeclOptions {
     bool primaryQualified = false;

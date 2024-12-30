@@ -9,7 +9,9 @@
 
 #include "Prism/Common/IndentingStreambuf.h"
 #include "Prism/Common/SyntaxMacros.h"
+#include "Prism/Common/TreeFormatter.h"
 #include "Prism/Sema/Contracts.h"
+#include "Prism/Sema/Scope.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
@@ -404,6 +406,25 @@ struct SymbolPrinter {
     }
 };
 
+struct ScopeHierarchyPrinter {
+    std::ostream& str;
+    TreeFormatter& fmt;
+
+    void print(Scope const* scope) {
+        if (!scope) {
+            str << Null;
+            return;
+        }
+        fmt.writeChildren(scope->symbols(), [&](Symbol const* sym) {
+            std::string_view name = sym->name();
+            if (name.empty()) name = "<anon>";
+            str << name << ": " << tfmt::format(BrightGrey, get_rtti(*sym))
+                << "\n";
+            if (auto* scope = sym->associatedScope()) print(scope);
+        });
+    }
+};
+
 } // namespace
 
 void prism::print(Symbol const& symbol, std::ostream& str,
@@ -412,6 +433,15 @@ void prism::print(Symbol const& symbol, std::ostream& str,
 }
 
 void prism::print(Symbol const& symbol) { print(symbol, std::cerr); }
+
+void prism::printScopeHierarchy(Scope const* scope, std::ostream& str) {
+    TreeFormatter fmt(str);
+    ScopeHierarchyPrinter(str, fmt).print(scope);
+}
+
+void prism::printScopeHierarchy(Scope const* scope) {
+    printScopeHierarchy(scope, std::cerr);
+}
 
 utl::vstreammanip<> prism::formatDecl(Symbol const& symbol,
                                       FmtDeclOptions options) {

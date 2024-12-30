@@ -13,6 +13,7 @@ class SourceFileFacet;
 class SourceContext;
 class Obligation;
 class InterfaceLike;
+class Scope;
 
 struct SourceFilePair {
     SourceFileFacet const* facet;
