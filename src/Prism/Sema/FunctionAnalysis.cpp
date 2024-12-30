@@ -21,6 +21,8 @@ struct FuncAnaCtx: AnalysisBase {
 
     void run();
 
+    void makeParamValues();
+
     void analyze(StmtFacet const* facet);
 
     void doAnalyze(StmtFacet const&) {}
@@ -54,7 +56,23 @@ void FuncAnaCtx::run() {
     auto* facet = func.facet();
     auto* body = cast<CompoundFacet const*>(facet->body());
     currScope = func.associatedScope();
+    makeParamValues();
     ranges::for_each(body->statements()->elems(), FN1(&, analyze(_1)));
+}
+
+void FuncAnaCtx::makeParamValues() {
+    for (auto* param: func.params()) {
+        auto qualType = [&] {
+            if (auto* refType = dyncast<ReferenceType const*>(param->type()))
+                return refType->referred();
+            auto* valType = cast<ValueType const*>(param->type());
+            if (param->hasMut()) return QualType::Mut(valType);
+            return QualType::Const(valType);
+        }();
+        auto* arg = ctx.make<FuncArg>(param->name(), param->facet(), currScope,
+                                      qualType, LValue);
+        param->setArgument(arg);
+    }
 }
 
 void FuncAnaCtx::analyze(StmtFacet const* facet) {

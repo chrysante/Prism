@@ -28,6 +28,6 @@ struct S: Foo {
 }
 */
 
-fn foo() {
-    return 42;
+fn foo(arg: i32) {
+    return arg;
 }

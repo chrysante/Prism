@@ -530,9 +530,20 @@ public:
     /// \Returns true if this parameter is a `this`-parameter
     bool isThis() const { return _isThis; }
 
+    /// \Returns the corresponding argument value if the parameter belongs to a
+    /// function implementation
+    FuncArg* argument() { return _arg; }
+
+    /// \overload
+    FuncArg const* argument() const { return _arg; }
+
+    ///
+    void setArgument(FuncArg* arg) { _arg = arg; }
+
 private:
-    Type const* _type;
-    bool _hasMut;
+    Type const* _type = nullptr;
+    FuncArg* _arg = nullptr;
+    bool _hasMut = false;
     bool _isThis = false;
 };
 
