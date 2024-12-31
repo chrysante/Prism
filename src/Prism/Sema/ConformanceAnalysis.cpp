@@ -34,124 +34,135 @@ static csp::unique_ptr<O> clone(O const& obl) {
 
 namespace {
 
-struct ConformanceAnalysisContext: AnalysisBase {
-    void analyze(Symbol const&) {}
-
-    void analyzeObligation(Symbol* sym, InterfaceLike& interface) {
-        return visit(*sym, FN1(&, doAnalyzeObligation(_1, interface)));
-    }
-
+struct ConfAnaContext: AnalysisBase {
+    void analyzeObligation(Symbol* sym, InterfaceLike& interface);
     void doAnalyzeObligation(Symbol const&, InterfaceLike&) {}
-
-    void doAnalyzeObligation(Function& func, InterfaceLike& interface) {
-        if (func.params().empty() || !func.params().front()->isThis()) return;
-        auto* owner = func.parentScope()->assocSymbol();
-        if (!isa<Trait>(owner)) return;
-        auto obl = csp::make_unique<FuncObligation>(&func, owner);
-        interface.addObligation(std::move(obl), SpecAddMode::Define);
-    }
-
-    void analyzeObligations(InterfaceLike& interface, Scope* scope) {
-        ranges::for_each(scope->symbols(),
-                         FN1(&, analyzeObligation(_1, interface)));
-    }
-
-    void analyzeConformance(Symbol* sym, InterfaceLike& interface) {
-        if (!sym) return;
-        visit(*sym, FN1(&, analyzeConfImpl(_1, interface)));
-    }
-
-    void analyzeConfImpl(Symbol const&, InterfaceLike&) {}
-
-    void analyzeConfImpl(FunctionImpl& func, InterfaceLike& interface) {
-        if (func.params().empty() || !func.params().front()->isThis()) return;
-        auto matches = interface.matchObligation(func.name(), func.signature());
-        if (matches.empty()) return;
-        if (matches.size() == 1) {
-            matches.front()->addConformance(&func, SpecAddMode::Define);
-            return;
-        }
-        diagHandler
-            .push<AmbiguousConformance>(sourceContext, func.facet(), &func,
-                                        matches |
-                                            ToSmallVector<Obligation const*>);
-    }
-
-    void analyzeConformances(InterfaceLike& interface, Scope* scope) {
-        for (auto* sym: scope->symbols())
-            analyzeConformance(sym, interface);
-    }
-
-    void inheritObligations(InterfaceLike const& base, InterfaceLike& derived) {
-        for (auto& [key, list]: base.obligations())
-            for (auto* obl: list)
-                derived.addObligation(clone(*obl), SpecAddMode::Inherit);
-    }
-
-    void analyze(Trait& trait) {
-        analyzeObligations(trait, trait.associatedScope());
-        analyzeConformances(trait, trait.associatedScope());
-    }
-
-    void analyze(TraitImpl& impl) {
-        auto* trait = impl.trait();
-        auto* conf = impl.conformingType();
-        if (!trait || !conf) return;
-        auto* existing = [&]() -> Symbol const* {
-            if (auto* ex = conf->findTraitImpl(trait)) return ex;
-            auto itr =
-                ranges::find(conf->baseTraits(), trait, FN1(_1->trait()));
-            return itr != conf->baseTraits().end() ? *itr : nullptr;
-        }();
-        if (existing) {
-            diagHandler.push<DuplicateTraitImpl>(sourceContext, impl.facet(),
-                                                 &impl, existing);
-            return;
-        }
-        inheritObligations(*trait, impl);
-        analyzeConformances(impl, impl.associatedScope());
-        if (!impl.isComplete())
-            diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
-                                             impl);
-        conf->setTraitImpl(impl);
-    }
-
-    void analyze(CompositeType& type) {
-        analyzeObligations(type, type.associatedScope());
-        analyzeConformances(type, type.associatedScope());
-        if (!type.isCompleteForTraits())
-            diagHandler.push<IncompleteImpl>(sourceContext, type.facet(), &type,
-                                             type);
-    }
-
-    void analyze(BaseTrait& base) {
-        Symbol* parentSym = base.parentScope()->assocSymbol();
-        if (auto* type = dyncast<CompositeType*>(parentSym))
-            inheritObligations(*base.trait(), *type);
-        else if (auto* trait = dyncast<Trait*>(parentSym))
-            inheritObligations(*base.trait(), *trait);
-    }
-
-    void analyze(BaseClass& base) {
-        inheritObligations(*base.type(),
-                           cast<CompositeType&>(
-                               *base.parentScope()->assocSymbol()));
-    }
+    void doAnalyzeObligation(Function& func, InterfaceLike& interface);
+    void analyzeObligations(InterfaceLike& interface, Scope* scope);
+    void analyzeConformance(Symbol* sym, InterfaceLike& interface);
+    void doAnalyzeConformance(Symbol const&, InterfaceLike&) {}
+    void doAnalyzeConformance(FunctionImpl& func, InterfaceLike& interface);
+    void analyzeConformances(InterfaceLike& interface, Scope* scope);
+    void inheritObligations(InterfaceLike const& base, InterfaceLike& derived);
+    void analyze(Symbol const&) {}
+    void analyze(Trait& trait);
+    void analyze(TraitImpl& impl);
+    void analyze(CompositeType& type);
+    void analyze(BaseTrait& base);
+    void analyze(BaseClass& base);
 };
 
 } // namespace
 
+void ConfAnaContext::analyzeObligation(Symbol* sym, InterfaceLike& interface) {
+    return visit(*sym, FN1(&, doAnalyzeObligation(_1, interface)));
+}
+
+void ConfAnaContext::doAnalyzeObligation(Function& func,
+                                         InterfaceLike& interface) {
+    if (func.params().empty() || !func.params().front()->isThis()) return;
+    auto* owner = func.parentScope()->assocSymbol();
+    if (!isa<Trait>(owner)) return;
+    auto obl = csp::make_unique<FuncObligation>(&func, owner);
+    interface.addObligation(std::move(obl), SpecAddMode::Define);
+}
+
+void ConfAnaContext::analyzeObligations(InterfaceLike& interface,
+                                        Scope* scope) {
+    ranges::for_each(scope->symbols(),
+                     FN1(&, analyzeObligation(_1, interface)));
+}
+
+void ConfAnaContext::analyzeConformance(Symbol* sym, InterfaceLike& interface) {
+    if (!sym) return;
+    visit(*sym, FN1(&, doAnalyzeConformance(_1, interface)));
+}
+
+void ConfAnaContext::doAnalyzeConformance(FunctionImpl& func,
+                                          InterfaceLike& interface) {
+    if (func.params().empty() || !func.params().front()->isThis()) return;
+    auto matches = interface.matchObligation(func.name(), func.signature());
+    if (matches.empty()) return;
+    if (matches.size() == 1) {
+        matches.front()->addConformance(&func, SpecAddMode::Define);
+        return;
+    }
+    diagHandler
+        .push<AmbiguousConformance>(sourceContext, func.facet(), &func,
+                                    matches | ToSmallVector<Obligation const*>);
+}
+
+void ConfAnaContext::analyzeConformances(InterfaceLike& interface,
+                                         Scope* scope) {
+    for (auto* sym: scope->symbols())
+        analyzeConformance(sym, interface);
+}
+
+void ConfAnaContext::inheritObligations(InterfaceLike const& base,
+                                        InterfaceLike& derived) {
+    for (auto& [key, list]: base.obligations())
+        for (auto* obl: list)
+            derived.addObligation(clone(*obl), SpecAddMode::Inherit);
+}
+
+void ConfAnaContext::analyze(Trait& trait) {
+    analyzeObligations(trait, trait.associatedScope());
+    analyzeConformances(trait, trait.associatedScope());
+}
+
+void ConfAnaContext::analyze(TraitImpl& impl) {
+    auto* trait = impl.trait();
+    auto* conf = impl.conformingType();
+    if (!trait || !conf) return;
+    auto* existing = [&]() -> Symbol const* {
+        if (auto* ex = conf->findTraitImpl(trait)) return ex;
+        auto itr = ranges::find(conf->baseTraits(), trait, FN1(_1->trait()));
+        return itr != conf->baseTraits().end() ? *itr : nullptr;
+    }();
+    if (existing) {
+        diagHandler.push<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
+                                             existing);
+        return;
+    }
+    inheritObligations(*trait, impl);
+    analyzeConformances(impl, impl.associatedScope());
+    if (!impl.isComplete())
+        diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
+                                         impl);
+    conf->setTraitImpl(impl);
+}
+
+void ConfAnaContext::analyze(CompositeType& type) {
+    analyzeObligations(type, type.associatedScope());
+    analyzeConformances(type, type.associatedScope());
+    if (!type.isCompleteForTraits())
+        diagHandler.push<IncompleteImpl>(sourceContext, type.facet(), &type,
+                                         type);
+}
+
+void ConfAnaContext::analyze(BaseTrait& base) {
+    Symbol* parentSym = base.parentScope()->assocSymbol();
+    if (auto* type = dyncast<CompositeType*>(parentSym))
+        inheritObligations(*base.trait(), *type);
+    else if (auto* trait = dyncast<Trait*>(parentSym))
+        inheritObligations(*base.trait(), *trait);
+}
+
+void ConfAnaContext::analyze(BaseClass& base) {
+    auto* parentSymbol = base.parentScope()->assocSymbol();
+    auto* parentType = cast<CompositeType*>(parentSymbol);
+    inheritObligations(*base.type(), *parentType);
+}
+
 static void analyzeConformance(SemaContext& ctx, DiagnosticHandler& diagHandler,
                                Symbol* sym) {
-    ConformanceAnalysisContext confCtx{ ctx, diagHandler,
-                                        getSourceContext(sym) };
+    ConfAnaContext confCtx{ ctx, diagHandler, getSourceContext(sym) };
     visit(*sym, [&](auto& sym) { confCtx.analyze(sym); });
 }
 
 void prism::analyzeConformances(MonotonicBufferResource&, SemaContext& ctx,
                                 DiagnosticHandler& diagHandler, Target&,
                                 DependencyGraph const& dependencies) {
-    for (auto* sym: dependencies.getTopoOrder() | reverse) {
+    for (auto* sym: dependencies.getTopoOrder() | reverse)
         analyzeConformance(ctx, diagHandler, sym);
-    }
 }
