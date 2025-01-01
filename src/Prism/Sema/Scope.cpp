@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <range/v3/algorithm.hpp>
+#include <utl/callback_iterator.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Sema/Symbol.h"
@@ -16,43 +17,6 @@ std::span<Symbol const* const> Scope::symbolsByName(
     return {};
 }
 
-namespace {
-
-template <typename T, typename F>
-struct CallbackIterator {
-    using value_type = T;
-    using difference_type = std::ptrdiff_t;
-    using pointer = T*;
-    using reference = T&;
-    using iterator_category = std::output_iterator_tag;
-
-    explicit CallbackIterator(F callback): callback(callback) {}
-
-    CallbackIterator& operator*() { return *this; }
-
-    CallbackIterator& operator++() { return *this; }
-    CallbackIterator operator++(int) { return *this; }
-
-    CallbackIterator& operator=(T const& value) {
-        callback(value);
-        return *this;
-    }
-
-    CallbackIterator& operator=(T&& value) {
-        callback(std::move(value));
-        return *this;
-    }
-
-    F callback;
-};
-
-} // namespace
-
-template <typename T, typename F>
-static CallbackIterator<T, F> makeCallbackIterator(F f) {
-    return CallbackIterator<T, F>(f);
-}
-
 static size_t computeAcceptedDistance(size_t nameSize) {
     return std::clamp(nameSize / 3, size_t{ 1 }, size_t{ 4 });
 }
@@ -61,17 +25,10 @@ template <typename S, typename Map>
 static utl::small_vector<S*> symbolsByApproxNameImpl(std::string_view name,
                                                      Map const& map) {
     utl::small_vector<S*> result;
-    using ItrType = Map::const_iterator;
-    // Must use a manually defined callback type here, because for some reason
-    // C++ lambda types have no assignment operators
-    struct Callback {
-        void operator()(ItrType itr) const {
-            r->insert(r->end(), itr->value().begin(), itr->value().end());
-        }
-        utl::small_vector<S*>* r;
-    };
     map.lookup(name, computeAcceptedDistance(name.size()),
-               makeCallbackIterator<ItrType>(Callback{ &result }));
+               utl::callback_iterator([&](auto itr) {
+        result.insert(result.end(), itr->value().begin(), itr->value().end());
+    }));
     return result;
 }
 
