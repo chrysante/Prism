@@ -69,33 +69,39 @@ TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
     setGenCtx(std::move(genContext));
 }
 
-Function::Function(std::string name, Facet const* facet, Scope* parent,
-                   utl::small_vector<FuncParam*>&& params, Type const* retType):
-    Symbol(SymbolType::Function, std::move(name), facet, parent),
+FuncInterface::FuncInterface(Symbol* function,
+                             utl::small_vector<FuncParam*>&& params,
+                             Type const* retType):
+    _func(*function),
     _params(std::move(params)),
     _sig(FuncSig::Compute(retType, this->params())) {}
 
+Function::Function(std::string name, Facet const* facet, Scope* parent,
+                   utl::small_vector<FuncParam*>&& params, Type const* retType):
+    Symbol(SymbolType::Function, std::move(name), facet, parent),
+    FuncInterface(this, std::move(params), retType) {}
+
 Function::Function(std::string name, Facet const* facet, Scope* parent):
-    Symbol(SymbolType::Function, std::move(name), facet, parent) {}
+    Symbol(SymbolType::Function, std::move(name), facet, parent),
+    FuncInterface(this) {}
 
 FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
-                           Facet const* facet, Scope* parent, Scope* scope,
-                           std::optional<GenericContext> genContext,
+                           Facet const* facet, Scope* parent,
                            utl::small_vector<FuncParam*>&& params,
                            Type const* retType):
     Function(std::move(name), facet, parent, std::move(params), retType),
-    AssocScope(ctx, scope, this) {
+    AssocScope(ctx, nullptr, this) {
     setSymbolType(SymbolType::FunctionImpl);
-    setGenCtx(std::move(genContext));
 }
 
-FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
-                           Facet const* facet, Scope* parent, Scope* scope,
-                           std::optional<GenericContext> genContext):
-    Function(std::move(name), facet, parent), AssocScope(ctx, scope, this) {
-    setSymbolType(SymbolType::FunctionImpl);
-    setGenCtx(std::move(genContext));
-}
+GenFuncImpl::GenFuncImpl(SemaContext& ctx, std::string name, Facet const* facet,
+                         Scope* parent, Scope* scope,
+                         utl::small_vector<Symbol*>&& genParams,
+                         utl::small_vector<FuncParam*>&& params,
+                         Type const* retType):
+    GenericSymbol(SymbolType::GenFuncImpl, ctx, std::move(name), facet, parent,
+                  scope, std::move(genParams)),
+    FuncInterface(this, std::move(params), retType) {}
 
 static std::string valueAsStrImpl(APInt const& value, IntType const* type,
                                   int base = 10) {

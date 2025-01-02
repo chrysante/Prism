@@ -119,6 +119,9 @@ symbols:
     base: Symbol
     abstract: true
 
+  - name: GenFuncImpl
+    base: GenericSymbol
+
   - name: Value
     base: Symbol
     abstract: true

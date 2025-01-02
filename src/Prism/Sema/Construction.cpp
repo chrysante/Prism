@@ -58,6 +58,8 @@ struct InstantiationBase: AnalysisBase {
     }
 };
 
+// MARK: - Initial declaration of global names
+
 struct GlobalDeclDeclare: InstantiationBase {
     Scope* globalScope;
 
@@ -68,12 +70,13 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* declare(Facet const* facet, Scope* scope);
     Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
+    Symbol* declareGenFunc(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
     Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent);
 
     struct GenCtxAnaResult {
-        std::optional<GenericContext> context;
+        utl::small_vector<Symbol*> genParams;
         Scope* scope;
     };
 
@@ -109,14 +112,18 @@ Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
-    auto [context, scope] = makeGenContext(facet.genParams(), parent);
+    if (facet.genParams()) return declareGenFunc(facet, parent);
     if (facet.body() && isa<CompoundFacet>(facet.body()))
-        return ctx.make<FunctionImpl>(getName(facet), &facet, parent, scope,
-                                      std::move(context));
-    if (context)
-        PRISM_UNIMPLEMENTED(); // Can function declarations have generic
-                               // parameters?!
+        return ctx.make<FunctionImpl>(getName(facet), &facet, parent);
     return ctx.make<Function>(getName(facet), &facet, parent);
+}
+
+Symbol* GlobalDeclDeclare::declareGenFunc(FuncDefFacet const& facet,
+                                          Scope* parent) {
+    PRISM_EXPECT(facet.genParams());
+    auto [genParams, scope] = makeGenContext(facet.genParams(), parent);
+    return ctx.make<GenFuncImpl>(getName(facet), &facet, parent, scope,
+                                 std::move(genParams));
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
@@ -126,10 +133,10 @@ Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
         switch (facet.declarator().kind) {
         case TokenKind::Struct:
             return ctx.make<StructType>(getName(facet), &facet, parent, scope,
-                                        std::move(context));
+                                        GenericContext(context));
         case TokenKind::Trait:
             return ctx.make<Trait>(getName(facet), &facet, parent, scope,
-                                   std::move(context));
+                                   GenericContext(context));
         default:
             PRISM_UNREACHABLE();
         }
@@ -142,11 +149,10 @@ Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
                                      Scope* parent) {
     auto [context, scope] = makeGenContext(facet.genParams(), parent);
     auto* impl = ctx.make<TraitImpl>(&facet, parent, scope, nullptr, nullptr,
-                                     std::move(context));
-    declareChildren(impl->associatedScope(),
-                    cast<TraitImplTypeFacet const*>(facet.definition())
-                        ->body()
-                        ->elems());
+                                     GenericContext(context));
+    auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
+    PRISM_ASSERT(implFacet->body());
+    declareChildren(impl->associatedScope(), implFacet->body()->elems());
     return impl;
 }
 
@@ -158,12 +164,11 @@ Symbol* GlobalDeclDeclare::doDeclare(GenParamDeclFacet const& facet,
 }
 
 GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenContext(
-    GenParamListFacet const* genParams, Scope* parent) {
-    if (!genParams) return {};
+    GenParamListFacet const* genParamDecls, Scope* parent) {
+    if (!genParamDecls) return {}; // TODO: Make this an assertion
     auto* scope = ctx.make<Scope>(parent);
-    return { GenericContext(genParams->children() |
-                            transform(FN1(&, declare(_1, scope))) |
-                            ToSmallVector<>),
+    return { genParamDecls->elems() | transform(FN1(&, declare(_1, scope))) |
+                 ToSmallVector<>,
              scope };
 }
 
@@ -172,6 +177,8 @@ static void declareGlobals(SemaContext& ctx, DiagnosticHandler& diagHandler,
                            std::span<SourceFilePair const> input) {
     GlobalDeclDeclare{ { ctx, diagHandler }, globalScope }.run(input);
 }
+
+// MARK: - Name resolution for global names
 
 namespace prism {
 
@@ -192,13 +199,18 @@ struct GlobalNameResolver: InstantiationBase {
                         utl::function_view<void(Symbol*)> verify);
     void doResolve(CompositeType& type);
     void doResolve(Trait& trait);
-    FuncParam* analyzeParam(Function& func, ParamDeclFacet const* facet,
-                            size_t index);
-    FuncParam* analyzeParamImpl(Function& func,
-                                NamedParamDeclFacet const& param, size_t index);
-    FuncParam* analyzeParamImpl(Function& func, ThisParamDeclFacet const& param,
-                                size_t index);
+    FuncParam* analyzeParam(Symbol* parentSymbol, ParamDeclFacet const* facet,
+                            Scope* scope, size_t index);
+    FuncParam* doAnalyzeParam(Symbol* parentSymbol,
+                              NamedParamDeclFacet const& param, Scope* scope,
+                              size_t index);
+    FuncParam* doAnalyzeParam(Symbol* parentSymbol,
+                              ThisParamDeclFacet const& param, Scope* scope,
+                              size_t index);
     void doResolve(Function& func);
+    void doResolve(GenFuncImpl& genfunc);
+    void resolveFuncInterface(Symbol* parentSymbol, FuncInterface& interface,
+                              FuncDeclBaseFacet const& funcFacet, Scope* scope);
     void resolveChildren(std::span<Symbol* const> symbols);
     void resolveChildren(auto& symbol);
 };
@@ -322,26 +334,28 @@ void GlobalNameResolver::doResolve(Trait& trait) {
     resolveChildren(trait);
 }
 
-FuncParam* GlobalNameResolver::analyzeParam(Function& func,
+FuncParam* GlobalNameResolver::analyzeParam(Symbol* parentSymbol,
                                             ParamDeclFacet const* facet,
-                                            size_t index) {
+                                            Scope* scope, size_t index) {
     if (!facet) return nullptr;
-    return visit(*facet, FN1(&, analyzeParamImpl(func, _1, index)));
+    return visit(*facet,
+                 FN1(&, doAnalyzeParam(parentSymbol, _1, scope, index)));
 }
 
-FuncParam* GlobalNameResolver::analyzeParamImpl(
-    Function& func, NamedParamDeclFacet const& param, size_t /* index */) {
-    auto* type =
-        analyzeFacetAs<Type>(*this, func.parentScope(), param.typespec());
+FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
+                                              NamedParamDeclFacet const& param,
+                                              Scope* scope,
+                                              size_t /* index */) {
+    auto* type = analyzeFacetAs<Type>(*this, scope, param.typespec());
     auto name = sourceContext->getTokenStr(param.name());
     return ctx.make<FuncParam>(std::string(name), &param, type,
                                FuncParam::Options{ .hasMut = false,
                                                    .isThis = false });
 }
 
-FuncParam* GlobalNameResolver::analyzeParamImpl(Function& func,
-                                                ThisParamDeclFacet const& param,
-                                                size_t index) {
+FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
+                                              ThisParamDeclFacet const& param,
+                                              Scope*, size_t index) {
     if (index != 0) {
         diagHandler.push<ThisParamBadPosition>(sourceContext, &param);
     }
@@ -368,15 +382,14 @@ FuncParam* GlobalNameResolver::analyzeParamImpl(Function& func,
     }
     PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
                  TokenKind::This);
-    auto* parent = func.parentScope()->assocSymbol();
-    auto* thisType = [&]() -> ValueType const* {
-        if (auto* userType = dyncast<UserType*>(parent)) return userType;
-        if (auto* trait = dyncast<Trait*>(parent))
-            return ctx.getDynTraitType(trait);
-        if (auto* traitImpl = dyncast<TraitImpl*>(parent))
-            return traitImpl->conformingType();
-        PRISM_UNIMPLEMENTED();
-    }();
+    if (!parentSymbol) PRISM_UNIMPLEMENTED();
+    // clang-format off
+    auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{
+        [&](UserType& type) { return &type; },
+        [&](Trait& trait) { return ctx.getDynTraitType(&trait); },
+        [&](TraitImpl& impl) { return impl.conformingType(); },
+        [](Symbol const&) { PRISM_UNIMPLEMENTED(); }
+    }); // clang-format on
     if (ref) {
         auto* type = ctx.getRefType({ thisType, mut });
         return ctx.make<FuncParam>("this", &param, type,
@@ -392,17 +405,31 @@ FuncParam* GlobalNameResolver::analyzeParamImpl(Function& func,
 }
 
 void GlobalNameResolver::doResolve(Function& func) {
-    if (auto* paramDecls = func.facet()->params())
-        func._params =
+    resolveFuncInterface(func.parentScope()->assocSymbol(), func.interface(),
+                         *func.facet(), func.parentScope());
+}
+
+void GlobalNameResolver::doResolve(GenFuncImpl& genfunc) {
+    resolveFuncInterface(genfunc.parentScope()->assocSymbol(),
+                         genfunc.interface(), *genfunc.facet(),
+                         genfunc.associatedScope());
+}
+
+void GlobalNameResolver::resolveFuncInterface(
+    Symbol* parentSymbol, FuncInterface& interface,
+    FuncDeclBaseFacet const& funcFacet, Scope* scope) {
+    if (auto* paramDecls = funcFacet.params())
+        interface._params =
             paramDecls->elems() | enumerate |
-            transform(FN1(&, analyzeParam(func, _1.second, _1.first))) |
+            transform(FN1(&, analyzeParam(parentSymbol, _1.second, scope,
+                                          _1.first))) |
             ToSmallVector<>;
     auto* retType = [&]() -> Type const* {
-        if (auto* retFacet = func.facet()->retType())
-            return analyzeFacetAs<Type>(*this, func.parentScope(), retFacet);
+        if (auto* retFacet = funcFacet.retType())
+            return analyzeFacetAs<Type>(*this, scope, retFacet);
         return ctx.getVoid();
     }();
-    func._sig = FuncSig::Compute(retType, func.params());
+    interface._sig = FuncSig::Compute(retType, interface.params());
 }
 
 void GlobalNameResolver::resolveChildren(std::span<Symbol* const> symbols) {
@@ -423,6 +450,8 @@ static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,
         globalScope->symbols());
     return dependencies;
 }
+
+// MARK: - Instantiate types
 
 namespace prism {
 

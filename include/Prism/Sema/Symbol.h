@@ -546,7 +546,29 @@ public:
     }
 };
 
-class GenericSymbol: public Symbol {};
+/// Base class of `GenFuncImpl`, ...
+class GenericSymbol: public Symbol, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    ///
+    std::span<Symbol* const> genParams() { return _genParams; }
+
+    /// \overload
+    std::span<Symbol const* const> genParams() const { return _genParams; }
+
+protected:
+    explicit GenericSymbol(SymbolType symType, SemaContext& ctx,
+                           std::string name, Facet const* facet, Scope* parent,
+                           Scope* scope,
+                           utl::small_vector<Symbol*>&& genParams):
+        Symbol(symType, std::move(name), facet, parent),
+        AssocScope(ctx, scope, this),
+        _genParams(std::move(genParams)) {}
+
+private:
+    utl::small_vector<Symbol*> _genParams;
+};
 
 class Value: public Symbol {
 public:
@@ -612,16 +634,20 @@ private:
     bool _isThis = false;
 };
 
-/// Function declaration
-class Function: public Symbol {
+///
+class FuncInterface {
 public:
-    explicit Function(std::string name, Facet const* facet, Scope* parent,
-                      utl::small_vector<FuncParam*>&& params,
-                      Type const* retType);
+    explicit FuncInterface(Symbol* function): _func(*function) {}
 
-    explicit Function(std::string name, Facet const* facet, Scope* parent);
+    explicit FuncInterface(Symbol* function,
+                           utl::small_vector<FuncParam*>&& params,
+                           Type const* retType);
 
-    FACET_TYPE(FuncDeclBaseFacet)
+    /// \Returns the owning symbol, a `Function` or `GenFunction`
+    Symbol& function() { return _func; }
+
+    /// \overload
+    Symbol const& function() const { return _func; }
 
     /// \Returns the parameters of this function
     std::span<FuncParam* const> params() { return _params; }
@@ -639,29 +665,58 @@ public:
 private:
     friend struct GlobalNameResolver;
 
+    Symbol& _func;
     utl::small_vector<FuncParam*> _params;
     FuncSig _sig;
 };
 
+/// Function declaration
+class Function: public Symbol, public FuncInterface {
+public:
+    explicit Function(std::string name, Facet const* facet, Scope* parent,
+                      utl::small_vector<FuncParam*>&& params,
+                      Type const* retType);
+
+    explicit Function(std::string name, Facet const* facet, Scope* parent);
+
+    FACET_TYPE(FuncDeclBaseFacet)
+
+    /// \Returns the interface
+    FuncInterface& interface() { return *this; }
+
+    /// \overload
+    FuncInterface const& interface() const { return *this; }
+};
+
 /// Function implementation
-class FunctionImpl:
-    public Function,
-    public detail::AssocScope,
-    detail::GenContextBase {
+class FunctionImpl: public Function, public detail::AssocScope {
 public:
     using AssocScope::associatedScope;
 
     explicit FunctionImpl(SemaContext& ctx, std::string name,
-                          Facet const* facet, Scope* parent, Scope* scope,
-                          std::optional<GenericContext> genContext,
-                          utl::small_vector<FuncParam*>&& params,
-                          Type const* retType);
-
-    explicit FunctionImpl(SemaContext& ctx, std::string name,
-                          Facet const* facet, Scope* parent, Scope* scope,
-                          std::optional<GenericContext> genContext);
+                          Facet const* facet, Scope* parent,
+                          utl::small_vector<FuncParam*>&& params = {},
+                          Type const* retType = nullptr);
 
     FACET_TYPE(FuncDefFacet)
+};
+
+/// Implementation of a generic function
+class GenFuncImpl: public GenericSymbol, public FuncInterface {
+public:
+    explicit GenFuncImpl(SemaContext& ctx, std::string name, Facet const* facet,
+                         Scope* parent, Scope* scope,
+                         utl::small_vector<Symbol*>&& genParams,
+                         utl::small_vector<FuncParam*>&& params = {},
+                         Type const* retType = nullptr);
+
+    FACET_TYPE(FuncDeclBaseFacet)
+
+    /// \Returns the interface
+    FuncInterface& interface() { return *this; }
+
+    /// \overload
+    FuncInterface const& interface() const { return *this; }
 };
 
 class FuncArg: public Value {

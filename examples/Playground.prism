@@ -31,11 +31,28 @@ struct S: Foo {
 
 */
 
-trait [To: type] ConvertibleTo {
-    fn convert(&this) -> To;
-}
+//trait [To: type] ConvertibleTo {
+//    fn convert(&this) -> To;
+//}
 
-// fn [T: ConvertibleTo(i32)] foo(arg: T) {}
+fn [T: type] foo(arg: T) {}
+
+fn foo(arg: i32) {}
+
+
+/*
+ 
+let n = (fn -> i32 @0 lhs: i32 * @1 rhs: i32)(21, 2);
+
+let n = (fn -> i32 @0 lhs * @1 rhs)(21, 2);
+
+let n = (fn @0 * @1)(21, 2);
+
+ */
+
+
+
+//fn [T: ConvertibleTo(i32)] foo(arg: T) {}
 
 //struct S {}
 //

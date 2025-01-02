@@ -146,21 +146,45 @@ static void fmtDeclImpl(Symbol const&, std::ostream& str, FmtDeclOptions) {
     str << "<invalid-decl>";
 }
 
-static void fmtDeclImpl(Function const& func, std::ostream& str,
-                        FmtDeclOptions options) {
-    str << Keyword("fn") << " " << fmtName(func, asPrimaryName(options)) << "(";
-    for (bool first = true; auto* param: func.params()) {
+static void fmtFuncDeclImpl(Symbol const& func, FuncInterface const& interface,
+                            std::ostream& str, FmtDeclOptions options) {
+    str << fmtName(func, asPrimaryName(options)) << "(";
+    for (bool first = true; auto* param: interface.params()) {
         if (!first) str << ", ";
         first = false;
         fmtDecl(param, str, asSecondary(options));
     }
-    str << ") -> " << fmtName(func.retType(), asSecondaryName(options));
+    str << ") -> " << fmtName(interface.retType(), asSecondaryName(options));
+}
+
+static void fmtDeclImpl(Function const& func, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("fn") << " ";
+    fmtFuncDeclImpl(func, func.interface(), str, options);
+}
+
+static void fmtDeclImpl(GenFuncImpl const& func, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("genfn") << " [";
+    for (bool first = true; auto* param: func.genParams()) {
+        if (!first) str << ", ";
+        first = false;
+        fmtDecl(param, str, asSecondary(options));
+    }
+    str << "] ";
+    fmtFuncDeclImpl(func, func.interface(), str, options);
 }
 
 static void fmtDeclImpl(FuncParam const& param, std::ostream& str,
                         FmtDeclOptions options) {
     str << fmtName(param) << ": "
         << fmtName(param.type(), asSecondaryName(options));
+}
+
+static void fmtDeclImpl(GenericTypeParam const& param, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << fmtName(param) << ": "
+        << fmtName(param.trait(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(StructType const& type, std::ostream& str,
@@ -336,6 +360,11 @@ struct SymbolPrinter {
     void printImpl(Function const& func) {
         str << fmtDecl(func) << " ";
         if (isa<FunctionImpl>(func)) printBraced(func.associatedScope());
+    }
+
+    void printImpl(GenFuncImpl const& func) {
+        str << fmtDecl(func) << " ";
+        printBraced(func.associatedScope());
     }
 
     void printImpl(Type const& type) { str << fmtName(type); }
