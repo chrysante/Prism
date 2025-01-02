@@ -10,6 +10,7 @@
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
+#include "Prism/Sema/GenericInstantiation.h"
 #include "Prism/Sema/NameLookup.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
@@ -33,11 +34,6 @@ struct AnaContext: AnalysisBase {
     IntLiteral* analyzeIntLiteral(TerminalFacet const& term, int base);
     Symbol* doAnalyze(TerminalFacet const& term);
     Symbol* doAnalyze(CallFacet const& call);
-    Symbol* analyzeCall(Symbol& sym, std::span<Symbol* const> args);
-    Symbol* doAnalyzeCall(Symbol const&, std::span<Symbol const* const>) {
-        PRISM_UNIMPLEMENTED();
-    }
-    Symbol* doAnalyzeCall(GenTrait& trait, std::span<Symbol* const> args);
 };
 
 } // namespace
@@ -100,28 +96,7 @@ Symbol* AnaContext::doAnalyze(CallFacet const& call) {
     auto args = call.arguments()->elems() | transform(FN1(&, analyze(_1))) |
                 ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
-    return analyzeCall(*callee, args);
-}
-
-Symbol* AnaContext::analyzeCall(Symbol& sym, std::span<Symbol* const> args) {
-    return visit(sym, FN1(&, doAnalyzeCall(_1, args)));
-}
-
-static bool conformsTo(ValueType const&, Trait const& trait) {
-    if (trait.name() == "type") // Ugh, how to we fix this?!
-        return true;            // All types conform to the `type` trait
-    return false;               // For now
-}
-
-Symbol* AnaContext::doAnalyzeCall(GenTrait& trait,
-                                  std::span<Symbol* const> args) {
-    auto params = trait.genParams();
-    if (args.size() != params.size()) PRISM_UNIMPLEMENTED();
-    for (auto [arg, param]: zip(args, params)) {
-        auto* typeParam = cast<GenericTypeParam const*>(param);
-        auto* typeArg = dyncast<ValueType const*>(arg);
-        if (!typeArg || !conformsTo(*typeArg, *typeParam->trait()))
-            PRISM_UNIMPLEMENTED();
-    }
+    if (auto* gensym = dyncast<GenericSymbol*>(callee))
+        return instantiateGeneric(ctx, *gensym, args);
     PRISM_UNIMPLEMENTED();
 }

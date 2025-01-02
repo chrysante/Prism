@@ -148,10 +148,19 @@ void ConfAnaContext::analyze(BaseTrait& base) {
         inheritObligations(*base.trait(), *trait);
 }
 
+static InterfaceLike& getInterfaceLike(Symbol& sym) {
+    return visit(sym, []<typename T>(T& sym) -> InterfaceLike& {
+        if constexpr (std::derived_from<T, InterfaceLike>)
+            return sym;
+        else
+            PRISM_UNREACHABLE();
+    });
+}
+
 void ConfAnaContext::analyze(BaseClass& base) {
     auto* parentSymbol = base.parentScope()->assocSymbol();
-    auto* parentType = cast<CompositeType*>(parentSymbol);
-    inheritObligations(*base.type(), *parentType);
+    auto& parentInterface = getInterfaceLike(*parentSymbol);
+    inheritObligations(*base.type(), parentInterface);
 }
 
 static void analyzeConformance(SemaContext& ctx, DiagnosticHandler& diagHandler,

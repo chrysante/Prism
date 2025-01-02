@@ -293,6 +293,8 @@ public:
 private:
     friend struct GlobalNameResolver;
     friend struct InstantiationContext;
+    friend struct GenInstContext;
+    friend class GenStructTypeInst;
 
     Symbol& _sym;
     std::vector<BaseTrait*> _baseTraits;
@@ -325,8 +327,24 @@ public:
                       parent, layout) {}
 };
 
-/// Instantiation of a struct type
-class GenStructTypeInst: public CompositeType {};
+/// Instantiation of a generic struct type
+class GenStructTypeInst: public CompositeType {
+public:
+    explicit GenStructTypeInst(SemaContext& ctx, GenStructType* typeTemplate,
+                               utl::small_vector<Symbol*>&& arguments);
+
+    GenStructType* typeTemplate() { return _templ; }
+
+    GenStructType const* typeTemplate() const { return _templ; }
+
+    std::span<Symbol* const> genArguments() { return _arguments; }
+
+    std::span<Symbol const* const> genArguments() const { return _arguments; }
+
+private:
+    GenStructType* _templ;
+    utl::small_vector<Symbol*> _arguments;
+};
 
 /// Base class of all types with non-static member variables
 class GenCompositeType: public GenericSymbol, public CompTypeInterface {

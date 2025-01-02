@@ -37,24 +37,30 @@ struct S: Foo {
 
 fn [T: type] foo(arg: T) {}
 
-fn foo(arg: i32) {}
+struct [U: type] MyBase {}
+struct [U: type] MyBase2 {}
 
-trait ConcreteTrait {
-    
+struct [T: type] MyStruct: MyBase(T) {
+    var t: T;
 }
 
-struct [T: ConcreteTrait] MyStruct {
-    var value: T;
-}
+fn test(arg: MyStruct(i32)) {}
+
+/*
 
 trait [T: type] MyTrait {
    // fn foo(&this) -> T;
 }
 
-//impl [T: type] MyTrait(T) for MyStruct(T) {
-//    fn foo(&this) -> T {}
-//}
+trait MyConcreteType {
+    
+}
 
+impl [T: type] MyConcreteType for MyStruct(T) {
+//    fn foo(&this) -> T {}
+}
+
+*/
 
 /*
  

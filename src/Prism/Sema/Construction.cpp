@@ -194,7 +194,7 @@ Symbol* GlobalDeclDeclare::doDeclare(GenParamDeclFacet const& facet,
 GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenScope(
     GenParamListFacet const* paramDecls, Scope* parent) {
     PRISM_EXPECT(paramDecls);
-    auto* scope = ctx.make<Scope>(parent);
+    auto* scope = ctx.makeScope(parent);
     auto params = paramDecls->elems() | transform(FN1(&, declare(_1, scope)));
     return { scope, params | ToSmallVector<> };
 }
@@ -295,9 +295,10 @@ void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
     auto& impl = interface.traitImpl();
     auto* facet = cast<TraitImplFacet const*>(impl.facet());
     auto* def = cast<TraitImplTypeFacet const*>(facet->definition());
-    interface._trait =
-        analyzeFacetAs<Trait>(*this, impl.parentScope(), def->traitDeclRef());
-    interface._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
+    interface._trait = analyzeFacetAs<Trait>(*this, impl.associatedScope(),
+                                             def->traitDeclRef());
+    interface._conf = analyzeFacetAs<CompositeType>(*this,
+                                                    impl.associatedScope(),
                                                     def->conformingTypename());
     auto* node = getNode(impl);
     addDependency(node, interface._trait);
@@ -499,7 +500,9 @@ void GlobalNameResolver::resolveChildren(std::span<Symbol* const> symbols) {
 }
 
 void GlobalNameResolver::resolveChildren(auto& symbol) {
-    resolveChildren(symbol.associatedScope()->symbols());
+    // Make a copy of the symbols here because during resolution new symbols may
+    // be added, invalidating the backing storage
+    resolveChildren(symbol.associatedScope()->symbols() | ToSmallVector<>);
 }
 
 static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,

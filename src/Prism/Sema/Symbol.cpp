@@ -25,7 +25,7 @@ Scope const* Symbol::associatedScope() const {
 
 detail::AssocScope::AssocScope(SemaContext& ctx, Scope* scope, Symbol* This):
     _scope(scope) {
-    if (!_scope) _scope = ctx.make<Scope>(This->parentScope());
+    if (!_scope) _scope = ctx.makeScope(This->parentScope());
     _scope->_assocSymbol = This;
 }
 
@@ -49,6 +49,17 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
 void CompTypeInterface::setTraitImpl(TraitImpl& impl) {
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
     PRISM_ASSERT(success, "Duplicate implementation");
+}
+
+GenStructTypeInst::GenStructTypeInst(SemaContext& ctx,
+                                     GenStructType* typeTemplate,
+                                     utl::small_vector<Symbol*>&& args):
+    CompositeType(SymbolType::GenStructTypeInst, ctx, typeTemplate->name(),
+                  /* facet: */ nullptr, typeTemplate->parentScope(),
+                  TypeLayout::Incomplete),
+    _templ(typeTemplate),
+    _arguments(std::move(args)) {
+    PRISM_ASSERT(genArguments().size() == typeTemplate->genParams().size());
 }
 
 FuncInterface::FuncInterface(Symbol* function,

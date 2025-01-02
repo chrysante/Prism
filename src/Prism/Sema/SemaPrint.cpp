@@ -75,7 +75,7 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
         auto* scope = symbol->parentScope();
         while (scope) {
             auto* sym = scope->assocSymbol();
-            if (isa<SourceFile>(sym)) break;
+            if (isa<SourceFile>(sym) || isa<Target>(sym)) break;
             if (sym) stack.push(sym);
             scope = scope->parent();
         }
@@ -85,6 +85,17 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
             first = false;
             fmtName(sym, str);
         }
+        return;
+    }
+    if (auto* type = dyncast<GenStructTypeInst const*>(symbol)) {
+        fmtName(type->typeTemplate(), str, options);
+        str << "(";
+        for (bool first = true; auto* arg: type->genArguments()) {
+            if (!first) str << ", ";
+            first = false;
+            fmtName(arg, str, { .qualified = true });
+        }
+        str << ")";
         return;
     }
     if (auto* ref = dyncast<ReferenceType const*>(symbol)) {
@@ -146,7 +157,7 @@ static void fmtDecl(Symbol const* symbol, std::ostream& str,
                     FmtDeclOptions options);
 
 static void fmtDeclImpl(Symbol const&, std::ostream& str, FmtDeclOptions) {
-    str << "<invalid-decl>";
+    str << tfmt::format(BrightRed | Bold, "<unknown-decl>");
 }
 
 static void fmtFuncDeclImpl(Symbol const& func, FuncInterface const& interface,
@@ -179,7 +190,7 @@ static void fmtGenParamList(std::span<Symbol const* const> params,
 
 static void fmtDeclImpl(GenFuncImpl const& func, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("genfn") << " ";
+    str << Keyword("gen fn") << " ";
     fmtGenParamList(func.genParams(), str, options);
     str << " ";
     fmtFuncDeclImpl(func, func.interface(), str, options);
@@ -202,9 +213,15 @@ static void fmtDeclImpl(StructType const& type, std::ostream& str,
     str << Keyword("struct") << " " << fmtName(type, asPrimaryName(options));
 }
 
+static void fmtDeclImpl(GenStructTypeInst const& type, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("gen struct inst") << " "
+        << fmtName(type, asPrimaryName(options));
+}
+
 static void fmtDeclImpl(GenStructType const& type, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("genstruct") << " ";
+    str << Keyword("gen struct") << " ";
     fmtGenParamList(type.genParams(), str, options);
     str << " " << fmtName(type, asPrimaryName(options));
 }
@@ -216,7 +233,7 @@ static void fmtDeclImpl(Trait const& trait, std::ostream& str,
 
 static void fmtDeclImpl(GenTrait const& trait, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("gentrait") << " ";
+    str << Keyword("gen trait") << " ";
     fmtGenParamList(trait.genParams(), str, options);
     str << " " << fmtName(trait, asPrimaryName(options));
 }
@@ -246,19 +263,19 @@ static void fmtDeclImpl(Variable const& var, std::ostream& str,
 
 static void fmtDeclImpl(BaseClass const& base, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("base_class") << " " << fmtName(base, asPrimaryName(options))
+    str << Keyword("base class") << " " << fmtName(base, asPrimaryName(options))
         << ": " << fmtName(base.type(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(BaseTrait const& base, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("base_trait") << " " << fmtName(base, asPrimaryName(options))
+    str << Keyword("base trait") << " " << fmtName(base, asPrimaryName(options))
         << ": " << fmtName(base.trait(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(MemberVar const& var, std::ostream& str,
                         FmtDeclOptions options) {
-    str << Keyword("memvar") << " " << fmtName(var, asPrimaryName(options))
+    str << Keyword("member var") << " " << fmtName(var, asPrimaryName(options))
         << ": " << fmtName(var.type(), asSecondaryName(options));
 }
 
@@ -403,7 +420,7 @@ struct SymbolPrinter {
     void printImpl(Type const& type) { str << fmtName(type); }
 
     void printLayout(Type const& type) {
-        buf.indented([&] { str << Comment(type.layout()); });
+        buf.indented([&] { str << Comment(type.layout()) << " "; });
     }
 
     void printObligation(Obligation const& obl) {
@@ -443,16 +460,7 @@ struct SymbolPrinter {
         if constexpr (std::derived_from<T, CompositeType>)
             if (options.structureMemoryLayout) printLayout(type);
         printRequirements(type);
-        // We jump through some hoops here to always print the base classes and
-        // non-static membar variables in the order of declaration, and all
-        // other symbols afterwards in arbitrary order
-        auto members =
-            concat(type.baseClasses() | transform(cast<MemberSymbol const*>),
-                   type.memberVars());
-        auto memSet = members | ranges::to<utl::hashset<Symbol const*>>;
-        auto others = type.associatedScope()->symbols() |
-                      filter(FN1(&, !memSet.contains(_1)));
-        printBraced(concat(members, others));
+        printBraced(type.associatedScope());
     }
 
     void printImpl(DerivedFromAny<Trait, GenTrait> auto const& trait) {
