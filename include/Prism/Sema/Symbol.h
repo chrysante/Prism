@@ -157,6 +157,31 @@ private:
 
 } // namespace detail
 
+/// Base class of generic versions of composite types, traits, trait impls and
+/// functions
+class GenericSymbol: public Symbol, public detail::AssocScope {
+public:
+    using AssocScope::associatedScope;
+
+    ///
+    std::span<Symbol* const> genParams() { return _genParams; }
+
+    /// \overload
+    std::span<Symbol const* const> genParams() const { return _genParams; }
+
+protected:
+    explicit GenericSymbol(SymbolType symType, SemaContext& ctx,
+                           std::string name, Facet const* facet, Scope* parent,
+                           Scope* scope,
+                           utl::small_vector<Symbol*>&& genParams):
+        Symbol(symType, std::move(name), facet, parent),
+        AssocScope(ctx, scope, this),
+        _genParams(std::move(genParams)) {}
+
+private:
+    utl::small_vector<Symbol*> _genParams;
+};
+
 class Type: public Symbol {
 public:
     /// \Returns the memory layout of this type
@@ -216,13 +241,20 @@ protected:
     using ScopedType::ScopedType;
 };
 
-/// Base class of all types with non-static member variables
-class CompositeType:
-    public UserType,
-    public InterfaceLike,
-    public detail::GenContextBase {
+/// Common interface of `CompositeType` and `GenCompositeType`
+class CompTypeInterface: public InterfaceLike {
 public:
-    FACET_TYPE(CompTypeDeclFacet)
+    explicit CompTypeInterface(Symbol* sym): _sym(*sym) {}
+
+    /// \Returns the owning type or generic type
+    Symbol& compositeType() { return _sym; }
+
+    /// \overload
+    Symbol const& compositeType() const { return _sym; }
+
+    CompTypeInterface& interface() { return *this; }
+
+    CompTypeInterface const& interface() const { return *this; }
 
     /// \Returns the list of base traits in the order of declaration
     std::span<BaseTrait* const> baseTraits() { return _baseTraits; }
@@ -258,34 +290,69 @@ public:
     ///
     void setTraitImpl(TraitImpl& impl);
 
-protected:
-    using UserType::UserType;
-
 private:
     friend struct GlobalNameResolver;
     friend struct InstantiationContext;
 
+    Symbol& _sym;
     std::vector<BaseTrait*> _baseTraits;
     std::vector<BaseClass*> _bases;
     std::vector<MemberVar*> _memvars;
     utl::hashmap<Trait const*, TraitImpl*> _traitImpls;
 };
 
+/// Base class of all types with non-static member variables
+class CompositeType: public UserType, public CompTypeInterface {
+public:
+    FACET_TYPE(CompTypeDeclFacet)
+
+protected:
+    CompositeType(SymbolType symType, SemaContext& ctx, std::string name,
+                  Facet const* facet, Scope* parent, TypeLayout layout):
+        UserType(symType, ctx, std::move(name), facet, parent, nullptr, layout),
+        CompTypeInterface(this) {}
+
+    friend struct InstantiationContext;
+};
+
 /// User defined product type
 class StructType: public CompositeType {
 public:
     explicit StructType(SemaContext& ctx, std::string name, Facet const* facet,
-                        Scope* parent, Scope* scope,
-                        std::optional<GenericContext> genContext,
+                        Scope* parent,
                         TypeLayout layout = TypeLayout::Incomplete):
         CompositeType(SymbolType::StructType, ctx, std::move(name), facet,
-                      parent, scope, layout) {
-        setGenCtx(std::move(genContext));
-    }
+                      parent, layout) {}
 };
 
 /// Instantiation of a struct type
 class GenStructTypeInst: public CompositeType {};
+
+/// Base class of all types with non-static member variables
+class GenCompositeType: public GenericSymbol, public CompTypeInterface {
+public:
+    FACET_TYPE(CompTypeDeclFacet)
+
+protected:
+    GenCompositeType(SymbolType symType, SemaContext& ctx, std::string name,
+                     Facet const* facet, Scope* parent, Scope* scope,
+                     utl::small_vector<Symbol*>&& genParams):
+        GenericSymbol(symType, ctx, std::move(name), facet, parent, scope,
+                      std::move(genParams)),
+        CompTypeInterface(this) {}
+
+    friend struct InstantiationContext;
+};
+
+/// User defined product type
+class GenStructType: public GenCompositeType {
+public:
+    explicit GenStructType(SemaContext& ctx, std::string name,
+                           Facet const* facet, Scope* parent, Scope* scope,
+                           utl::small_vector<Symbol*>&& genParams):
+        GenCompositeType(SymbolType::GenStructType, ctx, std::move(name), facet,
+                         parent, scope, std::move(genParams)) {}
+};
 
 /// Not really sure about this. Do we even need it? And should it be a value
 /// type?
@@ -437,19 +504,51 @@ public:
                      parent) {}
 };
 
-class Trait:
-    public Symbol,
-    public InterfaceLike,
-    public detail::AssocScope,
-    public detail::GenContextBase {
+/// Common interface of `Trait` and `GenTrait`
+class TraitInterface: public InterfaceLike {
+public:
+    explicit TraitInterface(Symbol* trait): _sym(*trait) {}
+
+    ///
+    Symbol& trait() { return _sym; }
+
+    /// \overload
+    Symbol const& trait() const { return _sym; }
+
+    TraitInterface& interface() { return *this; }
+
+    TraitInterface const& interface() const { return *this; }
+
+private:
+    Symbol& _sym;
+};
+
+///
+class Trait: public Symbol, public detail::AssocScope, public TraitInterface {
 public:
     using AssocScope::associatedScope;
 
     explicit Trait(SemaContext& ctx, std::string name, Facet const* facet,
-                   Scope* parent, Scope* scope,
-                   std::optional<GenericContext> genContext);
+                   Scope* parent):
+        Symbol(SymbolType::Trait, std::move(name), facet, parent),
+        AssocScope(ctx, nullptr, this),
+        TraitInterface(this) {}
 };
 
+///
+class GenTrait: public GenericSymbol, public TraitInterface {
+public:
+    using AssocScope::associatedScope;
+
+    explicit GenTrait(SemaContext& ctx, std::string name, Facet const* facet,
+                      Scope* parent, Scope* scope,
+                      utl::small_vector<Symbol*>&& genParams):
+        GenericSymbol(SymbolType::GenTrait, ctx, std::move(name), facet, parent,
+                      scope, std::move(genParams)),
+        TraitInterface(this) {}
+};
+
+///
 class BaseTrait: public Symbol {
 public:
     explicit BaseTrait(Facet const* facet, Scope* parent, Trait* trait):
@@ -466,25 +565,30 @@ private:
     Trait* _trait;
 };
 
-class TraitImpl:
-    public Symbol,
-    public InterfaceLike,
-    public detail::AssocScope,
-    public detail::GenContextBase {
+/// Common interface of `TraitImpl` and `GenTraitImpl`
+class TraitImplInterface: public InterfaceLike {
 public:
-    using AssocScope::associatedScope;
+    explicit TraitImplInterface(Symbol* traitImpl, Trait* trait,
+                                CompositeType* conforming):
+        _sym(*traitImpl), _trait(trait), _conf(conforming) {}
 
-    explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                       Scope* scope, Trait* trait, CompositeType* conforming,
-                       std::optional<GenericContext> genContext);
+    ///
+    Symbol& traitImpl() { return _sym; }
 
-    FACET_TYPE(TraitImplFacet)
+    /// \overload
+    Symbol const& traitImpl() const { return _sym; }
 
+    TraitImplInterface& interface() { return *this; }
+
+    TraitImplInterface const& interface() const { return *this; }
+
+    /// \Returns the trait that is being implemented
     Trait* trait() { return _trait; }
 
     /// \overload
     Trait const* trait() const { return _trait; }
 
+    /// \Returns the type for which \p trait is implemented
     CompositeType* conformingType() { return _conf; }
 
     /// \overload
@@ -493,8 +597,43 @@ public:
 private:
     friend struct GlobalNameResolver;
 
-    Trait* _trait;
-    CompositeType* _conf;
+    Symbol& _sym;
+    Trait* _trait = nullptr;
+    CompositeType* _conf = nullptr;
+};
+
+///
+class TraitImpl:
+    public Symbol,
+    public detail::AssocScope,
+    public TraitImplInterface {
+public:
+    using AssocScope::associatedScope;
+
+    explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
+                       Trait* trait = nullptr,
+                       CompositeType* conforming = nullptr):
+        Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
+        AssocScope(ctx, nullptr, this),
+        TraitImplInterface(this, trait, conforming) {}
+
+    FACET_TYPE(TraitImplFacet)
+};
+
+///
+class GenTraitImpl: public GenericSymbol, public TraitImplInterface {
+public:
+    using AssocScope::associatedScope;
+
+    explicit GenTraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
+                          Scope* scope, utl::small_vector<Symbol*>&& genParams,
+                          Trait* trait = nullptr,
+                          CompositeType* conforming = nullptr):
+        GenericSymbol(SymbolType::GenTraitImpl, ctx, /* name: */ {}, facet,
+                      parent, scope, std::move(genParams)),
+        TraitImplInterface(this, trait, conforming) {}
+
+    FACET_TYPE(TraitImplFacet)
 };
 
 ///
@@ -544,30 +683,6 @@ public:
     Trait const* trait() const {
         return cast<Trait const*>(underlyingSymbol());
     }
-};
-
-/// Base class of `GenFuncImpl`, ...
-class GenericSymbol: public Symbol, public detail::AssocScope {
-public:
-    using AssocScope::associatedScope;
-
-    ///
-    std::span<Symbol* const> genParams() { return _genParams; }
-
-    /// \overload
-    std::span<Symbol const* const> genParams() const { return _genParams; }
-
-protected:
-    explicit GenericSymbol(SymbolType symType, SemaContext& ctx,
-                           std::string name, Facet const* facet, Scope* parent,
-                           Scope* scope,
-                           utl::small_vector<Symbol*>&& genParams):
-        Symbol(symType, std::move(name), facet, parent),
-        AssocScope(ctx, scope, this),
-        _genParams(std::move(genParams)) {}
-
-private:
-    utl::small_vector<Symbol*> _genParams;
 };
 
 class Value: public Symbol {
@@ -649,6 +764,12 @@ public:
     /// \overload
     Symbol const& function() const { return _func; }
 
+    /// \Returns the interface
+    FuncInterface& interface() { return *this; }
+
+    /// \overload
+    FuncInterface const& interface() const { return *this; }
+
     /// \Returns the parameters of this function
     std::span<FuncParam* const> params() { return _params; }
 
@@ -680,12 +801,6 @@ public:
     explicit Function(std::string name, Facet const* facet, Scope* parent);
 
     FACET_TYPE(FuncDeclBaseFacet)
-
-    /// \Returns the interface
-    FuncInterface& interface() { return *this; }
-
-    /// \overload
-    FuncInterface const& interface() const { return *this; }
 };
 
 /// Function implementation
@@ -711,12 +826,6 @@ public:
                          Type const* retType = nullptr);
 
     FACET_TYPE(FuncDeclBaseFacet)
-
-    /// \Returns the interface
-    FuncInterface& interface() { return *this; }
-
-    /// \overload
-    FuncInterface const& interface() const { return *this; }
 };
 
 class FuncArg: public Value {

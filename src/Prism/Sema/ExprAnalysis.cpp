@@ -37,7 +37,7 @@ struct AnaContext: AnalysisBase {
     Symbol* doAnalyzeCall(Symbol const&, std::span<Symbol const* const>) {
         PRISM_UNIMPLEMENTED();
     }
-    Symbol* doAnalyzeCall(Trait& trait, std::span<Symbol* const> args);
+    Symbol* doAnalyzeCall(GenTrait& trait, std::span<Symbol* const> args);
 };
 
 } // namespace
@@ -113,10 +113,9 @@ static bool conformsTo(ValueType const&, Trait const& trait) {
     return false;               // For now
 }
 
-Symbol* AnaContext::doAnalyzeCall(Trait& trait, std::span<Symbol* const> args) {
-    auto* genContext = trait.genericContext();
-    if (!genContext) PRISM_UNIMPLEMENTED();
-    auto params = genContext->params();
+Symbol* AnaContext::doAnalyzeCall(GenTrait& trait,
+                                  std::span<Symbol* const> args) {
+    auto params = trait.genParams();
     if (args.size() != params.size()) PRISM_UNIMPLEMENTED();
     for (auto [arg, param]: zip(args, params)) {
         auto* typeParam = cast<GenericTypeParam const*>(param);

@@ -34,7 +34,9 @@ public:
     }
 
     template <std::derived_from<Symbol> Sym, typename... Args>
-    Sym* makeBuiltin(BuiltinSymbol builtinID, Args&&... args) {
+    Sym* makeBuiltin(BuiltinSymbol builtinID, Args&&... args)
+        requires requires { make<Sym>(std::forward<Args>(args)...); }
+    {
         auto* sym = make<Sym>(std::forward<Args>(args)...);
         builtins[(size_t)builtinID] = sym;
         return sym;

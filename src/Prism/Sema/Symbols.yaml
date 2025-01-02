@@ -119,6 +119,18 @@ symbols:
     base: Symbol
     abstract: true
 
+  - name: GenCompositeType
+    base: GenericSymbol
+
+  - name: GenStructType
+    base: GenCompositeType
+
+  - name: GenTrait
+    base: GenericSymbol
+
+  - name: GenTraitImpl
+    base: GenericSymbol
+ 
   - name: GenFuncImpl
     base: GenericSymbol
 

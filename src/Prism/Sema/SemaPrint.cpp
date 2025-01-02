@@ -23,6 +23,9 @@ using ranges::views::intersperse;
 using ranges::views::reverse;
 using ranges::views::transform;
 
+template <typename T, typename... U>
+concept DerivedFromAny = (std::derived_from<T, U> || ...);
+
 static constexpr utl::streammanip Keyword = [](std::ostream& str,
                                                auto const&... args) {
     str << tfmt::format(Bold | BrightMagenta, args...);
@@ -163,15 +166,22 @@ static void fmtDeclImpl(Function const& func, std::ostream& str,
     fmtFuncDeclImpl(func, func.interface(), str, options);
 }
 
-static void fmtDeclImpl(GenFuncImpl const& func, std::ostream& str,
-                        FmtDeclOptions options) {
-    str << Keyword("genfn") << " [";
-    for (bool first = true; auto* param: func.genParams()) {
+static void fmtGenParamList(std::span<Symbol const* const> params,
+                            std::ostream& str, FmtDeclOptions options) {
+    str << "[";
+    for (bool first = true; auto* param: params) {
         if (!first) str << ", ";
         first = false;
         fmtDecl(param, str, asSecondary(options));
     }
-    str << "] ";
+    str << "]";
+}
+
+static void fmtDeclImpl(GenFuncImpl const& func, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("genfn") << " ";
+    fmtGenParamList(func.genParams(), str, options);
+    str << " ";
     fmtFuncDeclImpl(func, func.interface(), str, options);
 }
 
@@ -192,15 +202,38 @@ static void fmtDeclImpl(StructType const& type, std::ostream& str,
     str << Keyword("struct") << " " << fmtName(type, asPrimaryName(options));
 }
 
+static void fmtDeclImpl(GenStructType const& type, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("genstruct") << " ";
+    fmtGenParamList(type.genParams(), str, options);
+    str << " " << fmtName(type, asPrimaryName(options));
+}
+
 static void fmtDeclImpl(Trait const& trait, std::ostream& str,
                         FmtDeclOptions options) {
     str << Keyword("trait") << " " << fmtName(trait, asPrimaryName(options));
+}
+
+static void fmtDeclImpl(GenTrait const& trait, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("gentrait") << " ";
+    fmtGenParamList(trait.genParams(), str, options);
+    str << " " << fmtName(trait, asPrimaryName(options));
 }
 
 static void fmtDeclImpl(TraitImpl const& impl, std::ostream& str,
                         FmtDeclOptions options) {
     str << Keyword("impl") << " "
         << fmtName(impl.trait(), asPrimaryName(options)) << " "
+        << Keyword("for") << " "
+        << fmtName(impl.conformingType(), asSecondaryName(options));
+}
+
+static void fmtDeclImpl(GenTraitImpl const& impl, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("impl") << " ";
+    fmtGenParamList(impl.genParams(), str, options);
+    str << " " << fmtName(impl.trait(), asPrimaryName(options)) << " "
         << Keyword("for") << " "
         << fmtName(impl.conformingType(), asSecondaryName(options));
 }
@@ -362,7 +395,7 @@ struct SymbolPrinter {
         if (isa<FunctionImpl>(func)) printBraced(func.associatedScope());
     }
 
-    void printImpl(GenFuncImpl const& func) {
+    void printImpl(DerivedFromAny<FunctionImpl, GenFuncImpl> auto const& func) {
         str << fmtDecl(func) << " ";
         printBraced(func.associatedScope());
     }
@@ -404,11 +437,11 @@ struct SymbolPrinter {
         }
     }
 
-    void printImpl(CompositeType const& type) {
+    template <DerivedFromAny<CompositeType, GenCompositeType> T>
+    void printImpl(T const& type) {
         str << fmtDecl(type) << " ";
-        if (options.structureMemoryLayout) {
-            printLayout(type);
-        }
+        if constexpr (std::derived_from<T, CompositeType>)
+            if (options.structureMemoryLayout) printLayout(type);
         printRequirements(type);
         // We jump through some hoops here to always print the base classes and
         // non-static membar variables in the order of declaration, and all
@@ -422,13 +455,13 @@ struct SymbolPrinter {
         printBraced(concat(members, others));
     }
 
-    void printImpl(Trait const& trait) {
+    void printImpl(DerivedFromAny<Trait, GenTrait> auto const& trait) {
         str << fmtDecl(trait) << " ";
         printRequirements(trait);
         printBraced(trait.associatedScope());
     }
 
-    void printImpl(TraitImpl const& impl) {
+    void printImpl(DerivedFromAny<TraitImpl, GenTraitImpl> auto const& impl) {
         str << fmtDecl(impl) << " ";
         printRequirements(impl);
         printBraced(impl.associatedScope());

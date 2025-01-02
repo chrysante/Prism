@@ -39,6 +39,22 @@ fn [T: type] foo(arg: T) {}
 
 fn foo(arg: i32) {}
 
+trait ConcreteTrait {
+    
+}
+
+struct [T: ConcreteTrait] MyStruct {
+    var value: T;
+}
+
+trait [T: type] MyTrait {
+   // fn foo(&this) -> T;
+}
+
+//impl [T: type] MyTrait(T) for MyStruct(T) {
+//    fn foo(&this) -> T {}
+//}
+
 
 /*
  

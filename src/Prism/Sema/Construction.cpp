@@ -37,8 +37,7 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
                              globalScope __VA_OPT__(, ) __VA_ARGS__);
 #include "Prism/Sema/Builtins.def"
     ctx.makeBuiltin<Trait>(BuiltinSymbol::Type, "type",
-                           /* facet: */ nullptr, globalScope, nullptr,
-                           std::nullopt);
+                           /* facet: */ nullptr, globalScope);
 }
 
 static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
@@ -70,22 +69,24 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* declare(Facet const* facet, Scope* scope);
     Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
-    Symbol* declareGenFunc(FuncDefFacet const& facet, Scope* parent);
+    Symbol* doDeclareGen(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
+    Symbol* doDeclareGen(CompTypeDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
+    Symbol* doDeclareGen(TraitImplFacet const& facet, Scope* parent);
     Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent);
 
     struct GenCtxAnaResult {
-        utl::small_vector<Symbol*> genParams;
         Scope* scope;
+        utl::small_vector<Symbol*> genParams;
     };
 
     /// Creates a generic context if \p genParams is not null. In this case a
     /// scope for the generic symbol is created. Otherwise
     /// `{ std::nullopt, nullptr }` is returned and the respective symbol
     /// creates its own scope.
-    GenCtxAnaResult makeGenContext(GenParamListFacet const* genParams,
-                                   Scope* parent);
+    GenCtxAnaResult makeGenScope(GenParamListFacet const* genParams,
+                                 Scope* parent);
 };
 
 } // namespace
@@ -112,31 +113,48 @@ Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
-    if (facet.genParams()) return declareGenFunc(facet, parent);
+    if (facet.genParams()) return doDeclareGen(facet, parent);
     if (facet.body() && isa<CompoundFacet>(facet.body()))
         return ctx.make<FunctionImpl>(getName(facet), &facet, parent);
     return ctx.make<Function>(getName(facet), &facet, parent);
 }
 
-Symbol* GlobalDeclDeclare::declareGenFunc(FuncDefFacet const& facet,
-                                          Scope* parent) {
+Symbol* GlobalDeclDeclare::doDeclareGen(FuncDefFacet const& facet,
+                                        Scope* parent) {
     PRISM_EXPECT(facet.genParams());
-    auto [genParams, scope] = makeGenContext(facet.genParams(), parent);
+    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
     return ctx.make<GenFuncImpl>(getName(facet), &facet, parent, scope,
                                  std::move(genParams));
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
                                      Scope* parent) {
-    auto [context, scope] = makeGenContext(facet.genParams(), parent);
+    if (facet.genParams()) return doDeclareGen(facet, parent);
     auto* typeOrTrait = [&]() -> Symbol* {
         switch (facet.declarator().kind) {
         case TokenKind::Struct:
-            return ctx.make<StructType>(getName(facet), &facet, parent, scope,
-                                        GenericContext(context));
+            return ctx.make<StructType>(getName(facet), &facet, parent);
         case TokenKind::Trait:
-            return ctx.make<Trait>(getName(facet), &facet, parent, scope,
-                                   GenericContext(context));
+            return ctx.make<Trait>(getName(facet), &facet, parent);
+        default:
+            PRISM_UNREACHABLE();
+        }
+    }();
+    declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
+    return typeOrTrait;
+}
+
+Symbol* GlobalDeclDeclare::doDeclareGen(CompTypeDeclFacet const& facet,
+                                        Scope* parent) {
+    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
+    auto* typeOrTrait = [&]() -> Symbol* {
+        switch (facet.declarator().kind) {
+        case TokenKind::Struct:
+            return ctx.make<GenStructType>(getName(facet), &facet, parent,
+                                           scope, std::move(genParams));
+        case TokenKind::Trait:
+            return ctx.make<GenTrait>(getName(facet), &facet, parent, scope,
+                                      std::move(genParams));
         default:
             PRISM_UNREACHABLE();
         }
@@ -147,9 +165,19 @@ Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
 
 Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
                                      Scope* parent) {
-    auto [context, scope] = makeGenContext(facet.genParams(), parent);
-    auto* impl = ctx.make<TraitImpl>(&facet, parent, scope, nullptr, nullptr,
-                                     GenericContext(context));
+    if (facet.genParams()) return doDeclareGen(facet, parent);
+    auto* impl = ctx.make<TraitImpl>(&facet, parent);
+    auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
+    PRISM_ASSERT(implFacet->body());
+    declareChildren(impl->associatedScope(), implFacet->body()->elems());
+    return impl;
+}
+
+Symbol* GlobalDeclDeclare::doDeclareGen(TraitImplFacet const& facet,
+                                        Scope* parent) {
+    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
+    auto* impl =
+        ctx.make<GenTraitImpl>(&facet, parent, scope, std::move(genParams));
     auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
     PRISM_ASSERT(implFacet->body());
     declareChildren(impl->associatedScope(), implFacet->body()->elems());
@@ -163,13 +191,12 @@ Symbol* GlobalDeclDeclare::doDeclare(GenParamDeclFacet const& facet,
     return ctx.make<GenericTypeParam>(std::string(name), &facet, parent, trait);
 }
 
-GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenContext(
-    GenParamListFacet const* genParamDecls, Scope* parent) {
-    if (!genParamDecls) return {}; // TODO: Make this an assertion
+GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenScope(
+    GenParamListFacet const* paramDecls, Scope* parent) {
+    PRISM_EXPECT(paramDecls);
     auto* scope = ctx.make<Scope>(parent);
-    return { genParamDecls->elems() | transform(FN1(&, declare(_1, scope))) |
-                 ToSmallVector<>,
-             scope };
+    auto params = paramDecls->elems() | transform(FN1(&, declare(_1, scope)));
+    return { scope, params | ToSmallVector<> };
 }
 
 static void declareGlobals(SemaContext& ctx, DiagnosticHandler& diagHandler,
@@ -193,12 +220,18 @@ struct GlobalNameResolver: InstantiationBase {
     void declareGlobalVar(Scope* parent, VarDeclFacet const& facet);
     void doResolve(SourceFile& sourceFile);
     void doResolve(TraitImpl& impl);
+    void doResolve(GenTraitImpl& impl);
+    void resolveInterface(TraitImplInterface& interface);
     Symbol* declareBase(Scope* scope, BaseDeclFacet const& decl);
     MemberVar* declareMemberVar(Scope* scope, VarDeclFacet const& decl);
     void declareMembers(Symbol& typeOrTrait,
                         utl::function_view<void(Symbol*)> verify);
     void doResolve(CompositeType& type);
+    void doResolve(GenCompositeType& type);
+    void resolveInterface(CompTypeInterface& interface);
     void doResolve(Trait& trait);
+    void doResolve(GenTrait& trait);
+    void resolveInterface(TraitInterface& interface);
     FuncParam* analyzeParam(Symbol* parentSymbol, ParamDeclFacet const* facet,
                             Scope* scope, size_t index);
     FuncParam* doAnalyzeParam(Symbol* parentSymbol,
@@ -209,8 +242,8 @@ struct GlobalNameResolver: InstantiationBase {
                               size_t index);
     void doResolve(Function& func);
     void doResolve(GenFuncImpl& genfunc);
-    void resolveFuncInterface(Symbol* parentSymbol, FuncInterface& interface,
-                              FuncDeclBaseFacet const& funcFacet, Scope* scope);
+    void resolveInterface(Symbol* parentSymbol, FuncInterface& interface,
+                          FuncDeclBaseFacet const& funcFacet, Scope* scope);
     void resolveChildren(std::span<Symbol* const> symbols);
     void resolveChildren(auto& symbol);
 };
@@ -251,14 +284,24 @@ void GlobalNameResolver::doResolve(SourceFile& sourceFile) {
 }
 
 void GlobalNameResolver::doResolve(TraitImpl& impl) {
-    auto* def = cast<TraitImplTypeFacet const*>(impl.facet()->definition());
-    impl._trait =
+    resolveInterface(impl.interface());
+}
+
+void GlobalNameResolver::doResolve(GenTraitImpl& impl) {
+    resolveInterface(impl.interface());
+}
+
+void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
+    auto& impl = interface.traitImpl();
+    auto* facet = cast<TraitImplFacet const*>(impl.facet());
+    auto* def = cast<TraitImplTypeFacet const*>(facet->definition());
+    interface._trait =
         analyzeFacetAs<Trait>(*this, impl.parentScope(), def->traitDeclRef());
-    impl._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
-                                               def->conformingTypename());
+    interface._conf = analyzeFacetAs<CompositeType>(*this, impl.parentScope(),
+                                                    def->conformingTypename());
     auto* node = getNode(impl);
-    addDependency(node, impl._trait);
-    addDependency(node, impl._conf);
+    addDependency(node, interface._trait);
+    addDependency(node, interface._conf);
     resolveChildren(impl);
 }
 
@@ -313,18 +356,36 @@ void GlobalNameResolver::declareMembers(
 }
 
 void GlobalNameResolver::doResolve(CompositeType& type) {
+    resolveInterface(type.interface());
+}
+
+void GlobalNameResolver::doResolve(GenCompositeType& type) {
+    resolveInterface(type.interface());
+}
+
+void GlobalNameResolver::resolveInterface(CompTypeInterface& interface) {
+    auto& type = interface.compositeType();
     declareMembers(type, [&](Symbol* sym) {
         if (auto* basetrait = dyncast<BaseTrait*>(sym))
-            type._baseTraits.push_back(basetrait);
+            interface._baseTraits.push_back(basetrait);
         else if (auto* baseclass = dyncast<BaseClass*>(sym))
-            type._bases.push_back(baseclass);
+            interface._bases.push_back(baseclass);
         else if (auto* memvar = dyncast<MemberVar*>(sym))
-            type._memvars.push_back(memvar);
+            interface._memvars.push_back(memvar);
     });
     resolveChildren(type);
 }
 
 void GlobalNameResolver::doResolve(Trait& trait) {
+    resolveInterface(trait.interface());
+}
+
+void GlobalNameResolver::doResolve(GenTrait& trait) {
+    resolveInterface(trait.interface());
+}
+
+void GlobalNameResolver::resolveInterface(TraitInterface& interface) {
+    auto& trait = interface.trait();
     declareMembers(trait, [&](Symbol* sym) {
         if (auto* baseclass = dyncast<BaseClass*>(sym))
             PRISM_UNIMPLEMENTED(); // Error
@@ -405,19 +466,19 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
 }
 
 void GlobalNameResolver::doResolve(Function& func) {
-    resolveFuncInterface(func.parentScope()->assocSymbol(), func.interface(),
-                         *func.facet(), func.parentScope());
+    resolveInterface(func.parentScope()->assocSymbol(), func.interface(),
+                     *func.facet(), func.parentScope());
 }
 
 void GlobalNameResolver::doResolve(GenFuncImpl& genfunc) {
-    resolveFuncInterface(genfunc.parentScope()->assocSymbol(),
-                         genfunc.interface(), *genfunc.facet(),
-                         genfunc.associatedScope());
+    resolveInterface(genfunc.parentScope()->assocSymbol(), genfunc.interface(),
+                     *genfunc.facet(), genfunc.associatedScope());
 }
 
-void GlobalNameResolver::resolveFuncInterface(
-    Symbol* parentSymbol, FuncInterface& interface,
-    FuncDeclBaseFacet const& funcFacet, Scope* scope) {
+void GlobalNameResolver::resolveInterface(Symbol* parentSymbol,
+                                          FuncInterface& interface,
+                                          FuncDeclBaseFacet const& funcFacet,
+                                          Scope* scope) {
     if (auto* paramDecls = funcFacet.params())
         interface._params =
             paramDecls->elems() | enumerate |

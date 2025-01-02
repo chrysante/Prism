@@ -46,27 +46,9 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx, scope, this) {}
 
-void CompositeType::setTraitImpl(TraitImpl& impl) {
+void CompTypeInterface::setTraitImpl(TraitImpl& impl) {
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
     PRISM_ASSERT(success, "Duplicate implementation");
-}
-
-Trait::Trait(SemaContext& ctx, std::string name, Facet const* facet,
-             Scope* parent, Scope* scope,
-             std::optional<GenericContext> genContext):
-    Symbol(SymbolType::Trait, std::move(name), facet, parent),
-    AssocScope(ctx, scope, this) {
-    setGenCtx(std::move(genContext));
-}
-
-TraitImpl::TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                     Scope* scope, Trait* trait, CompositeType* conforming,
-                     std::optional<GenericContext> genContext):
-    Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
-    AssocScope(ctx, scope, this),
-    _trait(trait),
-    _conf(conforming) {
-    setGenCtx(std::move(genContext));
 }
 
 FuncInterface::FuncInterface(Symbol* function,
