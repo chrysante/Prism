@@ -2,6 +2,7 @@
 
 #include <utl/strcat.hpp>
 
+#include "Prism/Facet/Facet.h"
 #include "Prism/Sema/Contracts.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
@@ -46,7 +47,28 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx, scope, this) {}
 
+TraitImpl const* CompTypeInterface::findTraitImpl(Trait const* trait) const {
+    return doFindTraitImpl<TraitImpl>(trait);
+}
+
+/// \overload
+GenTraitImpl const* CompTypeInterface::findTraitImpl(
+    GenTrait const* trait) const {
+    return doFindTraitImpl<GenTraitImpl>(trait);
+}
+
+template <typename Impl>
+Impl const* CompTypeInterface::doFindTraitImpl(Symbol const* trait) const {
+    auto itr = _traitImpls.find(trait);
+    return itr != _traitImpls.end() ? cast<Impl const*>(itr->second) : nullptr;
+}
+
 void CompTypeInterface::setTraitImpl(TraitImpl& impl) {
+    auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
+    PRISM_ASSERT(success, "Duplicate implementation");
+}
+
+void CompTypeInterface::setTraitImpl(GenTraitImpl& impl) {
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
     PRISM_ASSERT(success, "Duplicate implementation");
 }
@@ -57,8 +79,7 @@ GenStructTypeInst::GenStructTypeInst(SemaContext& ctx,
     CompositeType(SymbolType::GenStructTypeInst, ctx, typeTemplate->name(),
                   /* facet: */ nullptr, typeTemplate->parentScope(),
                   TypeLayout::Incomplete),
-    _templ(typeTemplate),
-    _arguments(std::move(args)) {
+    GenericInstantiation(typeTemplate, std::move(args)) {
     PRISM_ASSERT(genArguments().size() == typeTemplate->genParams().size());
 }
 
@@ -95,6 +116,19 @@ GenFuncImpl::GenFuncImpl(SemaContext& ctx, std::string name, Facet const* facet,
     GenericSymbol(SymbolType::GenFuncImpl, ctx, std::move(name), facet, parent,
                   scope, std::move(genParams)),
     FuncInterface(this, std::move(params), retType) {}
+
+GenTraitInst::GenTraitInst(SemaContext& ctx, GenTrait* traitTemplate,
+                           utl::small_vector<Symbol*>&& arguments):
+    Trait(SymbolType::GenTraitInst, ctx, traitTemplate->name(),
+          traitTemplate->facet(), traitTemplate->parentScope()),
+    GenericInstantiation(traitTemplate, std::move(arguments)) {}
+
+GenTraitImplInst::GenTraitImplInst(SemaContext& ctx, GenTraitImpl* implTemplate,
+                                   utl::small_vector<Symbol*>&& arguments,
+                                   Trait* trait, CompositeType* conforming):
+    TraitImpl(SymbolType::GenTraitImplInst, ctx, implTemplate->facet(),
+              implTemplate->parentScope(), trait, conforming),
+    GenericInstantiation(implTemplate, std::move(arguments)) {}
 
 static std::string valueAsStrImpl(APInt const& value, IntType const* type,
                                   int base = 10) {

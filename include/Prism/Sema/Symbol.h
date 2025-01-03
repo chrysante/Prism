@@ -282,13 +282,22 @@ public:
     }
 
     /// \overload
-    TraitImpl const* findTraitImpl(Trait const* trait) const {
-        auto itr = _traitImpls.find(trait);
-        return itr != _traitImpls.end() ? itr->second : nullptr;
+    GenTraitImpl* findTraitImpl(GenTrait const* trait) {
+        return const_cast<GenTraitImpl*>(
+            std::as_const(*this).findTraitImpl(trait));
     }
+
+    /// \overload
+    TraitImpl const* findTraitImpl(Trait const* trait) const;
+
+    /// \overload
+    GenTraitImpl const* findTraitImpl(GenTrait const* trait) const;
 
     ///
     void setTraitImpl(TraitImpl& impl);
+
+    ///
+    void setTraitImpl(GenTraitImpl& impl);
 
 private:
     friend struct GlobalNameResolver;
@@ -296,11 +305,14 @@ private:
     friend struct GenInstContext;
     friend class GenStructTypeInst;
 
+    template <typename Impl>
+    Impl const* doFindTraitImpl(Symbol const* trait) const;
+
     Symbol& _sym;
     std::vector<BaseTrait*> _baseTraits;
     std::vector<BaseClass*> _bases;
     std::vector<MemberVar*> _memvars;
-    utl::hashmap<Trait const*, TraitImpl*> _traitImpls;
+    utl::hashmap<Symbol const*, Symbol*> _traitImpls;
 };
 
 /// Base class of all types with non-static member variables
@@ -327,25 +339,6 @@ public:
                       parent, layout) {}
 };
 
-/// Instantiation of a generic struct type
-class GenStructTypeInst: public CompositeType {
-public:
-    explicit GenStructTypeInst(SemaContext& ctx, GenStructType* typeTemplate,
-                               utl::small_vector<Symbol*>&& arguments);
-
-    GenStructType* typeTemplate() { return _templ; }
-
-    GenStructType const* typeTemplate() const { return _templ; }
-
-    std::span<Symbol* const> genArguments() { return _arguments; }
-
-    std::span<Symbol const* const> genArguments() const { return _arguments; }
-
-private:
-    GenStructType* _templ;
-    utl::small_vector<Symbol*> _arguments;
-};
-
 /// Base class of all types with non-static member variables
 class GenCompositeType: public GenericSymbol, public CompTypeInterface {
 public:
@@ -365,11 +358,53 @@ protected:
 /// User defined product type
 class GenStructType: public GenCompositeType {
 public:
+    using InstantiationType = GenStructTypeInst;
+
     explicit GenStructType(SemaContext& ctx, std::string name,
                            Facet const* facet, Scope* parent, Scope* scope,
                            utl::small_vector<Symbol*>&& genParams):
         GenCompositeType(SymbolType::GenStructType, ctx, std::move(name), facet,
                          parent, scope, std::move(genParams)) {}
+};
+
+///
+class GenericInstantiation {
+public:
+    GenericSymbol* genTemplate() { return _templ; }
+
+    GenericSymbol const* genTemplate() const { return _templ; }
+
+    std::span<Symbol* const> genArguments() { return _genArgs; }
+
+    std::span<Symbol const* const> genArguments() const { return _genArgs; }
+
+protected:
+    explicit GenericInstantiation(GenericSymbol* genTemplate,
+                                  utl::small_vector<Symbol*>&& arguments):
+        _templ(genTemplate), _genArgs(std::move(arguments)) {}
+
+private:
+    GenericSymbol* _templ;
+    utl::small_vector<Symbol*> _genArgs;
+};
+
+/// Instantiation of a generic struct type
+class GenStructTypeInst: public CompositeType, public GenericInstantiation {
+public:
+    explicit GenStructTypeInst(SemaContext& ctx, GenStructType* typeTemplate,
+                               utl::small_vector<Symbol*>&& arguments);
+
+    GenStructType* typeTemplate() {
+        return cast<GenStructType*>(genTemplate());
+    }
+
+    GenStructType const* typeTemplate() const {
+        return cast<GenStructType const*>(genTemplate());
+    }
+
+private:
+    GenStructType* _templ;
+    utl::small_vector<Symbol*> _arguments;
 };
 
 /// Not really sure about this. Do we even need it? And should it be a value
@@ -490,24 +525,28 @@ public:
 /// Base class of `BaseClass` and `MemberVar`
 class MemberSymbol: public Symbol {
 public:
+    ValueType* type() { return _type; }
+
     ValueType const* type() const { return _type; }
 
 protected:
     MemberSymbol(SymbolType symType, std::string name, Facet const* facet,
-                 ValueType const* type, Scope* parent):
+                 ValueType* type, Scope* parent):
         Symbol(symType, std::move(name), facet, parent), _type(type) {}
 
 private:
     friend struct GlobalNameResolver;
 
-    ValueType const* _type;
+    ValueType* _type;
 };
 
 class BaseClass: public MemberSymbol {
 public:
-    explicit BaseClass(Facet const* facet, Scope* parent, UserType const* type):
+    explicit BaseClass(Facet const* facet, Scope* parent, UserType* type):
         MemberSymbol(SymbolType::BaseClass, type->name(), facet, type, parent) {
     }
+
+    CompositeType* type() { return cast<CompositeType*>(MemberSymbol::type()); }
 
     CompositeType const* type() const {
         return cast<CompositeType const*>(MemberSymbol::type());
@@ -517,7 +556,7 @@ public:
 class MemberVar: public MemberSymbol {
 public:
     explicit MemberVar(std::string name, Facet const* facet, Scope* parent,
-                       ValueType const* type):
+                       ValueType* type):
         MemberSymbol(SymbolType::MemberVar, std::move(name), facet, type,
                      parent) {}
 };
@@ -537,8 +576,18 @@ public:
 
     TraitInterface const& interface() const { return *this; }
 
+    /// \Returns the list of base traits in the order of declaration
+    std::span<BaseTrait* const> baseTraits() { return _baseTraits; }
+
+    /// \overload
+    std::span<BaseTrait const* const> baseTraits() const { return _baseTraits; }
+
 private:
+    friend struct GlobalNameResolver;
+    friend struct GenInstContext;
+
     Symbol& _sym;
+    std::vector<BaseTrait*> _baseTraits;
 };
 
 ///
@@ -546,16 +595,27 @@ class Trait: public Symbol, public detail::AssocScope, public TraitInterface {
 public:
     using AssocScope::associatedScope;
 
-    explicit Trait(SemaContext& ctx, std::string name, Facet const* facet,
-                   Scope* parent):
-        Symbol(SymbolType::Trait, std::move(name), facet, parent),
+protected:
+    explicit Trait(SymbolType symType, SemaContext& ctx, std::string name,
+                   Facet const* facet, Scope* parent):
+        Symbol(symType, std::move(name), facet, parent),
         AssocScope(ctx, nullptr, this),
         TraitInterface(this) {}
 };
 
 ///
+class TraitDef: public Trait {
+public:
+    explicit TraitDef(SemaContext& ctx, std::string name, Facet const* facet,
+                      Scope* parent):
+        Trait(SymbolType ::TraitDef, ctx, std::move(name), facet, parent) {}
+};
+
+///
 class GenTrait: public GenericSymbol, public TraitInterface {
 public:
+    using InstantiationType = GenTraitInst;
+
     using AssocScope::associatedScope;
 
     explicit GenTrait(SemaContext& ctx, std::string name, Facet const* facet,
@@ -564,6 +624,21 @@ public:
         GenericSymbol(SymbolType::GenTrait, ctx, std::move(name), facet, parent,
                       scope, std::move(genParams)),
         TraitInterface(this) {}
+};
+
+///
+class GenTraitInst: public Trait, public GenericInstantiation {
+public:
+    explicit GenTraitInst(SemaContext& ctx, GenTrait* traitTemplate,
+                          utl::small_vector<Symbol*>&& arguments);
+
+    GenTrait* genTemplate() {
+        return cast<GenTrait*>(GenericInstantiation::genTemplate());
+    }
+
+    GenTrait const* genTemplate() const {
+        return cast<GenTrait const*>(GenericInstantiation::genTemplate());
+    }
 };
 
 ///
@@ -628,19 +703,31 @@ class TraitImpl:
 public:
     using AssocScope::associatedScope;
 
-    explicit TraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                       Trait* trait = nullptr,
-                       CompositeType* conforming = nullptr):
-        Symbol(SymbolType::TraitImpl, /* name: */ {}, facet, parent),
+    FACET_TYPE(TraitImplFacet)
+
+protected:
+    explicit TraitImpl(SymbolType symType, SemaContext& ctx, Facet const* facet,
+                       Scope* parent, Trait* trait, CompositeType* conforming):
+        Symbol(symType, /* name: */ {}, facet, parent),
         AssocScope(ctx, nullptr, this),
         TraitImplInterface(this, trait, conforming) {}
+};
 
-    FACET_TYPE(TraitImplFacet)
+///
+class TraitImplDef: public TraitImpl {
+public:
+    explicit TraitImplDef(SemaContext& ctx, Facet const* facet, Scope* parent,
+                          Trait* trait = nullptr,
+                          CompositeType* conforming = nullptr):
+        TraitImpl(SymbolType::TraitImplDef, ctx, facet, parent, trait,
+                  conforming) {}
 };
 
 ///
 class GenTraitImpl: public GenericSymbol, public TraitImplInterface {
 public:
+    using InstantiationType = GenTraitImplInst;
+
     using AssocScope::associatedScope;
 
     explicit GenTraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
@@ -652,6 +739,22 @@ public:
         TraitImplInterface(this, trait, conforming) {}
 
     FACET_TYPE(TraitImplFacet)
+};
+
+///
+class GenTraitImplInst: public TraitImpl, public GenericInstantiation {
+public:
+    explicit GenTraitImplInst(SemaContext& ctx, GenTraitImpl* implTemplate,
+                              utl::small_vector<Symbol*>&& arguments,
+                              Trait* trait, CompositeType* conforming);
+
+    GenTraitImpl* genTemplate() {
+        return cast<GenTraitImpl*>(GenericInstantiation::genTemplate());
+    }
+
+    GenTraitImpl const* genTemplate() const {
+        return cast<GenTraitImpl const*>(GenericInstantiation::genTemplate());
+    }
 };
 
 ///

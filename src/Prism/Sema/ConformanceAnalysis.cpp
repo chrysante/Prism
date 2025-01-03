@@ -45,8 +45,11 @@ struct ConfAnaContext: AnalysisBase {
     void analyzeConformances(InterfaceLike& interface, Scope* scope);
     void inheritObligations(InterfaceLike const& base, InterfaceLike& derived);
     void analyze(Symbol const&) {}
-    void analyze(Trait& trait);
-    void analyze(TraitImpl& impl);
+    void doAnalyze(TraitImplInterface& interface);
+    void analyze(TraitDef& trait);
+    void analyze(GenTrait& trait);
+    void analyze(TraitImplDef& impl);
+    void analyze(GenTraitImpl& impl);
     void analyze(CompositeType& type);
     void analyze(BaseTrait& base);
     void analyze(BaseClass& base);
@@ -62,7 +65,7 @@ void ConfAnaContext::doAnalyzeObligation(Function& func,
                                          InterfaceLike& interface) {
     if (func.params().empty() || !func.params().front()->isThis()) return;
     auto* owner = func.parentScope()->assocSymbol();
-    if (!isa<Trait>(owner)) return;
+    if (!isa<TraitDef>(owner) && !isa<GenTrait>(owner)) return;
     auto obl = csp::make_unique<FuncObligation>(&func, owner);
     interface.addObligation(std::move(obl), SpecAddMode::Define);
 }
@@ -105,31 +108,61 @@ void ConfAnaContext::inheritObligations(InterfaceLike const& base,
             derived.addObligation(clone(*obl), SpecAddMode::Inherit);
 }
 
-void ConfAnaContext::analyze(Trait& trait) {
+void ConfAnaContext::analyze(TraitDef& trait) {
     analyzeObligations(trait, trait.associatedScope());
     analyzeConformances(trait, trait.associatedScope());
 }
 
-void ConfAnaContext::analyze(TraitImpl& impl) {
-    auto* trait = impl.trait();
-    auto* conf = impl.conformingType();
+void ConfAnaContext::analyze(GenTrait& trait) {
+    analyzeObligations(trait, trait.associatedScope());
+    analyzeConformances(trait, trait.associatedScope());
+}
+
+static InterfaceLike& getInterfaceLike(Symbol& sym) {
+    return visit(sym, []<typename T>(T& sym) -> InterfaceLike& {
+        if constexpr (std::derived_from<T, InterfaceLike>)
+            return sym;
+        else
+            PRISM_UNREACHABLE();
+    });
+}
+
+void ConfAnaContext::doAnalyze(TraitImplInterface& interface) {
+    auto* trait = interface.trait();
+    auto* conf = interface.conformingType();
     if (!trait || !conf) return;
     auto* existing = [&]() -> Symbol const* {
         if (auto* ex = conf->findTraitImpl(trait)) return ex;
         auto itr = ranges::find(conf->baseTraits(), trait, FN1(_1->trait()));
         return itr != conf->baseTraits().end() ? *itr : nullptr;
     }();
+    auto& impl = interface.traitImpl();
     if (existing) {
         diagHandler.push<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
                                              existing);
         return;
     }
-    inheritObligations(*trait, impl);
-    analyzeConformances(impl, impl.associatedScope());
-    if (!impl.isComplete())
+    inheritObligations(*trait, interface);
+    analyzeConformances(interface, impl.associatedScope());
+    if (!interface.isComplete())
         diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
-                                         impl);
-    conf->setTraitImpl(impl);
+                                         interface);
+    visit(impl, [&]<typename T>(T& impl) {
+        if constexpr (std::same_as<T, TraitImplDef>)
+            conf->setTraitImpl(impl);
+        else if constexpr (std::same_as<T, GenTraitImpl>)
+            conf->setTraitImpl(impl);
+        else
+            PRISM_UNREACHABLE();
+    });
+}
+
+void ConfAnaContext::analyze(TraitImplDef& impl) {
+    doAnalyze(impl.interface());
+}
+
+void ConfAnaContext::analyze(GenTraitImpl& impl) {
+    doAnalyze(impl.interface());
 }
 
 void ConfAnaContext::analyze(CompositeType& type) {
@@ -146,15 +179,6 @@ void ConfAnaContext::analyze(BaseTrait& base) {
         inheritObligations(*base.trait(), *type);
     else if (auto* trait = dyncast<Trait*>(parentSym))
         inheritObligations(*base.trait(), *trait);
-}
-
-static InterfaceLike& getInterfaceLike(Symbol& sym) {
-    return visit(sym, []<typename T>(T& sym) -> InterfaceLike& {
-        if constexpr (std::derived_from<T, InterfaceLike>)
-            return sym;
-        else
-            PRISM_UNREACHABLE();
-    });
 }
 
 void ConfAnaContext::analyze(BaseClass& base) {

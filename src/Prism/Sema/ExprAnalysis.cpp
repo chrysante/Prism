@@ -77,10 +77,13 @@ Symbol* AnaContext::analyzeID(TerminalFacet const& id) {
     auto name = sourceContext->getTokenStr(id.token());
     auto symbols = unqualifiedLookup(scope, name);
     if (!symbols.success()) {
+        if (symbols.isAmbiguous()) (void)symbols.ambiguousSymbols();
+        PRISM_UNIMPLEMENTED();
         diagHandler.push<UndeclaredID>(sourceContext, &id, symbols.similar());
         return nullptr;
     }
     if (symbols.isSingleSymbol()) return symbols.singleSymbol();
+    if (symbols.isOverloadSet()) PRISM_UNIMPLEMENTED();
     PRISM_UNIMPLEMENTED();
 }
 

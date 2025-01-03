@@ -16,6 +16,7 @@
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/DependencyGraph.h"
 #include "Prism/Sema/ExprAnalysis.h"
+#include "Prism/Sema/GenericInstantiation.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaDiagnostic.h"
@@ -36,8 +37,8 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
     ctx.makeBuiltin<SymType>(BuiltinSymbol::Name, Spelling,                    \
                              globalScope __VA_OPT__(, ) __VA_ARGS__);
 #include "Prism/Sema/Builtins.def"
-    ctx.makeBuiltin<Trait>(BuiltinSymbol::Type, "type",
-                           /* facet: */ nullptr, globalScope);
+    ctx.makeBuiltin<TraitDef>(BuiltinSymbol::Type, "type",
+                              /* facet: */ nullptr, globalScope);
 }
 
 static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
@@ -135,7 +136,7 @@ Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
         case TokenKind::Struct:
             return ctx.make<StructType>(getName(facet), &facet, parent);
         case TokenKind::Trait:
-            return ctx.make<Trait>(getName(facet), &facet, parent);
+            return ctx.make<TraitDef>(getName(facet), &facet, parent);
         default:
             PRISM_UNREACHABLE();
         }
@@ -166,7 +167,7 @@ Symbol* GlobalDeclDeclare::doDeclareGen(CompTypeDeclFacet const& facet,
 Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
                                      Scope* parent) {
     if (facet.genParams()) return doDeclareGen(facet, parent);
-    auto* impl = ctx.make<TraitImpl>(&facet, parent);
+    auto* impl = ctx.make<TraitImplDef>(&facet, parent);
     auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
     PRISM_ASSERT(implFacet->body());
     declareChildren(impl->associatedScope(), implFacet->body()->elems());
@@ -229,7 +230,7 @@ struct GlobalNameResolver: InstantiationBase {
     void doResolve(CompositeType& type);
     void doResolve(GenCompositeType& type);
     void resolveInterface(CompTypeInterface& interface);
-    void doResolve(Trait& trait);
+    void doResolve(TraitDef& trait);
     void doResolve(GenTrait& trait);
     void resolveInterface(TraitInterface& interface);
     FuncParam* analyzeParam(Symbol* parentSymbol, ParamDeclFacet const* facet,
@@ -377,7 +378,7 @@ void GlobalNameResolver::resolveInterface(CompTypeInterface& interface) {
     resolveChildren(type);
 }
 
-void GlobalNameResolver::doResolve(Trait& trait) {
+void GlobalNameResolver::doResolve(TraitDef& trait) {
     resolveInterface(trait.interface());
 }
 
@@ -388,7 +389,9 @@ void GlobalNameResolver::doResolve(GenTrait& trait) {
 void GlobalNameResolver::resolveInterface(TraitInterface& interface) {
     auto& trait = interface.trait();
     declareMembers(trait, [&](Symbol* sym) {
-        if (auto* baseclass = dyncast<BaseClass*>(sym))
+        if (auto* basetrait = dyncast<BaseTrait*>(sym))
+            interface._baseTraits.push_back(basetrait);
+        else if (auto* baseclass = dyncast<BaseClass*>(sym))
             PRISM_UNIMPLEMENTED(); // Error
         else if (auto* memvar = dyncast<MemberVar*>(sym))
             PRISM_UNIMPLEMENTED(); // Error
@@ -449,6 +452,11 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
     auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{
         [&](UserType& type) { return &type; },
         [&](Trait& trait) { return ctx.getDynTraitType(&trait); },
+        [&](GenTrait& genTrait) {
+            auto* trait = instantiateGeneric(ctx, genTrait,
+                                             genTrait.genParams());
+            return ctx.getDynTraitType(trait);
+        },
         [&](TraitImpl& impl) { return impl.conformingType(); },
         [](Symbol const&) { PRISM_UNIMPLEMENTED(); }
     }); // clang-format on

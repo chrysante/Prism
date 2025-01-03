@@ -21,6 +21,7 @@ struct GenInstContext {
 
     Symbol* instantiate(GenericSymbol const&) { PRISM_UNREACHABLE(); }
     Symbol* instantiate(GenStructType& templ);
+    Symbol* instantiate(GenTrait& templ);
 };
 
 struct MapContext {
@@ -28,8 +29,10 @@ struct MapContext {
     std::span<Symbol* const> genArgs;
     std::span<Symbol* const> genParams;
 
-    ValueType* mapType(ValueType* type);
-    GenStructTypeInst* cloneInstantiation(GenStructTypeInst& orig);
+    Symbol* mapSymbol(Symbol* sym);
+    Symbol* doMapSymbol(Symbol& sym) { return &sym; }
+    Symbol* doMapSymbol(GenStructTypeInst& inst);
+    Symbol* doMapSymbol(GenTraitInst& inst);
     Symbol* selectGenArg(Symbol* arg);
 };
 
@@ -37,55 +40,76 @@ struct MapContext {
 
 Symbol* MapContext::selectGenArg(Symbol* arg) {
     if (auto* typeInst = dyncast<GenStructTypeInst*>(arg))
-        return mapType(typeInst);
+        return mapSymbol(typeInst);
     if (isa<GenericTypeParam>(arg))
         for (auto [newArg, param]: zip(genArgs, genParams))
             if (param == arg) return newArg;
     return arg;
 }
 
-GenStructTypeInst* MapContext::cloneInstantiation(GenStructTypeInst& orig) {
-    auto newArgs = orig.genArguments() | transform(FN1(&, selectGenArg(_1))) |
+Symbol* MapContext::doMapSymbol(GenStructTypeInst& inst) {
+    auto newArgs = inst.genArguments() | transform(FN1(&, selectGenArg(_1))) |
                    ToSmallVector<>;
-    auto* newInst = instantiateGeneric(ctx, *orig.typeTemplate(), newArgs);
-    return cast<GenStructTypeInst*>(newInst);
+    return instantiateGeneric(ctx, *inst.typeTemplate(), newArgs);
 }
 
-ValueType* MapContext::mapType(ValueType* type) {
-    if (auto* genType = dyncast<GenStructTypeInst*>(type))
-        return cloneInstantiation(*genType);
-    return type;
+Symbol* MapContext::doMapSymbol(GenTraitInst& inst) {
+    auto newArgs = inst.genArguments() | transform(FN1(&, selectGenArg(_1))) |
+                   ToSmallVector<>;
+    return instantiateGeneric(ctx, *inst.genTemplate(), newArgs);
 }
 
-template <std::derived_from<ValueType> T>
-static T const* mapType(SemaContext& ctx, T const* type,
-                        std::span<Symbol* const> genArgs,
-                        std::span<Symbol* const> genParams) {
+Symbol* MapContext::mapSymbol(Symbol* sym) {
+    PRISM_EXPECT(sym);
+    return visit(*sym, FN1(&, doMapSymbol(_1)));
+}
+
+template <std::derived_from<Symbol> T>
+static T* mapSymbol(SemaContext& ctx, T* sym, std::span<Symbol* const> genArgs,
+                    std::span<Symbol* const> genParams) {
     MapContext mapContext{ ctx, genArgs, genParams };
-    auto* result = mapContext.mapType(const_cast<T*>(type));
-    return cast<T const*>(result);
+    auto* result = mapContext.mapSymbol(sym);
+    return cast<T*>(result);
 }
 
 Symbol* GenInstContext::instantiate(GenStructType& templ) {
     auto [instantiation, isNew] =
         ctx.getGenericInst<GenStructTypeInst>(&templ, genArgs);
     if (!isNew) return instantiation;
-    for (auto* trait: templ.baseTraits()) {
-        PRISM_UNIMPLEMENTED();
+    for (auto* base: templ.baseTraits()) {
+        auto* trait = mapSymbol(ctx, base->trait(), genArgs, templ.genParams());
+        auto* newBase = ctx.make<BaseTrait>(base->facet(),
+                                            instantiation->associatedScope(),
+                                            trait);
+        instantiation->_baseTraits.push_back(newBase);
     }
     for (auto* base: templ.baseClasses()) {
-        auto* type = mapType(ctx, base->type(), genArgs, templ.genParams());
+        auto* type = mapSymbol(ctx, base->type(), genArgs, templ.genParams());
         auto* newBase = ctx.make<BaseClass>(base->facet(),
                                             instantiation->associatedScope(),
                                             type);
         instantiation->_bases.push_back(newBase);
     }
     for (auto* var: templ.memberVars()) {
-        auto* type = mapType(ctx, var->type(), genArgs, templ.genParams());
+        auto* type = mapSymbol(ctx, var->type(), genArgs, templ.genParams());
         auto* newVar = ctx.make<MemberVar>(var->name(), var->facet(),
                                            instantiation->associatedScope(),
                                            type);
         instantiation->_memvars.push_back(newVar);
+    }
+    return instantiation;
+}
+
+Symbol* GenInstContext::instantiate(GenTrait& templ) {
+    auto [instantiation, isNew] =
+        ctx.getGenericInst<GenTraitInst>(&templ, genArgs);
+    if (!isNew) return instantiation;
+    for (auto* base: templ.baseTraits()) {
+        auto* trait = mapSymbol(ctx, base->trait(), genArgs, templ.genParams());
+        auto* newBase = ctx.make<BaseTrait>(base->facet(),
+                                            instantiation->associatedScope(),
+                                            trait);
+        instantiation->_baseTraits.push_back(newBase);
     }
     return instantiation;
 }

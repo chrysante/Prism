@@ -31,20 +31,29 @@ struct S: Foo {
 
 */
 
-//trait [To: type] ConvertibleTo {
-//    fn convert(&this) -> To;
-//}
-
-fn [T: type] foo(arg: T) {}
-
-struct [U: type] MyBase {}
-struct [U: type] MyBase2 {}
-
-struct [T: type] MyStruct: MyBase(T) {
-    var t: T;
+trait [To: type] ConvertibleTo {
+    fn convert(&this) -> To;
 }
 
-fn test(arg: MyStruct(i32)) {}
+struct S {}
+
+impl ConvertibleTo(i32) for S {
+    
+}
+
+
+//fn [T: type] foo(arg: T) {}
+//
+//struct [U: type] MyBase {}
+//trait [U: type] MyTrait {}
+//
+//struct [T: type] MyStruct: MyBase(T), MyTrait(T) {
+//    var t: T;
+//}
+//
+//fn test(arg: MyStruct(i32)) {}
+//
+//impl[T: type] MyTrait(T) for MyStruct(T) {}
 
 /*
 

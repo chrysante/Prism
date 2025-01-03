@@ -64,6 +64,18 @@ static void fmtName(QualType type, std::ostream& str, FmtNameOptions options) {
     fmtName(type.get(), str, options);
 }
 
+static void fmtGenArgs(std::span<Symbol const* const> args, std::ostream& str,
+                       std::string_view openParen = "(",
+                       std::string_view closeParen = ")") {
+    str << openParen;
+    for (bool first = true; auto* arg: args) {
+        if (!first) str << ", ";
+        first = false;
+        fmtName(arg, str, { .qualified = true });
+    }
+    str << closeParen;
+}
+
 static void fmtName(Symbol const* symbol, std::ostream& str,
                     FmtNameOptions options) {
     if (!symbol) {
@@ -88,14 +100,13 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
         return;
     }
     if (auto* type = dyncast<GenStructTypeInst const*>(symbol)) {
-        fmtName(type->typeTemplate(), str, options);
-        str << "(";
-        for (bool first = true; auto* arg: type->genArguments()) {
-            if (!first) str << ", ";
-            first = false;
-            fmtName(arg, str, { .qualified = true });
-        }
-        str << ")";
+        fmtName(type->genTemplate(), str, options);
+        fmtGenArgs(type->genArguments(), str);
+        return;
+    }
+    if (auto* trait = dyncast<GenTraitInst const*>(symbol)) {
+        fmtName(trait->genTemplate(), str, options);
+        fmtGenArgs(trait->genArguments(), str);
         return;
     }
     if (auto* ref = dyncast<ReferenceType const*>(symbol)) {
@@ -226,9 +237,15 @@ static void fmtDeclImpl(GenStructType const& type, std::ostream& str,
     str << " " << fmtName(type, asPrimaryName(options));
 }
 
-static void fmtDeclImpl(Trait const& trait, std::ostream& str,
+static void fmtDeclImpl(TraitDef const& trait, std::ostream& str,
                         FmtDeclOptions options) {
     str << Keyword("trait") << " " << fmtName(trait, asPrimaryName(options));
+}
+
+static void fmtDeclImpl(GenTraitInst const& trait, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("gen trait inst") << " "
+        << fmtName(trait, asPrimaryName(options));
 }
 
 static void fmtDeclImpl(GenTrait const& trait, std::ostream& str,
@@ -463,13 +480,14 @@ struct SymbolPrinter {
         printBraced(type.associatedScope());
     }
 
-    void printImpl(DerivedFromAny<Trait, GenTrait> auto const& trait) {
+    void printImpl(DerivedFromAny<TraitDef, GenTrait> auto const& trait) {
         str << fmtDecl(trait) << " ";
         printRequirements(trait);
         printBraced(trait.associatedScope());
     }
 
-    void printImpl(DerivedFromAny<TraitImpl, GenTraitImpl> auto const& impl) {
+    void printImpl(
+        DerivedFromAny<TraitImplDef, GenTraitImpl> auto const& impl) {
         str << fmtDecl(impl) << " ";
         printRequirements(impl);
         printBraced(impl.associatedScope());

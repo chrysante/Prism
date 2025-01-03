@@ -41,11 +41,16 @@ utl::small_vector<Symbol const*> Scope::symbolsByApproxName(
     return symbolsByApproxNameImpl<Symbol const>(name, _approxNames);
 }
 
+static bool isGenericInst(Symbol const& symbol) {
+    return isa<GenStructTypeInst>(symbol) || isa<GenTraitInst>(symbol) ||
+           isa<GenTraitImplInst>(symbol);
+}
+
 void Scope::addSymbol(Symbol& symbol) {
     PRISM_ASSERT_AUDIT(!ranges::contains(_symbols, &symbol),
                        "Symbol has already been added to this scope");
     _symbols.push_back(&symbol);
-    if (symbol.name().empty()) return;
+    if (symbol.name().empty() || isGenericInst(symbol)) return;
     _names[symbol.name()].push_back(&symbol);
     _approxNames[symbol.name()].push_back(&symbol);
 }

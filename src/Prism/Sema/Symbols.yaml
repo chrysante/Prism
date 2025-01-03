@@ -111,9 +111,23 @@ symbols:
 
   - name: Trait
     base: Symbol
+    abstract: true
+
+  - name: TraitDef
+    base: Trait
+ 
+  - name: GenTraitInst
+    base: Trait
 
   - name: TraitImpl
     base: Symbol
+    abstract: true
+
+  - name: TraitImplDef
+    base: TraitImpl
+
+  - name: GenTraitImplInst
+    base: TraitImpl
 
   - name: GenericSymbol
     base: Symbol

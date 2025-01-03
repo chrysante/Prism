@@ -66,7 +66,7 @@ public:
         return isSimilar() ? get<Similar>().symbol : nullptr;
     }
 
-    bool success() const { return !isNone() && !isSimilar(); }
+    bool success() const { return !isNone() && !isSimilar() && !isAmbiguous(); }
 
 private:
     template <typename T>
