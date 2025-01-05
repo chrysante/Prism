@@ -2,6 +2,7 @@
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
+#include <utl/hashtable.hpp>
 
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
@@ -231,11 +232,17 @@ void ConfAnaContext::analyze(BaseClass& base) {
     inheritObligations(*base.type(), parentInterface);
 }
 
-void prism::analyzeConformances(MonotonicBufferResource& resource,
-                                SemaContext& ctx, DiagnosticEmitter& DE,
-                                Target&, DependencyGraph const& dependencies) {
+void prism::analyzeConformances(
+    MonotonicBufferResource& resource, SemaContext& ctx, DiagnosticEmitter& DE,
+    DependencyGraph const& dependencies,
+    std::span<LazySymbolInstantiation const> lazyInstantiations) {
     for (auto* sym: dependencies.getTopoOrder() | reverse)
         analyzeConformance(resource, ctx, DE, *sym);
+    utl::hashset<Symbol const*> instantiatedSymbols;
+    for (auto lazyInst: lazyInstantiations) {
+        if (!instantiatedSymbols.insert(lazyInst.symbol).second) continue;
+        completeInstantiation(ctx, DE, *lazyInst.symbol, lazyInst.facet);
+    }
 }
 
 void prism::analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,

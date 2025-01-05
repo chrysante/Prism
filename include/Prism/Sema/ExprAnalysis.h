@@ -12,8 +12,12 @@ class Facet;
 class AnalysisBase;
 class Scope;
 
+struct ExprAnalysisOptions {
+    bool instantiateGenericsLazily = false;
+};
+
 Symbol* analyzeFacet(AnalysisBase const& context, Scope* scope,
-                     Facet const* facet);
+                     Facet const* facet, ExprAnalysisOptions options = {});
 
 namespace detail {
 
@@ -52,9 +56,9 @@ S* verifySymbolType(AnalysisBase const& context, Facet const* facet,
 } // namespace detail
 
 template <std::derived_from<Symbol> S>
-S* analyzeFacetAs(AnalysisBase const& context, Scope* scope,
-                  Facet const* facet) {
-    auto* symbol = analyzeFacet(context, scope, facet);
+S* analyzeFacetAs(AnalysisBase const& context, Scope* scope, Facet const* facet,
+                  ExprAnalysisOptions options = {}) {
+    auto* symbol = analyzeFacet(context, scope, facet, options);
     if (!symbol) return nullptr;
     return detail::verifySymbolType<S>(context, facet, symbol);
 }

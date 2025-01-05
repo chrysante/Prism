@@ -212,6 +212,7 @@ namespace prism {
 
 struct GlobalNameResolver: InstantiationBase {
     DependencyGraph& dependencies;
+    std::vector<LazySymbolInstantiation>& lazyInstantiations;
 
     template <typename T = Symbol>
     T* analyzeFacet(Scope* parent, Facet const* facet);
@@ -256,12 +257,14 @@ struct GlobalNameResolver: InstantiationBase {
 
 template <typename T>
 T* GlobalNameResolver::analyzeFacet(Scope* scope, Facet const* facet) {
-    auto* sym = analyzeFacetAs<T>(*this, scope, facet);
+    auto* sym = analyzeFacetAs<T>(*this, scope, facet,
+                                  { .instantiateGenericsLazily = true });
     if (!sym) return nullptr;
     // clang-format off
     visit(*sym, csp::overload{
         [&]<std::derived_from<GenericInstantiation> Inst>(Inst& inst) {
             addDependency(inst, inst.genTemplate());
+            lazyInstantiations.push_back({ sym, facet });
         },
         [&](auto&) {}
     }); // clang-format on
@@ -527,14 +530,24 @@ void GlobalNameResolver::resolveChildren(auto& symbol) {
     resolveChildren(symbol.associatedScope()->symbols() | ToSmallVector<>);
 }
 
-static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,
-                                          SemaContext& ctx,
-                                          DiagnosticEmitter& DE,
-                                          Scope* globalScope) {
-    DependencyGraph dependencies(resource);
-    GlobalNameResolver{ { ctx, DE }, dependencies }.resolveChildren(
-        globalScope->symbols());
-    return dependencies;
+namespace {
+
+struct NameResolutionResult {
+    DependencyGraph dependencies;
+    std::vector<LazySymbolInstantiation> lazyInstantiations = {};
+};
+
+} // namespace
+
+static NameResolutionResult resolveGlobalNames(
+    MonotonicBufferResource& resource, SemaContext& ctx, DiagnosticEmitter& DE,
+    Scope* globalScope) {
+    NameResolutionResult result{ .dependencies{ resource } };
+    GlobalNameResolver resolver{ { ctx, DE },
+                                 result.dependencies,
+                                 result.lazyInstantiations };
+    resolver.resolveChildren(globalScope->symbols());
+    return result;
 }
 
 // MARK: - Instantiate types
@@ -601,7 +614,7 @@ ConstructionResult prism::constructTarget(
     declareBuiltins(ctx, target->associatedScope());
     makeCoreLibrary(ctx, target->associatedScope());
     declareGlobals(ctx, DE, target->associatedScope(), input);
-    auto dependencies =
+    auto [dependencies, lazyInstantiations] =
         resolveGlobalNames(resource, ctx, DE, target->associatedScope());
     if (std::getenv("GENERATE_DEP_GRAPH")) generateGraphvizDebug(dependencies);
     dependencies.topsort();
@@ -611,5 +624,5 @@ ConstructionResult prism::constructTarget(
     }
     for (auto* symbol: dependencies.getTopoOrder() | ranges::views::reverse)
         instantiateSymbol(ctx, DE, symbol);
-    return { target, std::move(dependencies) };
+    return { target, std::move(dependencies), std::move(lazyInstantiations) };
 }

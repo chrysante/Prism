@@ -11,22 +11,40 @@ namespace prism {
 
 class SemaContext;
 class Facet;
+struct LazySymbolInstantiation;
 
 ///
 Symbol* instantiateGeneric(SemaContext& ctx, DiagnosticEmitter& DE,
                            GenericSymbol& gen, Facet const* callFacet,
-                           std::span<Symbol* const> args,
-                           std::span<Facet const* const> argFacets);
+                           std::span<Symbol* const> args);
 
 /// \overload
 template <std::derived_from<GenericSymbol> G>
-G::InstantiationType* instantiateGeneric(
-    SemaContext& ctx, DiagnosticEmitter& DE, G& gen, Facet const* callFacet,
-    std::span<Symbol* const> args, std::span<Facet const* const> argFacets) {
+G::InstantiationType* instantiateGeneric(SemaContext& ctx,
+                                         DiagnosticEmitter& DE, G& gen,
+                                         Facet const* callFacet,
+                                         std::span<Symbol* const> args) {
     auto* inst = instantiateGeneric(ctx, DE, static_cast<GenericSymbol&>(gen),
-                                    callFacet, args, argFacets);
+                                    callFacet, args);
     return cast<typename G::InstantiationType*>(inst);
 }
+
+///
+Symbol* instantiateGenericLazy(SemaContext& ctx, GenericSymbol& gen,
+                               std::span<Symbol* const> args);
+
+/// \overload
+template <std::derived_from<GenericSymbol> G>
+G::InstantiationType* instantiateGenericLazy(SemaContext& ctx, G& gen,
+                                             std::span<Symbol* const> args) {
+    auto* inst =
+        instantiateGenericLazy(ctx, static_cast<GenericSymbol&>(gen), args);
+    return cast<typename G::InstantiationType*>(inst);
+}
+
+///
+Symbol* completeInstantiation(SemaContext& ctx, DiagnosticEmitter& DE,
+                              Symbol& symbol, Facet const* facet);
 
 /// Instantiates \p gen with \p args but traps on failure
 Symbol* instantiateGenericNoFail(SemaContext& ctx, GenericSymbol& gen,

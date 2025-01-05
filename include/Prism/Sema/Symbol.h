@@ -381,9 +381,13 @@ public:
 ///
 class GenericInstantiation {
 public:
-    GenericSymbol* genTemplate() { return _templ; }
+    GenericSymbol* genTemplate() {
+        return const_cast<GenericSymbol*>(std::as_const(*this).genTemplate());
+    }
 
-    GenericSymbol const* genTemplate() const { return _templ; }
+    GenericSymbol const* genTemplate() const {
+        return _templAndAnalyzed.pointer();
+    }
 
     std::span<Symbol* const> genArguments() { return _genArgs; }
 
@@ -392,10 +396,16 @@ public:
 protected:
     explicit GenericInstantiation(GenericSymbol* genTemplate,
                                   utl::small_vector<Symbol*>&& arguments):
-        _templ(genTemplate), _genArgs(std::move(arguments)) {}
+        _templAndAnalyzed(genTemplate, false), _genArgs(std::move(arguments)) {}
 
 private:
-    GenericSymbol* _templ;
+    friend struct GenInstContext;
+
+    bool isAnalyzed() const { return _templAndAnalyzed.integer(); }
+
+    void setAnalyzed() { return _templAndAnalyzed.set_integer(true); }
+
+    utl::ipp<GenericSymbol*, bool, 1> _templAndAnalyzed;
     utl::small_vector<Symbol*> _genArgs;
 };
 
@@ -405,12 +415,12 @@ public:
     explicit GenStructTypeInst(SemaContext& ctx, GenStructType* typeTemplate,
                                utl::small_vector<Symbol*>&& arguments);
 
-    GenStructType* typeTemplate() {
-        return cast<GenStructType*>(genTemplate());
+    GenStructType* genTemplate() {
+        return cast<GenStructType*>(GenericInstantiation::genTemplate());
     }
 
-    GenStructType const* typeTemplate() const {
-        return cast<GenStructType const*>(genTemplate());
+    GenStructType const* genTemplate() const {
+        return cast<GenStructType const*>(GenericInstantiation::genTemplate());
     }
 
 private:

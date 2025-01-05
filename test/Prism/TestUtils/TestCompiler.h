@@ -88,7 +88,9 @@ struct InvHolder {
 
 } // namespace detail
 
-class InvocationTester: detail::InvHolder, DiagnosticChecker<Invocation&> {
+class InvocationTester:
+    detail::InvHolder,
+    public DiagnosticChecker<Invocation&> {
 public:
     InvocationTester(): DiagnosticChecker(InvHolder::inv) {}
 

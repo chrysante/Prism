@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "Prism/Sema/ConformanceAnalysis.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/Sema/Symbol.h"
 #include "Prism/TestUtils/TestCompiler.h"
 
@@ -83,4 +84,17 @@ impl [T: Int32] ConvertibleTo(T) for S {
     CHECK(conformsTo(*S, *convToI32));
     auto* convToI64 = tester.eval<Trait>("ConvertibleTo(i64)");
     CHECK(!conformsTo(*S, *convToI64));
+}
+
+TEST_CASE("Order independent conformance analysis", "[sema]") {
+    auto tester = makeInvTester(R"(
+var s: S(i32);
+var t: S(i64);
+trait Integral {}
+struct [T: Integral] S {}
+impl Integral for i32 {}
+)");
+    CHECK(tester.findDiagOnLine<BadGenTypeArg>(3));
+    auto* s = tester.eval<Variable>("s");
+    CHECK(s->type().get() == tester.eval("S(i32)"));
 }

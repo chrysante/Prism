@@ -1,6 +1,8 @@
 #ifndef PRISM_SEMA_ANALYSISBASE_H
 #define PRISM_SEMA_ANALYSISBASE_H
 
+#include <span>
+
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
 
 namespace prism {
@@ -8,6 +10,12 @@ namespace prism {
 class SemaContext;
 class SourceContext;
 class Symbol;
+class Facet;
+
+struct LazySymbolInstantiation {
+    Symbol* symbol = nullptr;
+    Facet const* facet = nullptr;
+};
 
 class AnalysisBase {
 public:

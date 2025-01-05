@@ -3,9 +3,11 @@
 
 #include <optional>
 #include <span>
+#include <vector>
 
 #include <Prism/Common/Allocator.h>
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
+#include <Prism/Sema/AnalysisBase.h>
 #include <Prism/Sema/DependencyGraph.h>
 #include <Prism/Sema/SemaFwd.h>
 
@@ -22,6 +24,7 @@ struct ConstructionResult {
 
     Target* target;
     std::optional<DependencyGraph> dependencyGraph = {};
+    std::vector<LazySymbolInstantiation> lazyInstantiations;
     bool haveFatalError = false;
 };
 

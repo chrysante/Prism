@@ -1,5 +1,6 @@
 #include "Prism/Sema/Analysis.h"
 
+#include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/Construction.h"
 #include "Prism/Sema/FunctionAnalysis.h"
@@ -13,7 +14,8 @@ Target* prism::analyzeModule(MonotonicBufferResource& resource,
     if (constr.haveFatalError) return constr.target;
     auto* target = constr.target;
     auto& dependencies = constr.dependencyGraph.value();
-    analyzeConformances(resource, ctx, DE, *target, dependencies);
+    analyzeConformances(resource, ctx, DE, dependencies,
+                        constr.lazyInstantiations);
     analyzeTargetFunctions(resource, ctx, DE, *target);
     return target;
 }

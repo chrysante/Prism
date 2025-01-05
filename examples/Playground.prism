@@ -1,118 +1,32 @@
+var s: S(i32);
+
+var t: S(i64);
+
+trait Integral {}
+
+impl Integral for i32 {}
+
+struct [T: Integral] S {}
+
+
+
+
 /*
- trait [To: type] ConvertibleTo {
-    fn convert(&this) -> To;
-}
+trait Integral {}
+impl Integral for i32 {}
+impl Integral for i64 {}
 
-struct S {}
-
-trait Int32 {}
-
+trait Int32: Integral {}
 impl Int32 for i32 {}
 
-impl [T: Int32] ConvertibleTo(T) for S {
-    fn convert(&this) -> T {}
-}
-*/
-
-
-trait Int32 {}
-struct [T: Int32] IntWrapper {}
-
-let foo: IntWrapper(42);
-let bar: IntWrapper(i64);
-let baz: IntWrapper(i64, 42);
-
-
-/*
-
-trait FooBase {
-    fn foo(&this);
-    fn bar(&this);
+struct [T: Integral] IntWrapper {
+    var value: T;
 }
 
-trait Foo1: FooBase {
-    fn foo(&this) {}
-    fn bar(&this) {}
+struct [T: Integral] S {
+    var value: IntWrapper(T);
 }
 
-trait Foo2: FooBase {
-    fn foo(&this) {}
-    fn bar(&this) {}
-}
 
-trait Foo: Foo1, Foo2 {
-    fn foo(&this) {}
-}
-
-struct Base {
-    fn bar(&this) {}
-}
-
-struct S: Foo {
-    fn bar(&this) { return 32; }
-    fn barImpl(&this) {}
-}
 
 */
-/*
-trait [To: type] ConvertibleTo {
-    fn convert(&this) -> To;
-}
-
-struct S {}
-
-impl ConvertibleTo(i32) for S {
-    fn convert(&this) -> i32 { 42 }
-}
-*/
-
-//fn [T: type] foo(arg: T) {}
-//
-//struct [U: type] MyBase {}
-//trait [U: type] MyTrait {}
-//
-//struct [T: type] MyStruct: MyBase(T), MyTrait(T) {
-//    var t: T;
-//}
-//
-//fn test(arg: MyStruct(i32)) {}
-//
-//impl[T: type] MyTrait(T) for MyStruct(T) {}
-
-/*
-
-trait [T: type] MyTrait {
-   // fn foo(&this) -> T;
-}
-
-trait MyConcreteType {
-    
-}
-
-impl [T: type] MyConcreteType for MyStruct(T) {
-//    fn foo(&this) -> T {}
-}
-
-*/
-
-/*
- 
-let n = (fn -> i32 @0 lhs: i32 * @1 rhs: i32)(21, 2);
-
-let n = (fn -> i32 @0 lhs * @1 rhs)(21, 2);
-
-let n = (fn @0 * @1)(21, 2);
-
- */
-
-
-
-//fn [T: ConvertibleTo(i32)] foo(arg: T) {}
-
-//struct S {}
-//
-//impl ConvertibleTo(i32) for S {
-//    fn convert(&this) -> i32 { return 42; }
-//}
-
-//fn test() { foo(S{}); }

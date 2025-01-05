@@ -2,12 +2,14 @@
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
+#include <utl/ipp.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
+#include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaDiagnostic.h"
@@ -21,18 +23,22 @@ namespace prism {
 
 struct GenInstContext {
     SemaContext& ctx;
-    std::span<Symbol* const> genArgs;
-    std::span<Symbol* const> genParams;
+    GenericInstantiation& inst;
 
     template <std::derived_from<Symbol> S>
     S* mapInst(S* symbol) {
-        return mapInstantiation(ctx, symbol, genArgs, genParams);
+        return mapInstantiation(ctx, symbol, inst.genArguments(),
+                                inst.genTemplate()->genParams());
     }
 
-    Symbol* instantiate(GenericSymbol const&) { PRISM_UNREACHABLE(); }
-    Symbol* instantiate(GenStructType& templ);
-    Symbol* instantiate(GenTrait& templ);
+    void instantiate(Symbol const&) { PRISM_UNREACHABLE(); }
+    void instantiate(GenStructTypeInst& inst);
+    void instantiate(GenTraitInst& inst);
 };
+
+} // namespace prism
+
+namespace {
 
 struct MapContext {
     SemaContext& ctx;
@@ -52,7 +58,7 @@ struct MapContext {
     T* selectGenArg(Symbol* arg);
 };
 
-} // namespace prism
+} // namespace
 
 Symbol* MapContext::selectGenArg(Symbol* arg) {
     if (auto* typeInst = dyncast<GenStructTypeInst*>(arg))
@@ -90,7 +96,7 @@ Symbol* MapContext::doMapSymbol(FuncParam& param) {
 Symbol* MapContext::doMapSymbol(GenStructTypeInst& inst) {
     auto newArgs = inst.genArguments() | transform(FN1(&, selectGenArg(_1))) |
                    ToSmallVector<>;
-    return instantiateGenericNoFail(ctx, *inst.typeTemplate(), newArgs);
+    return instantiateGenericNoFail(ctx, *inst.genTemplate(), newArgs);
 }
 
 Symbol* MapContext::doMapSymbol(GenTraitInst& inst) {
@@ -117,52 +123,47 @@ Symbol* prism::mapInstantiation(SemaContext& ctx, Symbol* symbol,
     return MapContext{ ctx, genArgs, genParams }.mapSymbol(symbol);
 }
 
-Symbol* GenInstContext::instantiate(GenStructType& templ) {
-    auto [instantiation, isNew] =
-        ctx.getGenericInst<GenStructTypeInst>(&templ, genArgs);
-    if (!isNew) return instantiation;
-    for (auto* base: templ.baseTraits()) {
+void GenInstContext::instantiate(GenStructTypeInst& inst) {
+    if (inst.isAnalyzed()) return;
+    inst.setAnalyzed();
+    for (auto* base: inst.genTemplate()->baseTraits()) {
         auto* trait = mapInst(base->trait());
-        auto* newBase = ctx.make<BaseTrait>(base->facet(),
-                                            instantiation->associatedScope(),
-                                            trait);
-        instantiation->_baseTraits.push_back(newBase);
+        auto* newBase =
+            ctx.make<BaseTrait>(base->facet(), inst.associatedScope(), trait);
+        inst._baseTraits.push_back(newBase);
     }
-    for (auto* base: templ.baseClasses()) {
+    for (auto* base: inst.genTemplate()->baseClasses()) {
         auto* type = mapInst(base->type());
-        auto* newBase = ctx.make<BaseClass>(base->facet(),
-                                            instantiation->associatedScope(),
-                                            type);
-        instantiation->_bases.push_back(newBase);
+        auto* newBase =
+            ctx.make<BaseClass>(base->facet(), inst.associatedScope(), type);
+        inst._bases.push_back(newBase);
     }
-    for (auto* var: templ.memberVars()) {
+    for (auto* var: inst.genTemplate()->memberVars()) {
         auto* type = mapInst(var->type());
         auto* newVar = ctx.make<MemberVar>(var->name(), var->facet(),
-                                           instantiation->associatedScope(),
-                                           type);
-        instantiation->_memvars.push_back(newVar);
+                                           inst.associatedScope(), type);
+        inst._memvars.push_back(newVar);
     }
-    return instantiation;
 }
 
-Symbol* GenInstContext::instantiate(GenTrait& templ) {
-    auto [instantiation, isNew] =
-        ctx.getGenericInst<GenTraitInst>(&templ, genArgs);
-    if (!isNew) return instantiation;
-    for (auto* base: templ.baseTraits()) {
+void GenInstContext::instantiate(GenTraitInst& inst) {
+    if (inst.isAnalyzed()) return;
+    inst.setAnalyzed();
+    for (auto* base: inst.genTemplate()->baseTraits()) {
         auto* trait = mapInst(base->trait());
-        auto* newBase = ctx.make<BaseTrait>(base->facet(),
-                                            instantiation->associatedScope(),
-                                            trait);
-        instantiation->_baseTraits.push_back(newBase);
+        auto* newBase =
+            ctx.make<BaseTrait>(base->facet(), inst.associatedScope(), trait);
+        inst._baseTraits.push_back(newBase);
     }
-    return instantiation;
 }
 
 static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
                               GenericSymbol& gensym, Facet const* callFacet,
                               std::span<Symbol* const> args,
                               std::span<Facet const* const> argFacets) {
+    utl::small_vector<Facet const*> backupFacets(args.size());
+    if (argFacets.empty()) argFacets = backupFacets;
+    PRISM_ASSERT(argFacets.size() == args.size());
     auto params = gensym.genParams();
     if (args.size() != params.size()) {
         DE.emit<InvalidNumOfGenArgs>(ctx.getSourceContext(callFacet), callFacet,
@@ -179,6 +180,10 @@ static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
             result = false;
             continue;
         }
+        if (!typeParam->traitBound()) {
+            result = false;
+            continue;
+        }
         if (!conformsTo(*typeArg, *typeParam->traitBound())) {
             DE.emit<BadGenTypeArg>(ctx.getSourceContext(facet), facet, typeArg,
                                    typeParam->traitBound());
@@ -191,19 +196,53 @@ static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
 
 Symbol* prism::instantiateGeneric(SemaContext& ctx, DiagnosticEmitter& DE,
                                   GenericSymbol& gensym, Facet const* callFacet,
-                                  std::span<Symbol* const> args,
-                                  std::span<Facet const* const> argFacets) {
-    if (!validateArguments(ctx, DE, gensym, callFacet, args, argFacets))
+                                  std::span<Symbol* const> args) {
+    auto* inst = instantiateGenericLazy(ctx, gensym, args);
+    return completeInstantiation(ctx, DE, *inst, callFacet);
+}
+
+Symbol* prism::instantiateGenericLazy(SemaContext& ctx, GenericSymbol& genSym,
+                                      std::span<Symbol* const> args) {
+    // clang-format off
+    return visit<Symbol*>(genSym,csp::overload{
+        [](GenericSymbol const&) { PRISM_UNREACHABLE(); },
+        [&](GenStructType& templ) {
+            return ctx.getGenericInst<GenStructTypeInst>(&templ, args).first;
+        },
+        [&](GenTrait& templ) {
+            return ctx.getGenericInst<GenTraitInst>(&templ, args).first;
+        },
+    }); // clang-format on
+}
+
+static std::span<Facet const* const> getArgFacets(Facet const* facet) {
+    if (auto* call = dyncast<CallFacet const*>(facet))
+        return call->arguments()->elems();
+    return {};
+}
+
+static Symbol* doCompleteInst(SemaContext& ctx, DiagnosticEmitter& DE,
+                              Symbol& symbol, GenericInstantiation& inst,
+                              Facet const* facet) {
+    if (!validateArguments(ctx, DE, *inst.genTemplate(), facet,
+                           inst.genArguments(), getArgFacets(facet)))
         return nullptr;
-    GenInstContext instContext{ ctx, args, gensym.genParams() };
-    return visit(gensym, FN1(&, instContext.instantiate(_1)));
+    GenInstContext instContext{ ctx, inst };
+    visit(symbol, FN1(&, instContext.instantiate(_1)));
+    return &symbol;
+}
+
+Symbol* prism::completeInstantiation(SemaContext& ctx, DiagnosticEmitter& DE,
+                                     Symbol& symbol, Facet const* facet) {
+    return visit(symbol, [&]<typename S>(S& symbol) -> Symbol* {
+        if constexpr (std::derived_from<S, GenericInstantiation>)
+            return doCompleteInst(ctx, DE, symbol, symbol, facet);
+        PRISM_UNREACHABLE();
+    });
 }
 
 Symbol* prism::instantiateGenericNoFail(SemaContext& ctx, GenericSymbol& gen,
                                         std::span<Symbol* const> args) {
     auto DE = makeTrappingDiagnosticEmitter();
-    auto facets = args | transform(FN1((Facet const*)nullptr)) |
-                  ToSmallVector<>;
-    auto* sym = instantiateGeneric(ctx, *DE, gen, nullptr, args, facets);
-    return sym;
+    return instantiateGeneric(ctx, *DE, gen, nullptr, args);
 }

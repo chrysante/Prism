@@ -81,9 +81,7 @@ GenStructTypeInst::GenStructTypeInst(SemaContext& ctx,
     CompositeType(SymbolType::GenStructTypeInst, ctx, typeTemplate->name(),
                   /* facet: */ nullptr, typeTemplate->parentScope(),
                   TypeLayout::Incomplete),
-    GenericInstantiation(typeTemplate, std::move(args)) {
-    PRISM_ASSERT(genArguments().size() == typeTemplate->genParams().size());
-}
+    GenericInstantiation(typeTemplate, std::move(args)) {}
 
 FuncInterface::FuncInterface(Symbol* function,
                              utl::small_vector<FuncParam*>&& params,

@@ -26,6 +26,7 @@ namespace {
 
 struct AnaContext: AnalysisBase {
     Scope* scope;
+    ExprAnalysisOptions options;
 
     Symbol* analyze(Facet const* facet);
 
@@ -44,8 +45,8 @@ void detail::pushBadSymRef(AnalysisBase const& context, Facet const* facet,
 }
 
 Symbol* prism::analyzeFacet(AnalysisBase const& context, Scope* scope,
-                            Facet const* facet) {
-    return AnaContext{ context, scope }.analyze(facet);
+                            Facet const* facet, ExprAnalysisOptions options) {
+    return AnaContext{ context, scope, options }.analyze(facet);
 }
 
 Symbol* AnaContext::analyze(Facet const* facet) {
@@ -97,8 +98,10 @@ Symbol* AnaContext::doAnalyze(CallFacet const& call) {
     auto args = call.arguments()->elems() | transform(FN1(&, analyze(_1))) |
                 ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
-    if (auto* gensym = dyncast<GenericSymbol*>(callee))
-        return instantiateGeneric(ctx, DE, *gensym, &call, args,
-                                  call.arguments()->elems());
+    if (auto* gensym = dyncast<GenericSymbol*>(callee)) {
+        if (options.instantiateGenericsLazily)
+            return instantiateGenericLazy(ctx, *gensym, args);
+        return instantiateGeneric(ctx, DE, *gensym, &call, args);
+    }
     PRISM_UNIMPLEMENTED();
 }
