@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include <Prism/Common/Diagnostic.h>
+#include <Prism/Diagnostic/Diagnostic.h>
 #include <Prism/Source/Token.h>
 
 namespace prism {

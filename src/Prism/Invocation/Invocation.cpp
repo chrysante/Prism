@@ -3,7 +3,7 @@
 #include <utl/hashtable.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Parser/Parser.h"
 #include "Prism/Sema/Analysis.h"
 #include "Prism/Sema/SemaContext.h"

@@ -9,8 +9,8 @@
 #include <termfmt/termfmt.h>
 #include <utl/streammanip.hpp>
 
-#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Common/TreeFormatter.h>
+#include <Prism/Diagnostic/DiagnosticHandler.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Sema/Analysis.h>

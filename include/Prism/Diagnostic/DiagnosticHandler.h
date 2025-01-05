@@ -1,5 +1,5 @@
-#ifndef PRISM_COMMON_DIAGNOSTICHANDLER_H
-#define PRISM_COMMON_DIAGNOSTICHANDLER_H
+#ifndef PRISM_DIAGNOSTIC_DIAGNOSTICHANDLER_H
+#define PRISM_DIAGNOSTIC_DIAGNOSTICHANDLER_H
 
 #include <concepts>
 #include <iosfwd>
@@ -7,8 +7,8 @@
 #include <ranges>
 #include <vector>
 
-#include <Prism/Common/Diagnostic.h>
 #include <Prism/Common/Functional.h>
+#include <Prism/Diagnostic/Diagnostic.h>
 
 namespace prism {
 
@@ -61,4 +61,4 @@ private:
 
 } // namespace prism
 
-#endif // PRISM_COMMON_DIAGNOSTICHANDLER_H
+#endif // PRISM_DIAGNOSTIC_DIAGNOSTICHANDLER_H

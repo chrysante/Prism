@@ -11,8 +11,8 @@
 #include <utl/hashtable.hpp>
 #include <utl/strcat.hpp>
 
-#include <Prism/Common/DiagnosticHandler.h>
 #include <Prism/Common/Functional.h>
+#include <Prism/Diagnostic/DiagnosticHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 

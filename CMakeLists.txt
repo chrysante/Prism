@@ -75,8 +75,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/DebugGraphGen.h
     include/Prism/Common/Functional.h
     include/Prism/Common/IndentingStreambuf.h
-    include/Prism/Common/Diagnostic.h
-    include/Prism/Common/DiagnosticHandler.h
     include/Prism/Common/MacroUtils.h
     include/Prism/Common/MacroUtilsUndef.h
     include/Prism/Common/PrettyName.h
@@ -84,6 +82,9 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/Rtti.h
     include/Prism/Common/TreeFormatter.h
     include/Prism/Common/Typename.h
+
+    include/Prism/Diagnostic/Diagnostic.h
+    include/Prism/Diagnostic/DiagnosticHandler.h
 
     include/Prism/Facet/Facet.h
 
@@ -128,13 +129,14 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/Allocator.cpp
     src/Prism/Common/DebugGraphGen.cpp
     src/Prism/Common/IndentingStreambuf.cpp
-    src/Prism/Common/Diagnostic.cpp
-    src/Prism/Common/DiagnosticHandler.cpp
     src/Prism/Common/PrettyName.cpp
     src/Prism/Common/SyntaxMacros.h
     src/Prism/Common/TreeFormatter.cpp
     src/Prism/Common/Typename.cpp
     src/Prism/Common/Filters.py
+
+    src/Prism/Diagnostic/Diagnostic.cpp
+    src/Prism/Diagnostic/DiagnosticHandler.cpp
 
     src/Prism/Facet/Facet.cpp
 

@@ -5,7 +5,7 @@
 #include <CLI/CLI.hpp>
 #include <range/v3/view.hpp>
 
-#include <Prism/Common/DiagnosticHandler.h>
+#include <Prism/Diagnostic/DiagnosticHandler.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 

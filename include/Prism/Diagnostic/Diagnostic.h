@@ -1,5 +1,5 @@
-#ifndef PRISM_COMMON_DIAGNOSTIC_H
-#define PRISM_COMMON_DIAGNOSTIC_H
+#ifndef PRISM_DIAGNOSTIC_DIAGNOSTIC_H
+#define PRISM_DIAGNOSTIC_DIAGNOSTIC_H
 
 #include <concepts>
 #include <cstdint>
@@ -75,4 +75,4 @@ private:
 
 } // namespace prism
 
-#endif // PRISM_COMMON_DIAGNOSTIC_H
+#endif // PRISM_DIAGNOSTIC_DIAGNOSTIC_H

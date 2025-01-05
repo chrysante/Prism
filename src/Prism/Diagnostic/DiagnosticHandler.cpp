@@ -1,4 +1,4 @@
-#include "Prism/Common/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 
 #include <iostream>
 

@@ -3,9 +3,9 @@
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 
-#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/Contracts.h"

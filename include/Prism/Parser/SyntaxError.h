@@ -1,7 +1,7 @@
 #ifndef PRISM_PARSER_SYNTAXERROR_H
 #define PRISM_PARSER_SYNTAXERROR_H
 
-#include <Prism/Common/Diagnostic.h>
+#include <Prism/Diagnostic/Diagnostic.h>
 #include <Prism/Source/SourceLocation.h>
 #include <Prism/Source/Token.h>
 

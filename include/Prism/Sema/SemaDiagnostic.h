@@ -3,7 +3,7 @@
 
 #include <utl/streammanip.hpp>
 
-#include <Prism/Common/Diagnostic.h>
+#include <Prism/Diagnostic/Diagnostic.h>
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema/SemaFwd.h>
 

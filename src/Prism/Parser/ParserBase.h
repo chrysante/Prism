@@ -16,7 +16,7 @@
 #include <utl/vector.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
 #include "Prism/Parser/SyntaxError.h"

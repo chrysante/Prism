@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-#include <Prism/Common/DiagnosticHandler.h>
+#include <Prism/Diagnostic/DiagnosticHandler.h>
 #include <Prism/Source/SourceContext.h>
 #include <Prism/Source/Token.h>
 

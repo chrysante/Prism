@@ -4,9 +4,9 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/SemaContext.h"

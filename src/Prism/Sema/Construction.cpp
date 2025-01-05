@@ -9,9 +9,9 @@
 #include <utl/vector.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/DependencyGraph.h"

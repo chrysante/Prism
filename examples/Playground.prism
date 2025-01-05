@@ -1,4 +1,5 @@
-trait [To: type] ConvertibleTo {
+/*
+ trait [To: type] ConvertibleTo {
     fn convert(&this) -> To;
 }
 
@@ -11,6 +12,16 @@ impl Int32 for i32 {}
 impl [T: Int32] ConvertibleTo(T) for S {
     fn convert(&this) -> T {}
 }
+*/
+
+
+trait Int32 {}
+struct [T: Int32] IntWrapper {}
+
+let foo: IntWrapper(42);
+let bar: IntWrapper(i64);
+let baz: IntWrapper(i64, 42);
+
 
 /*
 

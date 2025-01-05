@@ -1,4 +1,4 @@
-#include "Prism/Common/Diagnostic.h"
+#include "Prism/Diagnostic/Diagnostic.h"
 
 #include <iomanip>
 #include <ostream>

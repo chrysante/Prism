@@ -8,9 +8,9 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Common/Diagnostic.h"
-#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Functional.h"
+#include "Prism/Diagnostic/Diagnostic.h"
+#include "Prism/Diagnostic/DiagnosticHandler.h"
 #include "Prism/Invocation/Invocation.h"
 #include "Prism/Sema/SemaFwd.h"
 
