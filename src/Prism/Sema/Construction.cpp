@@ -80,18 +80,6 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* doDeclareGen(CompTypeDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(TraitImplFacet const& facet, Scope* parent);
-
-    struct GenCtxAnaResult {
-        Scope* scope;
-        utl::small_vector<Symbol*> genParams;
-    };
-
-    /// Creates a generic context if \p genParams is not null. In this case a
-    /// scope for the generic symbol is created. Otherwise
-    /// `{ std::nullopt, nullptr }` is returned and the respective symbol
-    /// creates its own scope.
-    GenCtxAnaResult makeGenScope(GenParamListFacet const* genParams,
-                                 Scope* parent);
 };
 
 } // namespace
