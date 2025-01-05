@@ -213,6 +213,9 @@ namespace prism {
 struct GlobalNameResolver: InstantiationBase {
     DependencyGraph& dependencies;
 
+    template <typename T = Symbol>
+    T* analyzeFacet(Scope* parent, Facet const* facet);
+
     DependencyNode* getNode(Symbol& sym) { return dependencies.getNode(sym); }
     void addDependency(DependencyNode* node, Symbol* dependsOn);
     void addDependency(Symbol& symbol, Symbol* dependsOn);
@@ -251,6 +254,20 @@ struct GlobalNameResolver: InstantiationBase {
 
 } // namespace prism
 
+template <typename T>
+T* GlobalNameResolver::analyzeFacet(Scope* scope, Facet const* facet) {
+    auto* sym = analyzeFacetAs<T>(*this, scope, facet);
+    if (!sym) return nullptr;
+    // clang-format off
+    visit(*sym, csp::overload{
+        [&]<std::derived_from<GenericInstantiation> Inst>(Inst& inst) {
+            addDependency(inst, inst.genTemplate());
+        },
+        [&](auto&) {}
+    }); // clang-format on
+    return sym;
+}
+
 void GlobalNameResolver::addDependency(DependencyNode* node,
                                        Symbol* dependsOn) {
     if (dependsOn && !isBuiltinSymbol(*dependsOn)) {
@@ -270,7 +287,7 @@ void GlobalNameResolver::resolve(Symbol* symbol) {
 void GlobalNameResolver::declareGlobalVar(Scope* parent,
                                           VarDeclFacet const& facet) {
     if (!facet.typespec()) PRISM_UNIMPLEMENTED();
-    auto* type = analyzeFacetAs<ValueType>(*this, parent, facet.typespec());
+    auto* type = analyzeFacet<ValueType>(parent, facet.typespec());
     auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
                                    QualType{ type, {} });
     addDependency(*var, type);
@@ -296,11 +313,10 @@ void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
     auto& impl = interface.traitImpl();
     auto* facet = cast<TraitImplFacet const*>(impl.facet());
     auto* def = cast<TraitImplTypeFacet const*>(facet->definition());
-    interface._trait = analyzeFacetAs<Trait>(*this, impl.associatedScope(),
-                                             def->traitDeclRef());
-    interface._conf = analyzeFacetAs<CompositeType>(*this,
-                                                    impl.associatedScope(),
-                                                    def->conformingTypename());
+    interface._trait =
+        analyzeFacet<Trait>(impl.associatedScope(), def->traitDeclRef());
+    interface._conf = analyzeFacet<CompositeType>(impl.associatedScope(),
+                                                  def->conformingTypename());
     auto* node = getNode(impl);
     addDependency(node, interface._trait);
     addDependency(node, interface._conf);
@@ -309,7 +325,7 @@ void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
 
 Symbol* GlobalNameResolver::declareBase(Scope* scope,
                                         BaseDeclFacet const& decl) {
-    auto* base = analyzeFacet(*this, scope, decl.type());
+    auto* base = analyzeFacet(scope, decl.type());
     if (!base) return nullptr;
     if (auto* type = dyncast<UserType*>(base)) {
         auto* baseclass = ctx.make<BaseClass>(&decl, scope, type);
@@ -329,7 +345,7 @@ Symbol* GlobalNameResolver::declareBase(Scope* scope,
 
 MemberVar* GlobalNameResolver::declareMemberVar(Scope* scope,
                                                 VarDeclFacet const& decl) {
-    auto* type = analyzeFacetAs<ValueType>(*this, scope, decl.typespec());
+    auto* type = analyzeFacet<ValueType>(scope, decl.typespec());
     auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
     addDependency(*var, type);
     return var;
@@ -411,7 +427,7 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
                                               NamedParamDeclFacet const& param,
                                               Scope* scope,
                                               size_t /* index */) {
-    auto* type = analyzeFacetAs<Type>(*this, scope, param.typespec());
+    auto* type = analyzeFacet<Type>(scope, param.typespec());
     auto name = sourceContext->getTokenStr(param.name());
     return ctx.make<FuncParam>(std::string(name), &param, type,
                                FuncParam::Options{ .hasMut = false,
@@ -496,7 +512,7 @@ void GlobalNameResolver::resolveInterface(Symbol* parentSymbol,
             ToSmallVector<>;
     auto* retType = [&]() -> Type const* {
         if (auto* retFacet = funcFacet.retType())
-            return analyzeFacetAs<Type>(*this, scope, retFacet);
+            return analyzeFacet<Type>(scope, retFacet);
         return ctx.getVoid();
     }();
     interface._sig = FuncSig::Compute(retType, interface.params());
@@ -589,6 +605,7 @@ ConstructionResult prism::constructTarget(
     declareGlobals(ctx, diagHandler, target->associatedScope(), input);
     auto dependencies = resolveGlobalNames(resource, ctx, diagHandler,
                                            target->associatedScope());
+    generateGraphvizDebug(dependencies);
     dependencies.topsort();
     if (dependencies.hasCycle()) {
         diagHandler.push<TypeDefCycle>(dependencies.getCycle());
