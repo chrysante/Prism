@@ -30,7 +30,7 @@ struct AnaContext: AnalysisBase {
 
     Symbol* analyze(Facet const* facet);
 
-    Symbol* doAnalyze(Facet const&) { PRISM_UNIMPLEMENTED(); }
+    Symbol* doAnalyze(Facet const&) { PRISM_UNREACHABLE(); }
     Symbol* analyzeID(TerminalFacet const& id);
     IntLiteral* analyzeIntLiteral(TerminalFacet const& term, int base);
     Symbol* doAnalyze(TerminalFacet const& term);
@@ -69,7 +69,7 @@ Symbol* AnaContext::doAnalyze(TerminalFacet const& term) {
     case TokenKind::IntLiteralHex:
         return analyzeIntLiteral(term, 16);
     default:
-        PRISM_UNIMPLEMENTED();
+        PRISM_UNREACHABLE();
     }
 }
 
