@@ -60,7 +60,7 @@ diags:
       - name: traitBound
         type: Trait const*
     header: >
-      str << "Argument type " << formatName(argument) << " does not conform to "
+      str << "Type argument " << formatName(argument) << " does not conform to "
           << formatName(traitBound);
 
   - name: ThisParamBadPosition
