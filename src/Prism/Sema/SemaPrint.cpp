@@ -480,14 +480,13 @@ struct SymbolPrinter {
         printBraced(type.associatedScope());
     }
 
-    void printImpl(DerivedFromAny<TraitDef, GenTrait> auto const& trait) {
+    void printImpl(DerivedFromAny<Trait, GenTrait> auto const& trait) {
         str << fmtDecl(trait) << " ";
         printRequirements(trait);
         printBraced(trait.associatedScope());
     }
 
-    void printImpl(
-        DerivedFromAny<TraitImplDef, GenTraitImpl> auto const& impl) {
+    void printImpl(DerivedFromAny<TraitImpl, GenTraitImpl> auto const& impl) {
         str << fmtDecl(impl) << " ";
         printRequirements(impl);
         printBraced(impl.associatedScope());
