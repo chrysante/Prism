@@ -135,6 +135,7 @@ symbols:
 
   - name: GenCompositeType
     base: GenericSymbol
+    abstract: true
 
   - name: GenStructType
     base: GenCompositeType
