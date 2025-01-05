@@ -1,6 +1,7 @@
 #include "Prism/Sema/SemaDiagnostic.h"
 
 #include <ostream>
+#include <sstream>
 #include <string_view>
 
 #include <range/v3/algorithm.hpp>
@@ -86,6 +87,56 @@ static Facet const* getDeclName(Facet const* facet) {
             return &facet;
         }
     });
+}
+
+static std::string_view getGenCatName(GenericSymbol const* sym) {
+    if (!sym) return "symbol";
+    using namespace std::string_view_literals;
+    // clang-format off
+    return visit(*sym, csp::overload{
+        [](GenStructType const&) { return "struct"sv; },
+        [](GenTrait const&) { return "trait"sv; },
+        [](GenTraitImpl const&) { return "impl"sv; },
+        [](GenFuncImpl const&) { return "function"sv; },
+    }); // clang-format on
+}
+
+static std::string numToWord(size_t num) {
+    static constexpr std::string_view Words[] = { "zero",  "one",   "two",
+                                                  "three", "four",  "five",
+                                                  "six",   "seven", "eight",
+                                                  "nine" };
+    if (num < std::size(Words)) return std::string(Words[num]);
+    return std::to_string(num);
+}
+
+static std::string pluralize(size_t num, std::string_view singular) {
+    std::stringstream sstr;
+    sstr << numToWord(num) << " ";
+    if (num == 1) {
+        sstr << singular;
+        return std::move(sstr).str();
+    }
+    // Check for common pluralization cases
+    if (singular.ends_with("y") &&
+        !(singular.ends_with("ay") || singular.ends_with("ey") ||
+          singular.ends_with("oy") || singular.ends_with("uy")))
+    {
+        // If it ends with 'y' preceded by a consonant, replace 'y' with 'ies'
+        sstr << singular.substr(0, singular.size() - 1) << "ies";
+    }
+    else if (singular.ends_with("s") || singular.ends_with("x") ||
+             singular.ends_with("z") || singular.ends_with("sh") ||
+             singular.ends_with("ch"))
+    {
+        // If it ends with 's', 'x', 'z', 'sh', or 'ch', add 'es'
+        sstr << singular << "es";
+    }
+    else {
+        // Default case, just add 's'
+        sstr << singular << "s";
+    }
+    return std::move(sstr).str();
 }
 
 static void UndeclaredIDNotes(UndeclaredID& diag, Symbol const* similar) {

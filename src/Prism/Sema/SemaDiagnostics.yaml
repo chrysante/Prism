@@ -36,6 +36,33 @@ diags:
       str << "Expected " << prettyName(expectedSymbolType) << ", have "
           << formatName(providedSymbol);
 
+  - name: InvalidNumOfGenArgs
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: genSymbol
+        type: GenericSymbol const*
+      - name: numArgs
+        type: size_t
+    header: >
+      size_t numParams = genSymbol->genParams().size();
+      str << "Generic " << getGenCatName(genSymbol) << " "
+          << formatName(genSymbol) << " requires "
+          << pluralize(numParams, "argument") << ", have "
+          << numToWord(numArgs);
+
+  - name: BadGenTypeArg
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: argument
+        type: ValueType const*
+      - name: traitBound
+        type: Trait const*
+    header: >
+      str << "Argument type " << formatName(argument) << " does not conform to "
+          << formatName(traitBound);
+
   - name: ThisParamBadPosition
     base: SemaDiagnostic
     kind: Error

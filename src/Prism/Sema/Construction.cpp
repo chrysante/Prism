@@ -469,8 +469,8 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
         [&](UserType& type) { return &type; },
         [&](Trait& trait) { return ctx.getDynTraitType(&trait); },
         [&](GenTrait& genTrait) {
-            auto* trait = instantiateGeneric(ctx, genTrait,
-                                             genTrait.genParams());
+            auto* trait = instantiateGenericNoFail(ctx, genTrait,
+                                                   genTrait.genParams());
             return ctx.getDynTraitType(trait);
         },
         [&](TraitImpl& impl) { return impl.conformingType(); },

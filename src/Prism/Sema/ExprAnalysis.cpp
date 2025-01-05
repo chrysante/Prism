@@ -99,6 +99,7 @@ Symbol* AnaContext::doAnalyze(CallFacet const& call) {
                 ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
     if (auto* gensym = dyncast<GenericSymbol*>(callee))
-        return instantiateGeneric(ctx, *gensym, args);
+        return instantiateGeneric(ctx, diagHandler, *gensym, &call, args,
+                                  call.arguments()->elems());
     PRISM_UNIMPLEMENTED();
 }

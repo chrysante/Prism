@@ -4,11 +4,13 @@
 #include <range/v3/view.hpp>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/DiagnosticHandler.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/SemaContext.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
@@ -88,13 +90,13 @@ Symbol* MapContext::doMapSymbol(FuncParam& param) {
 Symbol* MapContext::doMapSymbol(GenStructTypeInst& inst) {
     auto newArgs = inst.genArguments() | transform(FN1(&, selectGenArg(_1))) |
                    ToSmallVector<>;
-    return instantiateGeneric(ctx, *inst.typeTemplate(), newArgs);
+    return instantiateGenericNoFail(ctx, *inst.typeTemplate(), newArgs);
 }
 
 Symbol* MapContext::doMapSymbol(GenTraitInst& inst) {
     auto newArgs = inst.genArguments() | transform(FN1(&, selectGenArg(_1))) |
                    ToSmallVector<>;
-    return instantiateGeneric(ctx, *inst.genTemplate(), newArgs);
+    return instantiateGenericNoFail(ctx, *inst.genTemplate(), newArgs);
 }
 
 Symbol* MapContext::mapSymbol(Symbol* sym) {
@@ -157,22 +159,57 @@ Symbol* GenInstContext::instantiate(GenTrait& templ) {
     return instantiation;
 }
 
-static bool validateArguments(GenericSymbol& gensym,
-                              std::span<Symbol* const> args) {
+static bool validateArguments(SemaContext const& ctx,
+                              DiagnosticHandler& diagHandler,
+                              GenericSymbol& gensym, Facet const* callFacet,
+                              std::span<Symbol* const> args,
+                              std::span<Facet const* const> argFacets) {
     auto params = gensym.genParams();
-    if (args.size() != params.size()) PRISM_UNIMPLEMENTED();
-    for (auto [arg, param]: zip(args, params)) {
+    if (args.size() != params.size()) {
+        diagHandler.push<InvalidNumOfGenArgs>(ctx.getSourceContext(callFacet),
+                                              callFacet, &gensym, args.size());
+        return false;
+    }
+    bool result = true;
+    for (auto [param, arg, facet]: zip(params, args, argFacets)) {
         auto* typeParam = cast<GenericTypeParam const*>(param);
         auto* typeArg = dyncast<ValueType const*>(arg);
-        if (!typeArg || !conformsTo(*typeArg, *typeParam->trait()))
-            PRISM_UNIMPLEMENTED();
+        if (!typeArg) {
+            diagHandler.push<BadSymRef>(ctx.getSourceContext(facet), facet, arg,
+                                        SymbolType::ValueType);
+            result = false;
+            continue;
+        }
+        if (!conformsTo(*typeArg, *typeParam->trait())) {
+            diagHandler.push<BadGenTypeArg>(ctx.getSourceContext(facet), facet,
+                                            typeArg, typeParam->trait());
+            result = false;
+            continue;
+        }
     }
-    return true;
+    return result;
 }
 
-Symbol* prism::instantiateGeneric(SemaContext& ctx, GenericSymbol& gensym,
-                                  std::span<Symbol* const> args) {
-    if (!validateArguments(gensym, args)) return nullptr;
+Symbol* prism::instantiateGeneric(SemaContext& ctx,
+                                  DiagnosticHandler& diagHandler,
+                                  GenericSymbol& gensym, Facet const* callFacet,
+                                  std::span<Symbol* const> args,
+                                  std::span<Facet const* const> argFacets) {
+    if (!validateArguments(ctx, diagHandler, gensym, callFacet, args,
+                           argFacets))
+        return nullptr;
     GenInstContext instContext{ ctx, args, gensym.genParams() };
     return visit(gensym, FN1(&, instContext.instantiate(_1)));
+}
+
+Symbol* prism::instantiateGenericNoFail(SemaContext& ctx, GenericSymbol& gen,
+                                        std::span<Symbol* const> args) {
+    // TODO: Replace by `AssertingDiagnostigHandler`
+    DiagnosticHandler diagHandler;
+    auto facets = args | transform(FN1((Facet const*)nullptr)) |
+                  ToSmallVector<>;
+    auto* sym =
+        instantiateGeneric(ctx, diagHandler, gen, nullptr, args, facets);
+    PRISM_ASSERT(diagHandler.empty(), "Must be empty");
+    return sym;
 }

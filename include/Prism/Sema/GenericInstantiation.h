@@ -9,17 +9,37 @@
 namespace prism {
 
 class SemaContext;
+class DiagnosticHandler;
+class Facet;
 
 ///
-Symbol* instantiateGeneric(SemaContext& ctx, GenericSymbol& gen,
-                           std::span<Symbol* const> args);
+Symbol* instantiateGeneric(SemaContext& ctx, DiagnosticHandler& diagHandler,
+                           GenericSymbol& gen, Facet const* callFacet,
+                           std::span<Symbol* const> args,
+                           std::span<Facet const* const> argFacets);
 
 /// \overload
 template <std::derived_from<GenericSymbol> G>
-G::InstantiationType* instantiateGeneric(SemaContext& ctx, G& gen,
-                                         std::span<Symbol* const> args) {
+G::InstantiationType* instantiateGeneric(
+    SemaContext& ctx, DiagnosticHandler& diagHandler, G& gen,
+    Facet const* callFacet, std::span<Symbol* const> args,
+    std::span<Facet const* const> argFacets) {
+    auto* inst = instantiateGeneric(ctx, diagHandler,
+                                    static_cast<GenericSymbol&>(gen), callFacet,
+                                    args, argFacets);
+    return cast<typename G::InstantiationType*>(inst);
+}
+
+/// Instantiates \p gen with \p args but traps on failure
+Symbol* instantiateGenericNoFail(SemaContext& ctx, GenericSymbol& gen,
+                                 std::span<Symbol* const> args);
+
+/// \overload
+template <std::derived_from<GenericSymbol> G>
+G::InstantiationType* instantiateGenericNoFail(SemaContext& ctx, G& gen,
+                                               std::span<Symbol* const> args) {
     auto* inst =
-        instantiateGeneric(ctx, static_cast<GenericSymbol&>(gen), args);
+        instantiateGenericNoFail(ctx, static_cast<GenericSymbol&>(gen), args);
     return cast<typename G::InstantiationType*>(inst);
 }
 

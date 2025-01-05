@@ -74,3 +74,17 @@ impl T for S {}
 )");
     CHECK(c.findDiagOnLine<DuplicateTraitImpl>(4));
 }
+
+TEST_CASE("Bad generic instantiation", "[sema]") {
+    auto c = makeDiagChecker(R"(
+/* 2: */ trait Int32 {}
+/* 3: */ struct [T: Int32] IntWrapper {}
+/* 4: */ 
+/* 7: */ let baz: IntWrapper(i64, 42);
+/* 5: */ let foo: IntWrapper(42);
+/* 6: */ let bar: IntWrapper(i64);
+)");
+    CHECK(c.findDiagOnLine<InvalidNumOfGenArgs>(5));
+    CHECK(c.findDiagOnLine<BadSymRef>(6));
+    CHECK(c.findDiagOnLine<BadGenTypeArg>(7));
+}
