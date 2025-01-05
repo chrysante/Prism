@@ -10,10 +10,14 @@ class SemaContext;
 class DiagnosticHandler;
 class DependencyGraph;
 
-/// Analysis trait and base class conformances
+/// Analyses trait and base class conformances
 void analyzeConformances(MonotonicBufferResource& resource, SemaContext& ctx,
                          DiagnosticHandler& diagHandler, Target& target,
                          DependencyGraph const& dependencyGraph);
+
+/// Analyses trait and base class conformances of a single symbol
+void analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
+                        DiagnosticHandler& diagHandler, Symbol& sym);
 
 } // namespace prism
 

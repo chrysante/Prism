@@ -32,7 +32,7 @@ static csp::unique_ptr<O> clone(O const& obl) {
     return csp::unique_ptr<O>(cast<O*>(c.release()));
 }
 
-namespace {
+namespace prism {
 
 struct ConfAnaContext: AnalysisBase {
     void analyzeObligation(Symbol* sym, InterfaceLike& interface);
@@ -55,7 +55,7 @@ struct ConfAnaContext: AnalysisBase {
     void analyze(BaseClass& base);
 };
 
-} // namespace
+} // namespace prism
 
 void ConfAnaContext::analyzeObligation(Symbol* sym, InterfaceLike& interface) {
     return visit(*sym, FN1(&, doAnalyzeObligation(_1, interface)));
@@ -187,15 +187,16 @@ void ConfAnaContext::analyze(BaseClass& base) {
     inheritObligations(*base.type(), parentInterface);
 }
 
-static void analyzeConformance(SemaContext& ctx, DiagnosticHandler& diagHandler,
-                               Symbol* sym) {
-    ConfAnaContext confCtx{ ctx, diagHandler, getSourceContext(sym) };
-    visit(*sym, [&](auto& sym) { confCtx.analyze(sym); });
-}
-
-void prism::analyzeConformances(MonotonicBufferResource&, SemaContext& ctx,
+void prism::analyzeConformances(MonotonicBufferResource& resource,
+                                SemaContext& ctx,
                                 DiagnosticHandler& diagHandler, Target&,
                                 DependencyGraph const& dependencies) {
     for (auto* sym: dependencies.getTopoOrder() | reverse)
-        analyzeConformance(ctx, diagHandler, sym);
+        analyzeConformance(resource, ctx, diagHandler, *sym);
+}
+
+void prism::analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
+                               DiagnosticHandler& diagHandler, Symbol& sym) {
+    ConfAnaContext confCtx{ ctx, diagHandler, getSourceContext(&sym) };
+    visit(sym, FN1(&, confCtx.analyze(_1)));
 }
