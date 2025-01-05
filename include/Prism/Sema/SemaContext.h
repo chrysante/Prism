@@ -14,6 +14,10 @@
 
 namespace prism {
 
+class SourceContext;
+class Facet;
+class SourceFileFacet;
+
 class SemaContext {
 public:
     SemaContext();
@@ -24,8 +28,10 @@ public:
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, Args...>
     Sym* make(Args&&... args) {
-        auto* s = addSymbol(csp::make_unique<Sym>(std::forward<Args>(args)...));
-        return cast<Sym*>(s);
+        auto owner = csp::make_unique<Sym>(std::forward<Args>(args)...);
+        if constexpr (std::is_same_v<Sym, SourceFile>)
+            mapSourceToContext(owner->facet(), &owner->sourceContext());
+        return cast<Sym*>(addSymbol(std::move(owner)));
     }
 
     template <std::derived_from<Symbol> Sym, typename... Args>
@@ -66,6 +72,9 @@ public:
 
     Scope* makeScope(Scope* parent);
 
+    /// \Returns the source context of \p facet
+    SourceContext const* getSourceContext(Facet const* facet) const;
+
 private:
     Symbol* addSymbol(csp::unique_ptr<Symbol> symbol);
 
@@ -74,9 +83,12 @@ private:
     Symbol* getGenInstImpl(GenericSymbol* gen, std::span<Symbol* const> args,
                            utl::function_view<Symbol*()> factory);
 
+    void mapSourceToContext(SourceFileFacet const* facet,
+                            SourceContext const* ctx);
+
     struct Impl;
 
-    utl::local_pimpl<Impl, 240> impl;
+    utl::local_pimpl<Impl, 296> impl;
 };
 
 } // namespace prism

@@ -7,6 +7,7 @@
 
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
@@ -58,6 +59,7 @@ struct SemaContext::Impl {
     utl::hashmap<GenInstKey, Symbol*> genInstSymbols;
     std::vector<csp::unique_ptr<Symbol>> symbolBag;
     std::vector<std::unique_ptr<Scope>> scopeBag;
+    utl::hashmap<SourceFileFacet const*, SourceContext const*> sourceContextMap;
 };
 
 SemaContext::SemaContext() {
@@ -100,6 +102,17 @@ Scope* SemaContext::makeScope(Scope* parent) {
     return impl->scopeBag.back().get();
 }
 
+SourceContext const* SemaContext::getSourceContext(Facet const* facet) const {
+    while (facet) {
+        if (auto* file = dyncast<SourceFileFacet const*>(facet)) {
+            auto itr = impl->sourceContextMap.find(file);
+            return itr != impl->sourceContextMap.end() ? itr->second : nullptr;
+        }
+        facet = facet->parent();
+    }
+    return nullptr;
+}
+
 Symbol* SemaContext::addSymbol(csp::unique_ptr<Symbol> sym) {
     auto* s = sym.get();
     impl->symbolBag.push_back(std::move(sym));
@@ -116,4 +129,10 @@ Symbol* SemaContext::getGenInstImpl(GenericSymbol* gen,
                                     utl::function_view<Symbol*()> factory) {
     return getOrMake(impl->genInstSymbols, GenInstKeyView{ gen, args },
                      factory);
+}
+
+void SemaContext::mapSourceToContext(SourceFileFacet const* facet,
+                                     SourceContext const* ctx) {
+    auto [itr, result] = impl->sourceContextMap.insert({ facet, ctx });
+    PRISM_ASSERT(result, "Failed to insert source file. Was it added twice?");
 }
