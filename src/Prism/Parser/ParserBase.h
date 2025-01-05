@@ -16,7 +16,7 @@
 #include <utl/vector.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Lexer/Lexer.h"
 #include "Prism/Parser/SyntaxError.h"
@@ -38,12 +38,8 @@ struct VolatileList: std::span<T> {
 /// Generic parsing functionality that is independent of the language grammar
 struct ParserBase {
     explicit ParserBase(MonotonicBufferResource& alloc,
-                        SourceContext const& sourceCtx,
-                        DiagnosticHandler& diagHandler):
-        alloc(alloc),
-        sourceCtx(sourceCtx),
-        diagHandler(diagHandler),
-        lexer(sourceCtx, diagHandler) {}
+                        SourceContext const& sourceCtx, DiagnosticEmitter& DE):
+        alloc(alloc), sourceCtx(sourceCtx), DE(DE), lexer(sourceCtx, DE) {}
 
     // MARK: Facet allocation
     template <typename T, typename... Args>
@@ -101,7 +97,7 @@ struct ParserBase {
     template <std::derived_from<Diagnostic> I, typename... Args>
         requires std::constructible_from<I, SourceContext const&, Args&&...>
     void raise(Args&&... args) {
-        diagHandler.push<I>(sourceCtx, std::forward<Args>(args)...);
+        DE.emit<I>(sourceCtx, std::forward<Args>(args)...);
     }
 
     template <std::derived_from<Diagnostic> I, typename... Args>
@@ -138,7 +134,7 @@ private:
 
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
-    DiagnosticHandler& diagHandler;
+    DiagnosticEmitter& DE;
     Lexer lexer;
     std::vector<Token> tokens;
     uint32_t tokenIndex = 0;

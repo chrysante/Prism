@@ -3,17 +3,17 @@
 
 #include <span>
 
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 
 class MonotonicBufferResource;
 class SemaContext;
-class DiagnosticHandler;
 
 /// Top-level sema function. Constructs and analyzes a module
 Target* analyzeModule(MonotonicBufferResource& resource, SemaContext& ctx,
-                      DiagnosticHandler& diagHandler,
+                      DiagnosticEmitter& DE,
                       std::span<SourceFilePair const> input);
 
 } // namespace prism

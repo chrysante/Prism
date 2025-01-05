@@ -7,7 +7,7 @@
 #include "Prism/Common/Functional.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/GenericInstantiation.h"
@@ -40,8 +40,7 @@ struct AnaContext: AnalysisBase {
 
 void detail::pushBadSymRef(AnalysisBase const& context, Facet const* facet,
                            Symbol* symbol, SymbolType expected) {
-    context.diagHandler.push<BadSymRef>(context.sourceContext, facet, symbol,
-                                        expected);
+    context.DE.emit<BadSymRef>(context.sourceContext, facet, symbol, expected);
 }
 
 Symbol* prism::analyzeFacet(AnalysisBase const& context, Scope* scope,
@@ -78,7 +77,7 @@ Symbol* AnaContext::analyzeID(TerminalFacet const& id) {
     auto symbols = unqualifiedLookup(scope, name);
     if (!symbols.success()) {
         if (symbols.isAmbiguous()) PRISM_UNIMPLEMENTED();
-        diagHandler.push<UndeclaredID>(sourceContext, &id, symbols.similar());
+        DE.emit<UndeclaredID>(sourceContext, &id, symbols.similar());
         return nullptr;
     }
     if (symbols.isSingleSymbol()) return symbols.singleSymbol();
@@ -99,7 +98,7 @@ Symbol* AnaContext::doAnalyze(CallFacet const& call) {
                 ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
     if (auto* gensym = dyncast<GenericSymbol*>(callee))
-        return instantiateGeneric(ctx, diagHandler, *gensym, &call, args,
+        return instantiateGeneric(ctx, DE, *gensym, &call, args,
                                   call.arguments()->elems());
     PRISM_UNIMPLEMENTED();
 }

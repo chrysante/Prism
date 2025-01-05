@@ -3,7 +3,7 @@
 #include <utl/hashtable.hpp>
 
 #include "Prism/Common/Assert.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Parser/Parser.h"
 #include "Prism/Sema/Analysis.h"
 #include "Prism/Sema/SemaContext.h"
@@ -41,9 +41,11 @@ struct detail::InvImpl {
         return bag.add(std::forward<T>(arg));
     }
 
+    InvImpl(): DE(makeDefaultDiagnosticEmitter()) {}
+
     Bag bag;
     MonotonicBufferResource resource;
-    DiagnosticHandler diagHandler;
+    std::unique_ptr<DiagnosticEmitter> DE;
     std::vector<SourceContext> sources;
     utl::hashmap<std::filesystem::path, SourceFileFacet const*> parseTrees;
     SemaContext semaContext;
@@ -77,17 +79,17 @@ void Invocation::runUntil(InvocationStage stage) {
     sourceFilePairs.reserve(impl->sources.size());
     for (auto& sourceContext: impl->sources) {
         auto* parseTree =
-            parseSourceFile(impl->resource, sourceContext, impl->diagHandler);
+            parseSourceFile(impl->resource, sourceContext, *impl->DE);
         impl->parseTrees.insert({ sourceContext.filepath(), parseTree });
         sourceFilePairs.push_back({ parseTree, &sourceContext });
     }
     if (stage < InvocationStage::Sema) return;
-    impl->target = analyzeModule(impl->resource, impl->semaContext,
-                                 impl->diagHandler, sourceFilePairs);
+    impl->target = analyzeModule(impl->resource, impl->semaContext, *impl->DE,
+                                 sourceFilePairs);
 }
 
-DiagnosticHandler const& Invocation::getDiagnosticHandler() const {
-    return impl->diagHandler;
+DiagnosticEmitter const& Invocation::getDiagnosticEmitter() const {
+    return *impl->DE;
 }
 
 SemaContext& Invocation::getSemaContext() { return impl->semaContext; }

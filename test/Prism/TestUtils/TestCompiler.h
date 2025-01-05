@@ -10,7 +10,7 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Functional.h"
 #include "Prism/Diagnostic/Diagnostic.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Invocation/Invocation.h"
 #include "Prism/Sema/SemaFwd.h"
 
@@ -25,26 +25,23 @@ public:
 
     template <std::derived_from<Diagnostic> D>
     D const* findDiagOnLine(int line) {
-        return findImpl<D>(inv.getDiagnosticHandler(), onLineFn<D>(line));
-    }
-
-    template <std::derived_from<Diagnostic> D>
-    D const* findDiagOnLine(Diagnostic const& diag, int line) {
-        return findImpl<D>(diag.children() |
-                               ranges::views::transform(Dereference),
+        return findImpl<D>(inv.getDiagnosticEmitter().getAll(),
                            onLineFn<D>(line));
     }
 
     template <std::derived_from<Diagnostic> D>
+    D const* findDiagOnLine(Diagnostic const& diag, int line) {
+        return findImpl<D>(diag.children(), onLineFn<D>(line));
+    }
+
+    template <std::derived_from<Diagnostic> D>
     D const* findDiag() {
-        return findImpl<D>(inv.getDiagnosticHandler(), Isa<D>);
+        return findImpl<D>(inv.getDiagnosticEmitter().getAll(), Isa<D>);
     }
 
     template <std::derived_from<Diagnostic> D>
     D const* findDiag(Diagnostic const& diag) {
-        return findImpl<D>(diag.children() |
-                               ranges::views::transform(Dereference),
-                           Isa<D>);
+        return findImpl<D>(diag.children(), Isa<D>);
     }
 
     InvValue& invocation() { return inv; }
@@ -57,23 +54,24 @@ private:
 
     template <typename T>
     static constexpr auto Isa =
-        [](auto& p) { return dynamic_cast<T const*>(&p) != nullptr; };
+        [](auto* p) { return dynamic_cast<T const*>(p) != nullptr; };
 
     template <typename D>
     static auto onLineFn(int line) {
         PRISM_ASSERT(line > 0);
-        return [=](auto& diag) {
+        return [=](auto* diag) {
             if (!Isa<D>(diag)) return false;
-            auto range = diag.sourceRange();
+            auto range = diag->sourceRange();
             return range && range->begin.line + 1 == (uint32_t)line;
         };
     }
 
     template <std::derived_from<Diagnostic> D>
     D const* findImpl(auto&& rng, auto condition) {
-        auto itr = ranges::find_if(rng, condition);
-        return itr != ranges::end(rng) ? dynamic_cast<D const*>(&*itr) :
-                                         nullptr;
+        auto itr = ranges::find_if(rng, condition, ToAddress);
+        return itr != ranges::end(rng) ?
+                   dynamic_cast<D const*>(std::to_address(*itr)) :
+                   nullptr;
     }
 
     Inv inv;

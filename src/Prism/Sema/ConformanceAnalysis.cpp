@@ -5,7 +5,7 @@
 
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/Contracts.h"
@@ -116,9 +116,8 @@ void ConfAnaContext::doAnalyzeConformance(FunctionImpl& func,
         matches.front()->addConformance(&func, SpecAddMode::Define);
         return;
     }
-    diagHandler
-        .push<AmbiguousConformance>(sourceContext, func.facet(), &func,
-                                    matches | ToSmallVector<Obligation const*>);
+    DE.emit<AmbiguousConformance>(sourceContext, func.facet(), &func,
+                                  matches | ToSmallVector<Obligation const*>);
 }
 
 void ConfAnaContext::analyzeConformances(InterfaceLike& interface,
@@ -182,15 +181,14 @@ void ConfAnaContext::doAnalyze(TraitImplInterface& interface) {
     }();
     auto& impl = interface.traitImpl();
     if (existing) {
-        diagHandler.push<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
-                                             existing);
+        DE.emit<DuplicateTraitImpl>(sourceContext, impl.facet(), &impl,
+                                    existing);
         return;
     }
     inheritObligations(*trait, interface);
     analyzeConformances(interface, impl.associatedScope());
     if (!interface.isComplete())
-        diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
-                                         interface);
+        DE.emit<IncompleteImpl>(sourceContext, impl.facet(), &impl, interface);
     // clang-format off
     visit(impl, csp::overload{
         [&](TraitImplDef& impl) { conf->setTraitImpl(impl); },
@@ -216,8 +214,7 @@ void ConfAnaContext::analyze(CompositeType& type) {
     analyzeObligations(type, type.associatedScope());
     analyzeConformances(type, type.associatedScope());
     if (!type.isCompleteForTraits())
-        diagHandler.push<IncompleteImpl>(sourceContext, type.facet(), &type,
-                                         type);
+        DE.emit<IncompleteImpl>(sourceContext, type.facet(), &type, type);
 }
 
 void ConfAnaContext::analyze(BaseTrait& base) {
@@ -235,16 +232,15 @@ void ConfAnaContext::analyze(BaseClass& base) {
 }
 
 void prism::analyzeConformances(MonotonicBufferResource& resource,
-                                SemaContext& ctx,
-                                DiagnosticHandler& diagHandler, Target&,
-                                DependencyGraph const& dependencies) {
+                                SemaContext& ctx, DiagnosticEmitter& DE,
+                                Target&, DependencyGraph const& dependencies) {
     for (auto* sym: dependencies.getTopoOrder() | reverse)
-        analyzeConformance(resource, ctx, diagHandler, *sym);
+        analyzeConformance(resource, ctx, DE, *sym);
 }
 
 void prism::analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
-                               DiagnosticHandler& diagHandler, Symbol& sym) {
-    ConfAnaContext confCtx{ ctx, diagHandler, getSourceContext(&sym) };
+                               DiagnosticEmitter& DE, Symbol& sym) {
+    ConfAnaContext confCtx{ ctx, DE, getSourceContext(&sym) };
     visit(sym, FN1(&, confCtx.analyze(_1)));
 }
 

@@ -3,6 +3,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
+#include "Prism/Diagnostic/DiagnosticFormat.h"
 #include "Prism/Parser/Parser.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/ExprAnalysis.h"
@@ -29,12 +31,11 @@ InvocationTester prism::makeInvTester(std::string source,
                                       InvocationStage stage) {
     InvocationTester t;
     doInvoke(t.invocation(), std::move(source), stage);
-    auto& diags = t.invocation().getDiagnosticHandler();
-    if (options.expectNoErrors && diags.hasErrors()) {
+    auto& DE = t.invocation().getDiagnosticEmitter();
+    if (options.expectNoErrors && DE.hasErrors()) {
         std::stringstream sstr;
         sstr << "Failed to compile: ";
-        SourceContext ctx;
-        diags.format(sstr, ctx);
+        print(DE, sstr);
         throw std::runtime_error(std::move(sstr).str());
     }
     return t;
@@ -44,13 +45,10 @@ static MonotonicBufferResource gAlloc;
 
 [[noreturn]]
 static void throwJitError(std::string_view exprSource,
-                          DiagnosticHandler const& diagHandler) {
+                          DiagnosticEmitter const& DE) {
     std::stringstream sstr;
     sstr << "Failed to jit source fragment: " << exprSource << "\n";
-    SourceContext
-        ctx; // FIXME: Since all diagnostics have the own source context
-             // pointer, we only need this here to satisfy the API
-    diagHandler.format(sstr, ctx);
+    print(DE, sstr);
     throw std::runtime_error(std::move(sstr).str());
 }
 
@@ -68,14 +66,12 @@ Symbol* InvocationTester::eval(std::string_view exprSource) {
 Symbol* InvocationTester::eval(Scope* scope, std::string_view exprSource) {
     // We just leak this here...
     auto* ctx = new SourceContext("test/expr-fragment.prism", exprSource);
-    DiagnosticHandler diagHandler;
-    auto* facet = parseExpr(gAlloc, *ctx, diagHandler);
-    if (diagHandler.hasErrors()) throwJitError(exprSource, diagHandler);
+    auto DE = makeDefaultDiagnosticEmitter();
+    auto* facet = parseExpr(gAlloc, *ctx, *DE);
+    if (DE->hasErrors()) throwJitError(exprSource, *DE);
     if (!facet) throw std::runtime_error("No facet");
     auto* symbol =
-        analyzeFacet({ invocation().getSemaContext(), diagHandler, ctx }, scope,
-                     facet);
-    if (!symbol || diagHandler.hasErrors())
-        throwJitError(exprSource, diagHandler);
+        analyzeFacet({ invocation().getSemaContext(), *DE, ctx }, scope, facet);
+    if (!symbol || DE->hasErrors()) throwJitError(exprSource, *DE);
     return symbol;
 }

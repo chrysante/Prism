@@ -5,7 +5,7 @@
 #include <CLI/CLI.hpp>
 #include <range/v3/view.hpp>
 
-#include <Prism/Diagnostic/DiagnosticHandler.h>
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 
@@ -36,8 +36,8 @@ static int fuzzParserMain() {
         prism::MonotonicBufferResource alloc;
         prism::SourceContext ctx("invalid-path",
                                  { bytes.data(), bytes.size() });
-        prism::DiagnosticHandler diagHandler;
-        prism::parseSourceFile(alloc, ctx, diagHandler);
+        auto DE = prism::makeDefaultDiagnosticEmitter();
+        prism::parseSourceFile(alloc, ctx, *DE);
         printIndex(i);
     }
 }

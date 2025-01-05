@@ -4,16 +4,16 @@
 #include <concepts>
 #include <span>
 
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Sema/SemaFwd.h>
 
 namespace prism {
 
 class SemaContext;
-class DiagnosticHandler;
 class Facet;
 
 ///
-Symbol* instantiateGeneric(SemaContext& ctx, DiagnosticHandler& diagHandler,
+Symbol* instantiateGeneric(SemaContext& ctx, DiagnosticEmitter& DE,
                            GenericSymbol& gen, Facet const* callFacet,
                            std::span<Symbol* const> args,
                            std::span<Facet const* const> argFacets);
@@ -21,12 +21,10 @@ Symbol* instantiateGeneric(SemaContext& ctx, DiagnosticHandler& diagHandler,
 /// \overload
 template <std::derived_from<GenericSymbol> G>
 G::InstantiationType* instantiateGeneric(
-    SemaContext& ctx, DiagnosticHandler& diagHandler, G& gen,
-    Facet const* callFacet, std::span<Symbol* const> args,
-    std::span<Facet const* const> argFacets) {
-    auto* inst = instantiateGeneric(ctx, diagHandler,
-                                    static_cast<GenericSymbol&>(gen), callFacet,
-                                    args, argFacets);
+    SemaContext& ctx, DiagnosticEmitter& DE, G& gen, Facet const* callFacet,
+    std::span<Symbol* const> args, std::span<Facet const* const> argFacets) {
+    auto* inst = instantiateGeneric(ctx, DE, static_cast<GenericSymbol&>(gen),
+                                    callFacet, args, argFacets);
     return cast<typename G::InstantiationType*>(inst);
 }
 

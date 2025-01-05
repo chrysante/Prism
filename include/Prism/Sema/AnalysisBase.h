@@ -1,17 +1,18 @@
 #ifndef PRISM_SEMA_ANALYSISBASE_H
 #define PRISM_SEMA_ANALYSISBASE_H
 
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
+
 namespace prism {
 
 class SemaContext;
-class DiagnosticHandler;
 class SourceContext;
 class Symbol;
 
 class AnalysisBase {
 public:
     SemaContext& ctx;
-    DiagnosticHandler& diagHandler;
+    DiagnosticEmitter& DE;
     SourceContext const* sourceContext = nullptr;
 };
 

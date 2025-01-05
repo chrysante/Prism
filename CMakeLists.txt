@@ -84,7 +84,8 @@ set(PRISM_HEADER_FILES
     include/Prism/Common/Typename.h
 
     include/Prism/Diagnostic/Diagnostic.h
-    include/Prism/Diagnostic/DiagnosticHandler.h
+    include/Prism/Diagnostic/DiagnosticEmitter.h
+    include/Prism/Diagnostic/DiagnosticFormat.h
 
     include/Prism/Facet/Facet.h
 
@@ -136,7 +137,8 @@ set(PRISM_SOURCE_FILES
     src/Prism/Common/Filters.py
 
     src/Prism/Diagnostic/Diagnostic.cpp
-    src/Prism/Diagnostic/DiagnosticHandler.cpp
+    src/Prism/Diagnostic/DiagnosticEmitter.cpp
+    src/Prism/Diagnostic/DiagnosticFormat.cpp
 
     src/Prism/Facet/Facet.cpp
 

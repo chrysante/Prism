@@ -9,7 +9,7 @@ namespace prism {
 
 class SourceFileFacet;
 class Target;
-class DiagnosticHandler;
+class DiagnosticEmitter;
 class SemaContext;
 
 namespace detail {
@@ -47,7 +47,7 @@ public:
     /// MARK: - Retrieval
 
     ///
-    DiagnosticHandler const& getDiagnosticHandler() const;
+    DiagnosticEmitter const& getDiagnosticEmitter() const;
 
     ///
     SemaContext& getSemaContext();

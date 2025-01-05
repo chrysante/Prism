@@ -12,7 +12,8 @@
 #include <utl/strcat.hpp>
 
 #include <Prism/Common/Functional.h>
-#include <Prism/Diagnostic/DiagnosticHandler.h>
+#include <Prism/Diagnostic/Diagnostic.h>
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Source/SourceContext.h>
 
@@ -127,7 +128,8 @@ bool AstRefNode::compareChildren(Facet const* node, Facet const* parent,
 MonotonicBufferResource internal::gAlloc;
 using internal::gAlloc;
 static SourceContext gCtx;
-static DiagnosticHandler gDiagnosticHandler;
+static std::unique_ptr<DiagnosticEmitter> gDiagnosticEmitter =
+    makeDefaultDiagnosticEmitter();
 
 static bool matchDiagnostic(ExpectedDiagnostic const& expIss,
                             utl::hashset<Diagnostic const*>& diags) {
@@ -144,7 +146,7 @@ static bool matchDiagnostic(ExpectedDiagnostic const& expIss,
 }
 
 bool AstRefNode::verifyDiagnostics() const {
-    auto diags = gDiagnosticHandler | ranges::views::transform(AddressOf) |
+    auto diags = gDiagnosticEmitter->getAll() |
                  ranges::to<utl::hashset<Diagnostic const*>>;
     bool result = true;
     for (auto* expDiagnostic: expectedDiagnostics) {
@@ -202,18 +204,18 @@ AstRefNode* prism::operator>>(VarType type, Tree children) {
 
 SourceFileFacet const* prism::parseFile(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gDiagnosticHandler.clear();
-    return parseSourceFile(gAlloc, gCtx, gDiagnosticHandler);
+    gDiagnosticEmitter->clear();
+    return parseSourceFile(gAlloc, gCtx, *gDiagnosticEmitter);
 }
 
 Facet const* prism::parseExpr(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gDiagnosticHandler.clear();
-    return parseExpr(gAlloc, gCtx, gDiagnosticHandler);
+    gDiagnosticEmitter->clear();
+    return parseExpr(gAlloc, gCtx, *gDiagnosticEmitter);
 }
 
 Facet const* prism::parseTypeSpec(std::string_view text) {
     gCtx = SourceContext({}, text);
-    gDiagnosticHandler.clear();
-    return parseTypeSpec(gAlloc, gCtx, gDiagnosticHandler);
+    gDiagnosticEmitter->clear();
+    return parseTypeSpec(gAlloc, gCtx, *gDiagnosticEmitter);
 }

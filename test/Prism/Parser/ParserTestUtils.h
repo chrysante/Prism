@@ -23,7 +23,6 @@ extern MonotonicBufferResource gAlloc;
 }
 
 class Diagnostic;
-class DiagnosticHandler;
 
 std::ostream& operator<<(std::ostream& str, Facet const& facet);
 

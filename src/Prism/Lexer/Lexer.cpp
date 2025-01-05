@@ -11,6 +11,7 @@
 #include "Prism/Lexer/LexicalDiagnostic.h"
 
 using namespace prism;
+using enum LexicalDiagnostic::Reason;
 
 static bool isSpace(char c) { return std::isspace(c); }
 
@@ -22,9 +23,9 @@ Token Lexer::next() {
         if (auto tok = nextImpl()) {
             if (errBegin) {
                 uint16_t errLen = utl::narrow_cast<uint16_t>(begin - *errBegin);
-                diagHandler.push<LexicalDiagnostic>(
-                    LexicalDiagnostic::InvalidCharacterSequence,
-                    SourceRange{ *errBegin, errLen }, sourceContext);
+                SourceRange SR = { *errBegin, errLen };
+                DE.emit<LexicalDiagnostic>(InvalidCharacterSequence, SR,
+                                           sourceContext);
             }
             return *tok;
         }
@@ -158,9 +159,9 @@ std::optional<Token> Lexer::lexStringLiteralImpl(TokenKind kind,
     if (!match(beginDelim)) return std::nullopt;
     while (true) {
         if (!valid() || current() == '\n') {
-            diagHandler.push<LexicalDiagnostic>(
-                LexicalDiagnostic::UnterminatedStringLiteral,
-                SourceRange{ begin, (uint32_t)(index - begin) }, sourceContext);
+            SourceRange SR = { begin, (uint32_t)(index - begin) };
+            DE.emit<LexicalDiagnostic>(UnterminatedStringLiteral, SR,
+                                       sourceContext);
             return Token{ kind, (uint16_t)(index - begin), begin };
         }
         if (current(index - 1) != '\\' && match(endDelim))
@@ -184,9 +185,9 @@ std::optional<Token> Lexer::lexIntLiteralImpl(TokenKind kind,
     if (!prefix.empty()) {
         if (!match(prefix)) return std::nullopt;
         if (!valid() || !std::invoke(isValidChar, current())) {
-            diagHandler.push<LexicalDiagnostic>(
-                LexicalDiagnostic::InvalidNumericLiteral,
-                SourceRange{ begin, (uint32_t)prefix.size() }, sourceContext);
+            SourceRange SR = { begin, (uint32_t)prefix.size() };
+            DE.emit<LexicalDiagnostic>(InvalidNumericLiteral, SR,
+                                       sourceContext);
             return std::nullopt;
         }
     }

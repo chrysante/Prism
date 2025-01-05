@@ -38,8 +38,8 @@ fn test(aParam: int, b: f64) -> void {
 }
 )";
     SourceContext ctx({}, source);
-    DiagnosticHandler H;
-    Lexer L(ctx, H);
+    auto DE = makeDefaultDiagnosticEmitter();
+    Lexer L(ctx, *DE);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Fn, 1, 0, 2 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 1, 3, 4 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::OpenParen, 1, 7, 1 });
@@ -62,15 +62,15 @@ fn test(aParam: int, b: f64) -> void {
     CHECK(L.next() == RefToken{ ctx, TokenKind::CloseBrace, 3, 0, 1 });
     CHECK(L.next() == RefToken{ ctx, TokenKind::End, 4, 0, 0 });
 
-    CHECK(H.empty());
+    CHECK(DE->getAll().empty());
 }
 
 TEST_CASE("Integration no spaces", "[lexer]") {
     auto source = R"(
 fn test(aParam:int,b:f64)->void{return;})";
     SourceContext ctx({}, source);
-    DiagnosticHandler H;
-    Lexer L(ctx, H);
+    auto DE = makeDefaultDiagnosticEmitter();
+    Lexer L(ctx, *DE);
     CHECK(L.next().kind == TokenKind::Fn);
     CHECK(L.next().kind == TokenKind::Identifier);
     CHECK(L.next().kind == TokenKind::OpenParen);
@@ -90,16 +90,16 @@ fn test(aParam:int,b:f64)->void{return;})";
     CHECK(L.next().kind == TokenKind::CloseBrace);
     CHECK(L.next().kind == TokenKind::End);
 
-    CHECK(H.empty());
+    CHECK(DE->getAll().empty());
 }
 
 static Token getSingle(std::string_view source) {
     SourceContext ctx({}, source);
-    DiagnosticHandler H;
-    Lexer L(ctx, H);
+    auto DE = makeDefaultDiagnosticEmitter();
+    Lexer L(ctx, *DE);
     auto tok = L.next();
     REQUIRE(L.next().kind == TokenKind::End);
-    REQUIRE(H.empty());
+    REQUIRE(DE->getAll().empty());
     return tok;
 }
 
@@ -138,29 +138,31 @@ TEST_CASE("Unterminated string literals", "[lexer]") {
 id return
 )";
     SourceContext ctx({}, source);
-    DiagnosticHandler H;
-    Lexer L(ctx, H);
+    auto DE = makeDefaultDiagnosticEmitter();
+    Lexer L(ctx, *DE);
     CHECK(L.next().kind == TokenKind::StringLiteral);
     CHECK(L.next().kind == TokenKind::Identifier);
     CHECK(L.next().kind == TokenKind::Return);
 
-    REQUIRE(H.size() == 1);
-    auto& err = dynamic_cast<LexicalDiagnostic const&>(H.front());
+    auto diags = DE->getAll();
+    REQUIRE(diags.size() == 1);
+    auto& err = dynamic_cast<LexicalDiagnostic const&>(*diags.front());
     CHECK(err.reason() == LexicalDiagnostic::UnterminatedStringLiteral);
 }
 
 TEST_CASE("Errors", "[lexer]") {
     auto source = "#```abc`";
     SourceContext ctx({}, source);
-    DiagnosticHandler H;
-    Lexer L(ctx, H);
+    auto DE = makeDefaultDiagnosticEmitter();
+    Lexer L(ctx, *DE);
     CHECK(L.next() == RefToken{ ctx, TokenKind::Identifier, 0, 4, 3 });
     L.next();
-    REQUIRE(H.size() == 2);
+    auto diags = DE->getAll();
+    REQUIRE(diags.size() == 2);
     auto errRng1 =
-        dynamic_cast<LexicalDiagnostic const&>(H.front()).sourceRange();
+        dynamic_cast<LexicalDiagnostic const&>(*diags.front()).sourceRange();
     CHECK(errRng1.value().slim() == SourceRange{ 0, 4 });
     auto errRng2 =
-        dynamic_cast<LexicalDiagnostic const&>(H.back()).sourceRange();
+        dynamic_cast<LexicalDiagnostic const&>(*diags.back()).sourceRange();
     CHECK(errRng2.value().slim() == SourceRange{ 7, 1 });
 }

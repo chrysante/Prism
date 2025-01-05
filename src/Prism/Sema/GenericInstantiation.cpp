@@ -6,7 +6,7 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/SemaContext.h"
@@ -159,15 +159,14 @@ Symbol* GenInstContext::instantiate(GenTrait& templ) {
     return instantiation;
 }
 
-static bool validateArguments(SemaContext const& ctx,
-                              DiagnosticHandler& diagHandler,
+static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
                               GenericSymbol& gensym, Facet const* callFacet,
                               std::span<Symbol* const> args,
                               std::span<Facet const* const> argFacets) {
     auto params = gensym.genParams();
     if (args.size() != params.size()) {
-        diagHandler.push<InvalidNumOfGenArgs>(ctx.getSourceContext(callFacet),
-                                              callFacet, &gensym, args.size());
+        DE.emit<InvalidNumOfGenArgs>(ctx.getSourceContext(callFacet), callFacet,
+                                     &gensym, args.size());
         return false;
     }
     bool result = true;
@@ -175,14 +174,14 @@ static bool validateArguments(SemaContext const& ctx,
         auto* typeParam = cast<GenericTypeParam const*>(param);
         auto* typeArg = dyncast<ValueType const*>(arg);
         if (!typeArg) {
-            diagHandler.push<BadSymRef>(ctx.getSourceContext(facet), facet, arg,
-                                        SymbolType::ValueType);
+            DE.emit<BadSymRef>(ctx.getSourceContext(facet), facet, arg,
+                               SymbolType::ValueType);
             result = false;
             continue;
         }
         if (!conformsTo(*typeArg, *typeParam->trait())) {
-            diagHandler.push<BadGenTypeArg>(ctx.getSourceContext(facet), facet,
-                                            typeArg, typeParam->trait());
+            DE.emit<BadGenTypeArg>(ctx.getSourceContext(facet), facet, typeArg,
+                                   typeParam->trait());
             result = false;
             continue;
         }
@@ -190,13 +189,11 @@ static bool validateArguments(SemaContext const& ctx,
     return result;
 }
 
-Symbol* prism::instantiateGeneric(SemaContext& ctx,
-                                  DiagnosticHandler& diagHandler,
+Symbol* prism::instantiateGeneric(SemaContext& ctx, DiagnosticEmitter& DE,
                                   GenericSymbol& gensym, Facet const* callFacet,
                                   std::span<Symbol* const> args,
                                   std::span<Facet const* const> argFacets) {
-    if (!validateArguments(ctx, diagHandler, gensym, callFacet, args,
-                           argFacets))
+    if (!validateArguments(ctx, DE, gensym, callFacet, args, argFacets))
         return nullptr;
     GenInstContext instContext{ ctx, args, gensym.genParams() };
     return visit(gensym, FN1(&, instContext.instantiate(_1)));
@@ -204,12 +201,9 @@ Symbol* prism::instantiateGeneric(SemaContext& ctx,
 
 Symbol* prism::instantiateGenericNoFail(SemaContext& ctx, GenericSymbol& gen,
                                         std::span<Symbol* const> args) {
-    // TODO: Replace by `AssertingDiagnostigHandler`
-    DiagnosticHandler diagHandler;
+    auto DE = makeTrappingDiagnosticEmitter();
     auto facets = args | transform(FN1((Facet const*)nullptr)) |
                   ToSmallVector<>;
-    auto* sym =
-        instantiateGeneric(ctx, diagHandler, gen, nullptr, args, facets);
-    PRISM_ASSERT(diagHandler.empty(), "Must be empty");
+    auto* sym = instantiateGeneric(ctx, *DE, gen, nullptr, args, facets);
     return sym;
 }

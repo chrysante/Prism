@@ -11,7 +11,7 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
-#include "Prism/Diagnostic/DiagnosticHandler.h"
+#include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/DependencyGraph.h"
@@ -200,10 +200,10 @@ GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenScope(
     return { scope, params | ToSmallVector<> };
 }
 
-static void declareGlobals(SemaContext& ctx, DiagnosticHandler& diagHandler,
+static void declareGlobals(SemaContext& ctx, DiagnosticEmitter& DE,
                            Scope* globalScope,
                            std::span<SourceFilePair const> input) {
-    GlobalDeclDeclare{ { ctx, diagHandler }, globalScope }.run(input);
+    GlobalDeclDeclare{ { ctx, DE }, globalScope }.run(input);
 }
 
 // MARK: - Name resolution for global names
@@ -338,8 +338,7 @@ Symbol* GlobalNameResolver::declareBase(Scope* scope,
         return basetrait;
     }
     // FIXME: We should expect types or traits but we have no interface for that
-    diagHandler.push<BadSymRef>(sourceContext, decl.type(), base,
-                                SymbolType::Trait);
+    DE.emit<BadSymRef>(sourceContext, decl.type(), base, SymbolType::Trait);
     return nullptr;
 }
 
@@ -437,9 +436,7 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
 FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
                                               ThisParamDeclFacet const& param,
                                               Scope*, size_t index) {
-    if (index != 0) {
-        diagHandler.push<ThisParamBadPosition>(sourceContext, &param);
-    }
+    if (index != 0) DE.emit<ThisParamBadPosition>(sourceContext, &param);
     Mutability mut = Mutability::Const;
     bool dyn = false, ref = false;
     auto* typeFacet = param.spec();
@@ -532,10 +529,10 @@ void GlobalNameResolver::resolveChildren(auto& symbol) {
 
 static DependencyGraph resolveGlobalNames(MonotonicBufferResource& resource,
                                           SemaContext& ctx,
-                                          DiagnosticHandler& diagHandler,
+                                          DiagnosticEmitter& DE,
                                           Scope* globalScope) {
     DependencyGraph dependencies(resource);
-    GlobalNameResolver{ { ctx, diagHandler }, dependencies }.resolveChildren(
+    GlobalNameResolver{ { ctx, DE }, dependencies }.resolveChildren(
         globalScope->symbols());
     return dependencies;
 }
@@ -591,28 +588,28 @@ void InstantiationContext::instantiate(StructType& type) {
     type.setLayout(layout);
 }
 
-static void instantiateSymbol(SemaContext& ctx, DiagnosticHandler& diagHandler,
+static void instantiateSymbol(SemaContext& ctx, DiagnosticEmitter& DE,
                               Symbol* symbol) {
-    InstantiationContext instctx{ ctx, diagHandler };
+    InstantiationContext instctx{ ctx, DE };
     visit(*symbol, [&](auto& symbol) { instctx.instantiate(symbol); });
 }
 
 ConstructionResult prism::constructTarget(
-    MonotonicBufferResource& resource, SemaContext& ctx,
-    DiagnosticHandler& diagHandler, std::span<SourceFilePair const> input) {
+    MonotonicBufferResource& resource, SemaContext& ctx, DiagnosticEmitter& DE,
+    std::span<SourceFilePair const> input) {
     auto* target = ctx.make<Target>(ctx, "TARGET");
     declareBuiltins(ctx, target->associatedScope());
     makeCoreLibrary(ctx, target->associatedScope());
-    declareGlobals(ctx, diagHandler, target->associatedScope(), input);
-    auto dependencies = resolveGlobalNames(resource, ctx, diagHandler,
-                                           target->associatedScope());
+    declareGlobals(ctx, DE, target->associatedScope(), input);
+    auto dependencies =
+        resolveGlobalNames(resource, ctx, DE, target->associatedScope());
     if (std::getenv("GENERATE_DEP_GRAPH")) generateGraphvizDebug(dependencies);
     dependencies.topsort();
     if (dependencies.hasCycle()) {
-        diagHandler.push<TypeDefCycle>(dependencies.getCycle());
+        DE.emit<TypeDefCycle>(dependencies.getCycle());
         return ConstructionResult::Fatal(target);
     }
     for (auto* symbol: dependencies.getTopoOrder() | ranges::views::reverse)
-        instantiateSymbol(ctx, diagHandler, symbol);
+        instantiateSymbol(ctx, DE, symbol);
     return { target, std::move(dependencies) };
 }

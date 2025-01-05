@@ -10,7 +10,8 @@
 #include <utl/streammanip.hpp>
 
 #include <Prism/Common/TreeFormatter.h>
-#include <Prism/Diagnostic/DiagnosticHandler.h>
+#include <Prism/Diagnostic/DiagnosticEmitter.h>
+#include <Prism/Diagnostic/DiagnosticFormat.h>
 #include <Prism/Facet/Facet.h>
 #include <Prism/Parser/Parser.h>
 #include <Prism/Sema/Analysis.h>
@@ -79,28 +80,28 @@ static int semaPlaygroundMain(Options options) {
     std::string source = std::move(sstr).str();
     MonotonicBufferResource alloc;
     SourceContext sourceContext(filepath, source);
-    DiagnosticHandler diagHandler;
-    auto* parseTree = parseSourceFile(alloc, sourceContext, diagHandler);
+    auto DE = makeDefaultDiagnosticEmitter();
+    auto* parseTree = parseSourceFile(alloc, sourceContext, *DE);
     if (options.printFacets) {
         TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
         header(std::cout, "Parse Tree");
         print(parseTree, fmt, { &sourceContext });
     }
-    if (!diagHandler.empty()) {
-        diagHandler.print(sourceContext);
+    if (!DE->empty()) {
+        print(*DE);
         return 1;
     }
     SemaContext ctx;
-    auto* target = analyzeModule(alloc, ctx, diagHandler,
-                                 { { { parseTree, &sourceContext } } });
+    auto* target =
+        analyzeModule(alloc, ctx, *DE, { { { parseTree, &sourceContext } } });
     header(std::cout, "Sema IR");
     print(*target, std::cout,
           { .structureMemoryLayout = true,
             .traitObligations = options.printConformances });
     if (options.printScopes)
         printScopeHierarchy(target->associatedScope(), std::cout);
-    if (!diagHandler.empty()) {
-        diagHandler.print(sourceContext);
+    if (!DE->empty()) {
+        print(*DE);
         return 1;
     }
     return 0;
