@@ -8,10 +8,7 @@
 
 namespace prism {
 
-using csp::cast;
-using csp::dyncast;
-using csp::isa;
-using csp::visit;
+using namespace csp::ops;
 
 } // namespace prism
 
