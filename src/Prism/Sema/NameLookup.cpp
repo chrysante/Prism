@@ -58,8 +58,9 @@ NameLookupResult prism::unqualifiedLookup(Scope* const scope,
         else
             return {};
     }
-    if (isOverloadSet)
-        return symbols | transform(cast<Function*>) |
-               ranges::to<utl::small_vector<Function*>>;
-    return symbols;
+    if (!isOverloadSet) // Ambiguous case
+        return symbols;
+    if (symbols.size() == 1) return symbols.front();
+    return symbols | transform(cast<Function*>) |
+           ranges::to<utl::small_vector<Function*>>;
 }
