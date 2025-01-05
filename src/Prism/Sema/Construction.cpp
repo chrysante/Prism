@@ -74,7 +74,7 @@ struct GlobalDeclDeclare: InstantiationBase {
                      SourceContext const& sourceContext);
     Symbol* declare(Facet const* facet, Scope* scope);
     Symbol* doDeclare(Facet const&, Scope const*) { PRISM_UNREACHABLE(); }
-    Symbol* doDeclare(VarDeclFacet const&, Scope const*) { return nullptr; }
+    Symbol* doDeclare(VarDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
@@ -104,6 +104,10 @@ void GlobalDeclDeclare::declareFile(SourceFileFacet const& facet,
 Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
     if (!facet) return nullptr;
     return visit(*facet, FN1(&, doDeclare(_1, scope)));
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(VarDeclFacet const& facet, Scope* parent) {
+    return ctx.make<Variable>(getName(facet), &facet, parent, QualType());
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
@@ -192,7 +196,7 @@ struct GlobalNameResolver: InstantiationBase {
     void addDependency(Symbol& symbol, Symbol* dependsOn);
     void resolve(Symbol* symbol);
     void doResolve(Symbol&) {}
-    void declareGlobalVar(Scope* parent, VarDeclFacet const& facet);
+    void doResolve(Variable& var);
     Symbol* declareGenParam(Scope* scope, GenParamDeclFacet const* decl);
     utl::small_vector<Symbol*> resolveGenParams(Scope* scope,
                                                 GenParamListFacet const& facet);
@@ -260,13 +264,12 @@ void GlobalNameResolver::resolve(Symbol* symbol) {
     visit(*symbol, [this](auto& symbol) { doResolve(symbol); });
 }
 
-void GlobalNameResolver::declareGlobalVar(Scope* parent,
-                                          VarDeclFacet const& facet) {
-    if (!facet.typespec()) PRISM_UNIMPLEMENTED();
-    auto* type = analyzeFacet<ValueType>(parent, facet.typespec());
-    auto* var = ctx.make<Variable>(getName(facet), &facet, parent,
-                                   QualType{ type, {} });
-    addDependency(*var, type);
+void GlobalNameResolver::doResolve(Variable& var) {
+    auto* facet = var.facet();
+    if (!facet->typespec()) PRISM_UNIMPLEMENTED();
+    auto* type = analyzeFacet<ValueType>(var.parentScope(), facet->typespec());
+    var._type = QualType::Mut(type);
+    addDependency(var, type);
 }
 
 Symbol* GlobalNameResolver::declareGenParam(Scope* scope,
@@ -284,9 +287,6 @@ utl::small_vector<Symbol*> GlobalNameResolver::resolveGenParams(
 
 void GlobalNameResolver::doResolve(SourceFile& sourceFile) {
     sourceContext = &sourceFile.sourceContext();
-    auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
-    for (auto* decl: globals)
-        declareGlobalVar(sourceFile.associatedScope(), *decl);
     resolveChildren(sourceFile);
 }
 
