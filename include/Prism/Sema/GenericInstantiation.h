@@ -58,7 +58,8 @@ template <std::derived_from<Symbol> S>
 S* mapInstantiation(SemaContext& ctx, S* symbol,
                     std::span<Symbol* const> genArgs,
                     std::span<Symbol* const> genParams) {
-    Symbol* result = mapInstantiation(ctx, symbol, genArgs, genParams);
+    Symbol* result =
+        mapInstantiation(ctx, static_cast<Symbol*>(symbol), genArgs, genParams);
     return cast<S*>(result);
 }
 
