@@ -73,17 +73,27 @@ Symbol* AnaContext::doAnalyze(TerminalFacet const& term) {
     }
 }
 
+template <typename T, typename... Args>
+concept AnyOf = (std::same_as<T, Args> || ...);
+
 Symbol* AnaContext::analyzeID(TerminalFacet const& id) {
     auto name = sourceContext->getTokenStr(id.token());
     auto symbols = unqualifiedLookup(scope, name);
-    if (!symbols.success()) {
-        if (symbols.isAmbiguous()) PRISM_UNIMPLEMENTED();
-        DE.emit<UndeclaredID>(sourceContext, &id, symbols.similar());
-        return nullptr;
-    }
-    if (symbols.isSingleSymbol()) return symbols.singleSymbol();
-    if (symbols.isOverloadSet()) PRISM_UNIMPLEMENTED();
-    PRISM_UNIMPLEMENTED();
+    // clang-format off
+    using NLR = NameLookupResult;
+    return symbols.visit(csp::overload{
+        [&](AnyOf<NLR::None, NLR::Similar> auto) -> Symbol* {
+            DE.emit<UndeclaredID>(sourceContext, &id, symbols.similar());
+            return nullptr;
+        },
+        [&](Symbol* symbol) -> Symbol* { return symbol; },
+        [&](std::span<Function* const> /* overloadSet */) -> Symbol* {
+            PRISM_UNIMPLEMENTED();
+        },
+        [&](std::span<Symbol const* const> /* ambiSet */) -> Symbol* {
+            PRISM_UNIMPLEMENTED();
+        },
+    }); // clang-format on
 }
 
 IntLiteral* AnaContext::analyzeIntLiteral(TerminalFacet const& term, int base) {

@@ -24,10 +24,11 @@ struct SimilarName {
 class NameLookupResult {
     using OverloadSet = utl::small_vector<Function*>;
     using AmbiSet = utl::small_vector<Symbol*>;
+
+public:
     using None = std::monostate;
     using Similar = detail::SimilarName;
 
-public:
     NameLookupResult() = default;
 
     NameLookupResult(Symbol* symbol): data(symbol) {}
@@ -67,6 +68,16 @@ public:
     }
 
     bool success() const { return !isNone() && !isSimilar() && !isAmbiguous(); }
+
+    template <typename Vis, typename R = std::common_reference_t<
+                                std::invoke_result_t<Vis, None>,
+                                std::invoke_result_t<Vis, Symbol*>,
+                                std::invoke_result_t<Vis, OverloadSet>,
+                                std::invoke_result_t<Vis, AmbiSet>,
+                                std::invoke_result_t<Vis, Similar>>>
+    R visit(Vis&& vis) const {
+        return std::visit(vis, data);
+    }
 
 private:
     template <typename T>
