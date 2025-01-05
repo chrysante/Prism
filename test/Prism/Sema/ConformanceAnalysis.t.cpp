@@ -98,3 +98,27 @@ trait Integral {}
     auto* s = tester.eval<Variable>("s");
     CHECK(s->type().get() == tester.eval("S(i32)"));
 }
+
+TEST_CASE("Trait subsumption", "[sema]") {
+    auto tester = makeInvTester(R"(
+trait Integral {}
+impl Integral for i32 {}
+impl Integral for i64 {}
+
+trait Int32: Integral {}
+impl Int32 for i32 {}
+
+struct [T: Integral] IntWrapper { 
+    var value: T;
+}
+
+struct [T: Int32] S {
+    var value: IntWrapper(T);
+}
+
+let s: S(i32);
+)",
+                                { .expectNoErrors = true });
+    auto* s = tester.eval<Variable>("s");
+    CHECK(s->type().get() == tester.eval("S(i32)"));
+}
