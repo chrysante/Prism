@@ -140,15 +140,14 @@ static std::string pluralize(size_t num, std::string_view singular) {
 }
 
 static void UndeclaredIDNotes(UndeclaredID& diag, Symbol const* similar) {
-    if (similar) {
-        auto* note = diag.addNote([=](std::ostream& str) {
-            str << "Did you mean \'" << formatName(*similar) << "\'?";
+    if (!similar) return;
+    auto* note = diag.addNote([=](std::ostream& str) {
+        str << "Did you mean \'" << formatName(*similar) << "\'?";
+    });
+    if (auto* nameFct = getDeclName(similar->facet()))
+        note->addNote(nameFct, [=](std::ostream& str) {
+            str << formatName(*similar) << " declared here";
         });
-        if (auto* nameFct = getDeclName(similar->facet()))
-            note->addNote(nameFct, [=](std::ostream& str) {
-                str << formatName(*similar) << " declared here";
-            });
-    }
 }
 
 static void TypeDefCycleNotes(TypeDefCycle& diag,
