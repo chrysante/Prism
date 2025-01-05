@@ -179,9 +179,9 @@ static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
             result = false;
             continue;
         }
-        if (!conformsTo(*typeArg, *typeParam->trait())) {
+        if (!conformsTo(*typeArg, *typeParam->traitBound())) {
             DE.emit<BadGenTypeArg>(ctx.getSourceContext(facet), facet, typeArg,
-                                   typeParam->trait());
+                                   typeParam->traitBound());
             result = false;
             continue;
         }

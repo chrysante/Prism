@@ -249,7 +249,7 @@ static bool specArgMatch(Symbol const* existingArg, Symbol const* newArg) {
     if (auto* typeParam = dyncast<GenericTypeParam const*>(existingArg)) {
         auto* typeArg = dyncast<ValueType const*>(newArg);
         if (!typeArg) return false;
-        return conformsTo(*typeArg, *typeParam->trait());
+        return conformsTo(*typeArg, *typeParam->traitBound());
     }
     return false;
 }

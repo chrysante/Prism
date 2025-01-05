@@ -216,7 +216,7 @@ static void fmtDeclImpl(FuncParam const& param, std::ostream& str,
 static void fmtDeclImpl(GenericTypeParam const& param, std::ostream& str,
                         FmtDeclOptions options) {
     str << fmtName(param) << ": "
-        << fmtName(param.trait(), asSecondaryName(options));
+        << fmtName(param.traitBound(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(StructType const& type, std::ostream& str,
@@ -417,7 +417,7 @@ struct SymbolPrinter {
 
     void printImpl(GenericTypeParam const& param) {
         str << Keyword("genparam") << " " << fmtName(param) << ": "
-            << fmtName(param.trait());
+            << fmtName(param.traitBound());
     }
 
     void printImpl(FuncParam const& param) {

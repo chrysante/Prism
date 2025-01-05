@@ -248,19 +248,19 @@ protected:
 class GenericTypeParam: public ValueType {
 public:
     explicit GenericTypeParam(std::string name, Facet const* facet,
-                              Scope* parent, Trait* trait):
+                              Scope* parent, Trait* traitBound):
         ValueType(SymbolType::GenericTypeParam, std::move(name), facet, parent,
                   TypeLayout::Incomplete),
-        _trait(trait) {}
+        _traitBound(traitBound) {}
 
     /// \Returns the trait that this type argument conforms to
-    Trait* trait() { return _trait; }
+    Trait* traitBound() { return _traitBound; }
 
     /// \overload
-    Trait const* trait() const { return _trait; }
+    Trait const* traitBound() const { return _traitBound; }
 
 private:
-    Trait* _trait;
+    Trait* _traitBound;
 };
 
 /// Base class of all types with a scope
