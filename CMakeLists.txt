@@ -97,6 +97,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxError.def
 
     include/Prism/Sema/Analysis.h
+    include/Prism/Sema/AnalysisBase.h
     include/Prism/Sema/Builtins.def
     include/Prism/Sema/ConformanceAnalysis.h
     include/Prism/Sema/Construction.h
@@ -151,7 +152,6 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/SyntaxError.cpp
 
     src/Prism/Sema/Analysis.cpp
-    src/Prism/Sema/AnalysisBase.h
     src/Prism/Sema/AnalysisBase.cpp
     src/Prism/Sema/ConformanceAnalysis.cpp
     src/Prism/Sema/Construction.cpp
