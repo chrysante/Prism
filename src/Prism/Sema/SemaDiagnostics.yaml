@@ -60,7 +60,13 @@ diags:
       - name: traitBound
         type: Trait const*
     header: >
-      str << "Type argument " << formatName(argument) << " does not conform to "
+      utl::streammanip argName([&](std::ostream& str) {
+          if (isa<GenericTypeParam>(argument))
+              str << formatDecl(argument);
+          else
+              str << formatName(argument);
+      });
+      str << "Type argument " << argName << " does not conform to "
           << formatName(traitBound);
 
   - name: ThisParamBadPosition
