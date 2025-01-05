@@ -90,9 +90,9 @@ TEST_CASE("Order independent conformance analysis", "[sema]") {
     auto tester = makeInvTester(R"(
 var s: S(i32);
 var t: S(i64);
-trait Integral {}
-struct [T: Integral] S {}
 impl Integral for i32 {}
+struct [T: Integral] S {}
+trait Integral {}
 )");
     CHECK(tester.findDiagOnLine<BadGenTypeArg>(3));
     auto* s = tester.eval<Variable>("s");

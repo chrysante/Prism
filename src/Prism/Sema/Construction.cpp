@@ -52,7 +52,12 @@ namespace {
 struct InstantiationBase: AnalysisBase {
     std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
         PRISM_ASSERT(sourceContext);
-        auto token = cast<TerminalFacet const&>(*facet.name()).token();
+        auto token = [&] {
+            if constexpr (std::same_as<Token, decltype(facet.name())>)
+                return facet.name();
+            else
+                return cast<TerminalFacet const&>(*facet.name()).token();
+        }();
         PRISM_ASSERT(token.kind == TokenKind::Identifier);
         return std::string(sourceContext->getTokenStr(token));
     }
@@ -75,7 +80,6 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* doDeclareGen(CompTypeDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(TraitImplFacet const& facet, Scope* parent);
-    Symbol* doDeclare(GenParamDeclFacet const& facet, Scope* parent);
 
     struct GenCtxAnaResult {
         Scope* scope;
@@ -122,10 +126,7 @@ Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
 
 Symbol* GlobalDeclDeclare::doDeclareGen(FuncDefFacet const& facet,
                                         Scope* parent) {
-    PRISM_EXPECT(facet.genParams());
-    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
-    return ctx.make<GenFuncImpl>(getName(facet), &facet, parent, scope,
-                                 std::move(genParams));
+    return ctx.make<GenFuncImpl>(getName(facet), &facet, parent);
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
@@ -147,15 +148,12 @@ Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
 
 Symbol* GlobalDeclDeclare::doDeclareGen(CompTypeDeclFacet const& facet,
                                         Scope* parent) {
-    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
     auto* typeOrTrait = [&]() -> Symbol* {
         switch (facet.declarator().kind) {
         case TokenKind::Struct:
-            return ctx.make<GenStructType>(getName(facet), &facet, parent,
-                                           scope, std::move(genParams));
+            return ctx.make<GenStructType>(getName(facet), &facet, parent);
         case TokenKind::Trait:
-            return ctx.make<GenTrait>(getName(facet), &facet, parent, scope,
-                                      std::move(genParams));
+            return ctx.make<GenTrait>(getName(facet), &facet, parent);
         default:
             PRISM_UNREACHABLE();
         }
@@ -176,28 +174,11 @@ Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
 
 Symbol* GlobalDeclDeclare::doDeclareGen(TraitImplFacet const& facet,
                                         Scope* parent) {
-    auto [scope, genParams] = makeGenScope(facet.genParams(), parent);
-    auto* impl =
-        ctx.make<GenTraitImpl>(&facet, parent, scope, std::move(genParams));
+    auto* impl = ctx.make<GenTraitImpl>(&facet, parent);
     auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
     PRISM_ASSERT(implFacet->body());
     declareChildren(impl->associatedScope(), implFacet->body()->elems());
     return impl;
-}
-
-Symbol* GlobalDeclDeclare::doDeclare(GenParamDeclFacet const& facet,
-                                     Scope* parent) {
-    auto* trait = analyzeFacetAs<Trait>(*this, parent, facet.requirements());
-    auto name = sourceContext->getTokenStr(facet.name());
-    return ctx.make<GenericTypeParam>(std::string(name), &facet, parent, trait);
-}
-
-GlobalDeclDeclare::GenCtxAnaResult GlobalDeclDeclare::makeGenScope(
-    GenParamListFacet const* paramDecls, Scope* parent) {
-    PRISM_EXPECT(paramDecls);
-    auto* scope = ctx.makeScope(parent);
-    auto params = paramDecls->elems() | transform(FN1(&, declare(_1, scope)));
-    return { scope, params | ToSmallVector<> };
 }
 
 static void declareGlobals(SemaContext& ctx, DiagnosticEmitter& DE,
@@ -223,6 +204,9 @@ struct GlobalNameResolver: InstantiationBase {
     void resolve(Symbol* symbol);
     void doResolve(Symbol&) {}
     void declareGlobalVar(Scope* parent, VarDeclFacet const& facet);
+    Symbol* declareGenParam(Scope* scope, GenParamDeclFacet const* decl);
+    utl::small_vector<Symbol*> resolveGenParams(Scope* scope,
+                                                GenParamListFacet const& facet);
     void doResolve(SourceFile& sourceFile);
     void doResolve(TraitImpl& impl);
     void doResolve(GenTraitImpl& impl);
@@ -296,6 +280,19 @@ void GlobalNameResolver::declareGlobalVar(Scope* parent,
     addDependency(*var, type);
 }
 
+Symbol* GlobalNameResolver::declareGenParam(Scope* scope,
+                                            GenParamDeclFacet const* decl) {
+    if (!decl) return nullptr;
+    auto* traitBound = analyzeFacet<Trait>(scope, decl->requirements());
+    return ctx.make<GenericTypeParam>(getName(*decl), decl, scope, traitBound);
+}
+
+utl::small_vector<Symbol*> GlobalNameResolver::resolveGenParams(
+    Scope* scope, GenParamListFacet const& facet) {
+    auto params = facet.elems() | transform(FN1(&, declareGenParam(scope, _1)));
+    return params | ToSmallVector<>;
+}
+
 void GlobalNameResolver::doResolve(SourceFile& sourceFile) {
     sourceContext = &sourceFile.sourceContext();
     auto globals = sourceFile.facet()->decls() | csp::filter<VarDeclFacet>;
@@ -309,6 +306,8 @@ void GlobalNameResolver::doResolve(TraitImpl& impl) {
 }
 
 void GlobalNameResolver::doResolve(GenTraitImpl& impl) {
+    impl._genParams =
+        resolveGenParams(impl.associatedScope(), *impl.facet()->genParams());
     resolveInterface(impl.interface());
 }
 
@@ -380,6 +379,8 @@ void GlobalNameResolver::doResolve(CompositeType& type) {
 }
 
 void GlobalNameResolver::doResolve(GenCompositeType& type) {
+    type._genParams =
+        resolveGenParams(type.associatedScope(), *type.facet()->genParams());
     resolveInterface(type.interface());
 }
 
@@ -401,6 +402,8 @@ void GlobalNameResolver::doResolve(TraitDef& trait) {
 }
 
 void GlobalNameResolver::doResolve(GenTrait& trait) {
+    trait._genParams =
+        resolveGenParams(trait.associatedScope(), *trait.facet()->genParams());
     resolveInterface(trait.interface());
 }
 

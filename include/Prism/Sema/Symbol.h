@@ -180,6 +180,8 @@ protected:
         _genParams(std::move(genParams)) {}
 
 private:
+    friend struct GlobalNameResolver;
+
     utl::small_vector<Symbol*> _genParams;
 };
 
@@ -372,8 +374,9 @@ public:
     using InstantiationType = GenStructTypeInst;
 
     explicit GenStructType(SemaContext& ctx, std::string name,
-                           Facet const* facet, Scope* parent, Scope* scope,
-                           utl::small_vector<Symbol*>&& genParams):
+                           Facet const* facet, Scope* parent,
+                           Scope* scope = nullptr,
+                           utl::small_vector<Symbol*>&& genParams = {}):
         GenCompositeType(SymbolType::GenStructType, ctx, std::move(name), facet,
                          parent, scope, std::move(genParams)) {}
 };
@@ -635,13 +638,15 @@ public:
 ///
 class GenTrait: public GenericSymbol, public TraitInterface {
 public:
+    FACET_TYPE(CompTypeDeclFacet)
+
     using InstantiationType = GenTraitInst;
 
     using AssocScope::associatedScope;
 
     explicit GenTrait(SemaContext& ctx, std::string name, Facet const* facet,
-                      Scope* parent, Scope* scope,
-                      utl::small_vector<Symbol*>&& genParams):
+                      Scope* parent, Scope* scope = nullptr,
+                      utl::small_vector<Symbol*>&& genParams = {}):
         GenericSymbol(SymbolType::GenTrait, ctx, std::move(name), facet, parent,
                       scope, std::move(genParams)),
         TraitInterface(this) {}
@@ -752,7 +757,8 @@ public:
     using AssocScope::associatedScope;
 
     explicit GenTraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
-                          Scope* scope, utl::small_vector<Symbol*>&& genParams,
+                          Scope* scope = nullptr,
+                          utl::small_vector<Symbol*>&& genParams = {},
                           Trait* trait = nullptr,
                           ValueType* conforming = nullptr):
         GenericSymbol(SymbolType::GenTraitImpl, ctx, /* name: */ {}, facet,
@@ -971,8 +977,8 @@ public:
 class GenFuncImpl: public GenericSymbol, public FuncInterface {
 public:
     explicit GenFuncImpl(SemaContext& ctx, std::string name, Facet const* facet,
-                         Scope* parent, Scope* scope,
-                         utl::small_vector<Symbol*>&& genParams,
+                         Scope* parent, Scope* scope = nullptr,
+                         utl::small_vector<Symbol*>&& genParams = {},
                          utl::small_vector<FuncParam*>&& params = {},
                          Type const* retType = nullptr);
 
