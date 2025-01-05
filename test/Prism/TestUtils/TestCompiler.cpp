@@ -50,12 +50,6 @@ static void throwJitError(std::string_view exprSource,
 }
 
 Symbol* InvocationTester::eval(std::string_view exprSource) {
-    // We just leak this here...
-    auto* ctx = new SourceContext("test/expr-fragment.prism", exprSource);
-    DiagnosticHandler diagHandler;
-    auto* facet = parseExpr(gAlloc, *ctx, diagHandler);
-    if (diagHandler.hasErrors()) throwJitError(exprSource, diagHandler);
-    if (!facet) throw std::runtime_error("No facet");
     auto* globalScope = invocation().getTarget()->associatedScope();
     auto* fileScope = [&] {
         auto itr = ranges::find_if(globalScope->symbols(), isa<SourceFile>);
@@ -63,9 +57,19 @@ Symbol* InvocationTester::eval(std::string_view exprSource) {
             throw std::runtime_error("Cannot find source file");
         return (*itr)->associatedScope();
     }();
+    return eval(fileScope, exprSource);
+}
+
+Symbol* InvocationTester::eval(Scope* scope, std::string_view exprSource) {
+    // We just leak this here...
+    auto* ctx = new SourceContext("test/expr-fragment.prism", exprSource);
+    DiagnosticHandler diagHandler;
+    auto* facet = parseExpr(gAlloc, *ctx, diagHandler);
+    if (diagHandler.hasErrors()) throwJitError(exprSource, diagHandler);
+    if (!facet) throw std::runtime_error("No facet");
     auto* symbol =
-        analyzeFacet({ invocation().getSemaContext(), diagHandler, ctx },
-                     fileScope, facet);
+        analyzeFacet({ invocation().getSemaContext(), diagHandler, ctx }, scope,
+                     facet);
     if (!symbol || diagHandler.hasErrors())
         throwJitError(exprSource, diagHandler);
     return symbol;
