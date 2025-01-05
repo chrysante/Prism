@@ -75,6 +75,12 @@ diags:
     header: >
       str << "'this' must be the first parameter";
 
+  - name: ThisParamFreeFunction
+    base: SemaDiagnostic
+    kind: Error
+    header: >
+      str << "'this' cannot appear in non-member functions";
+
   - name: AmbiguousConformance
     base: SemaDiagnostic
     kind: Error

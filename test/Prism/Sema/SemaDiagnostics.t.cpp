@@ -44,6 +44,15 @@ trait T {  fn foo(n: i32, &this); }
     CHECK(c.findDiagOnLine<ThisParamBadPosition>(3));
 }
 
+TEST_CASE("ThisParamFreeFunction", "[sema]") {
+    auto c = makeDiagChecker(R"(
+fn foo(&this) {}
+fn bar(this) {}
+)");
+    CHECK(c.findDiagOnLine<ThisParamFreeFunction>(2));
+    CHECK(c.findDiagOnLine<ThisParamFreeFunction>(3));
+}
+
 TEST_CASE("AmbiguousConformance", "[sema]") {
     auto c = makeDiagChecker(R"(
 trait T1 { fn foo(&this); }

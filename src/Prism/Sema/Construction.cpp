@@ -480,7 +480,11 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
         },
         [&](TraitImpl& impl) { return impl.conformingType(); },
         [&](GenTraitImpl& impl) { return impl.conformingType(); },
-        [](Symbol const&) { PRISM_UNIMPLEMENTED(); }
+        [&](Symbol const&) {
+            DE.emit<ThisParamFreeFunction>(ctx.getSourceContext(typeFacet),
+                                           typeFacet);
+            return nullptr;
+        }
     }); // clang-format on
     if (ref) {
         auto* type = ctx.getRefType({ thisType, mut });
