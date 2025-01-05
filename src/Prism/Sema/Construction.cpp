@@ -471,7 +471,11 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
     if (!parentSymbol) PRISM_UNIMPLEMENTED();
     // clang-format off
     auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{
-        [&](UserType& type) { return &type; },
+        [&](CompositeType& type) { return &type; },
+        [&](GenCompositeType& genType) {
+            return instantiateGenericNoFail(ctx, genType,
+                                            genType.genParams());
+        },
         [&](Trait& trait) { return ctx.getDynTraitType(&trait); },
         [&](GenTrait& genTrait) {
             auto* trait = instantiateGenericNoFail(ctx, genTrait,

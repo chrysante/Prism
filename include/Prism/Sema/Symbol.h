@@ -355,6 +355,8 @@ public:
 /// Base class of all types with non-static member variables
 class GenCompositeType: public GenericSymbol, public CompTypeInterface {
 public:
+    using InstantiationType = GenStructTypeInst;
+
     FACET_TYPE(CompTypeDeclFacet)
 
 protected:
