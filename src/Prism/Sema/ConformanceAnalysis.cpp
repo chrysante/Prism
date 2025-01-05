@@ -10,6 +10,7 @@
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/Contracts.h"
 #include "Prism/Sema/DependencyGraph.h"
+#include "Prism/Sema/GenericInstantiation.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/Sema/SemaPrint.h"
@@ -32,6 +33,24 @@ static csp::unique_ptr<O> clone(O const& obl) {
     return csp::unique_ptr<O>(cast<O*>(c.release()));
 }
 
+static csp::unique_ptr<Obligation> cloneInstantiate(
+    SemaContext& ctx, Obligation const& obl, std::span<Symbol* const> genArgs,
+    std::span<Symbol* const> genParams) {
+    auto result = clone(obl);
+    auto* newSym = mapInstantiation(ctx, result->symbol(), genArgs, genParams);
+    result->setSymbol(newSym);
+    return result;
+}
+
+template <std::derived_from<Obligation> O>
+static csp::unique_ptr<O> cloneInstantiate(SemaContext& ctx, O const& obl,
+                                           std::span<Symbol* const> genArgs,
+                                           std::span<Symbol* const> genParams) {
+    auto c = cloneInstantiate(ctx, static_cast<Obligation const&>(obl), genArgs,
+                              genParams);
+    return csp::unique_ptr<O>(cast<O*>(c.release()));
+}
+
 namespace prism {
 
 struct ConfAnaContext: AnalysisBase {
@@ -44,11 +63,16 @@ struct ConfAnaContext: AnalysisBase {
     void doAnalyzeConformance(FunctionImpl& func, InterfaceLike& interface);
     void analyzeConformances(InterfaceLike& interface, Scope* scope);
     void inheritObligations(InterfaceLike const& base, InterfaceLike& derived);
+    void copyInstantiate(InterfaceLike& from, InterfaceLike& to,
+                         std::span<Symbol* const> genArgs,
+                         std::span<Symbol* const> genParams);
     void analyze(Symbol const&) {}
     void doAnalyze(TraitImplInterface& interface);
     void analyze(TraitDef& trait);
+    void analyze(GenTraitInst& trait);
     void analyze(GenTrait& trait);
     void analyze(TraitImplDef& impl);
+    void analyze(GenTraitImplInst& impl);
     void analyze(GenTraitImpl& impl);
     void analyze(CompositeType& type);
     void analyze(BaseTrait& base);
@@ -108,9 +132,23 @@ void ConfAnaContext::inheritObligations(InterfaceLike const& base,
             derived.addObligation(clone(*obl), SpecAddMode::Inherit);
 }
 
+void ConfAnaContext::copyInstantiate(InterfaceLike& from, InterfaceLike& to,
+                                     std::span<Symbol* const> genArgs,
+                                     std::span<Symbol* const> genParams) {
+    for (auto& [key, list]: from.obligations())
+        for (auto* obl: list)
+            to.addObligation(cloneInstantiate(ctx, *obl, genArgs, genParams),
+                             SpecAddMode::Inherit);
+}
+
 void ConfAnaContext::analyze(TraitDef& trait) {
     analyzeObligations(trait, trait.associatedScope());
     analyzeConformances(trait, trait.associatedScope());
+}
+
+void ConfAnaContext::analyze(GenTraitInst& trait) {
+    copyInstantiate(*trait.genTemplate(), trait, trait.genArguments(),
+                    trait.genTemplate()->genParams());
 }
 
 void ConfAnaContext::analyze(GenTrait& trait) {
@@ -159,6 +197,11 @@ void ConfAnaContext::doAnalyze(TraitImplInterface& interface) {
 
 void ConfAnaContext::analyze(TraitImplDef& impl) {
     doAnalyze(impl.interface());
+}
+
+void ConfAnaContext::analyze(GenTraitImplInst& impl) {
+    copyInstantiate(*impl.genTemplate(), impl, impl.genArguments(),
+                    impl.genTemplate()->genParams());
 }
 
 void ConfAnaContext::analyze(GenTraitImpl& impl) {

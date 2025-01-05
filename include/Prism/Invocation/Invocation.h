@@ -10,6 +10,7 @@ namespace prism {
 class SourceFileFacet;
 class Target;
 class DiagnosticHandler;
+class SemaContext;
 
 namespace detail {
 struct InvImpl;
@@ -48,11 +49,14 @@ public:
     ///
     DiagnosticHandler const& getDiagnosticHandler() const;
 
+    ///
+    SemaContext& getSemaContext();
+
     /// \Returns the parse tree of the source file \p filepath
     SourceFileFacet const* getParseTree(
         std::filesystem::path const& filepath) const;
 
-    /// \Returns the semanically analyzed sema target
+    /// \Returns the semantically analyzed sema target
     Target* getTarget() const;
 
 private:

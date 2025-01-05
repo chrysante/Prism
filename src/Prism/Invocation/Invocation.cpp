@@ -90,6 +90,8 @@ DiagnosticHandler const& Invocation::getDiagnosticHandler() const {
     return impl->diagHandler;
 }
 
+SemaContext& Invocation::getSemaContext() { return impl->semaContext; }
+
 SourceFileFacet const* Invocation::getParseTree(
     std::filesystem::path const& filepath) const {
     auto itr = impl->parseTrees.find(filepath);

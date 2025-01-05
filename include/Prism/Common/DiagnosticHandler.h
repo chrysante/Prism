@@ -19,6 +19,10 @@ class DiagnosticHandler {
     auto view() const { return list | std::views::transform(Dereference); }
 
 public:
+    /// Adds a diagnostic to this handler
+    Diagnostic* push(std::unique_ptr<Diagnostic> issue);
+
+    /// \overload for derived types
     template <std::derived_from<Diagnostic> I, typename... Args>
         requires std::constructible_from<I, Args&&...>
     I* push(Args&&... args) {
@@ -26,21 +30,24 @@ public:
         return static_cast<I*>(p);
     }
 
-    Diagnostic* push(std::unique_ptr<Diagnostic> issue) {
-        list.push_back(std::move(issue));
-        return list.back().get();
-    }
+    /// \Returns true if any of the pushed diagnostics are errors
+    bool hasErrors() const;
 
+    /// \Returns true if no diagnostics have been emitted
     bool empty() const { return list.empty(); }
 
+    /// \Returns the number of emitted diagnostics
     size_t size() const { return list.size(); }
 
+    /// Deletes all emitted diagnostics
     void clear() { list.clear(); }
 
+    /// Iterator interface @{
     auto begin() const { return view().begin(); }
     auto end() const { return view().end(); }
     auto const& front() const { return view().front(); }
     auto const& back() const { return view().back(); }
+    /// @}
 
     /// Writes all issues to `std::cerr`
     void print(SourceContext const& ctx);

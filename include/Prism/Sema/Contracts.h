@@ -45,6 +45,9 @@ public:
     /// \Returns the requiring symbol
     Symbol* symbol() const { return _sym; }
 
+    ///
+    void setSymbol(Symbol* sym) { _sym = sym; }
+
     /// The trait or struct defining this obligation
     Symbol* owner() const { return _owner; }
 

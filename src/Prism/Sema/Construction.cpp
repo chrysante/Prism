@@ -605,7 +605,7 @@ ConstructionResult prism::constructTarget(
     declareGlobals(ctx, diagHandler, target->associatedScope(), input);
     auto dependencies = resolveGlobalNames(resource, ctx, diagHandler,
                                            target->associatedScope());
-    generateGraphvizDebug(dependencies);
+    if (std::getenv("GENERATE_DEP_GRAPH")) generateGraphvizDebug(dependencies);
     dependencies.topsort();
     if (dependencies.hasCycle()) {
         diagHandler.push<TypeDefCycle>(dependencies.getCycle());

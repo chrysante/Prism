@@ -853,6 +853,9 @@ public:
     /// \Returns true if this parameter is a `this`-parameter
     bool isThis() const { return _isThis; }
 
+    /// \Returns the constructor options used to construct this object
+    Options options() const { return { _hasMut, _isThis }; }
+
     /// \Returns the corresponding argument value if the parameter belongs to a
     /// function implementation
     FuncArg* argument() { return _arg; }

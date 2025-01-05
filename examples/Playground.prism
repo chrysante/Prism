@@ -38,7 +38,7 @@ trait [To: type] ConvertibleTo {
 struct S {}
 
 impl ConvertibleTo(i32) for S {
-    
+    fn convert(&this) -> i32 { 42 }
 }
 
 
