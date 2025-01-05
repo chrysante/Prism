@@ -73,7 +73,8 @@ struct GlobalDeclDeclare: InstantiationBase {
     void declareFile(SourceFileFacet const& facet,
                      SourceContext const& sourceContext);
     Symbol* declare(Facet const* facet, Scope* scope);
-    Symbol* doDeclare(Facet const&, Scope const*) { return nullptr; }
+    Symbol* doDeclare(Facet const&, Scope const*) { PRISM_UNREACHABLE(); }
+    Symbol* doDeclare(VarDeclFacet const&, Scope const*) { return nullptr; }
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
