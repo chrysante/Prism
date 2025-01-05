@@ -24,24 +24,29 @@ public:
     DiagnosticChecker() = default;
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiagOnLine(int line) {
+    D const* findDiagOnLine(int line) const {
         return findImpl<D>(inv.getDiagnosticEmitter().getAll(),
                            onLineFn<D>(line));
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiagOnLine(Diagnostic const& diag, int line) {
+    D const* findDiagOnLine(Diagnostic const& diag, int line) const {
         return findImpl<D>(diag.children(), onLineFn<D>(line));
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiag() {
+    D const* findDiag() const {
         return findImpl<D>(inv.getDiagnosticEmitter().getAll(), Isa<D>);
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiag(Diagnostic const& diag) {
+    D const* findDiag(Diagnostic const& diag) const {
         return findImpl<D>(diag.children(), Isa<D>);
+    }
+
+    bool noDiagOnLine(int line) const {
+        return findImpl<Diagnostic>(inv.getDiagnosticEmitter().getAll(),
+                                    onLineFn<Diagnostic>(line)) == nullptr;
     }
 
     InvValue& invocation() { return inv; }
@@ -67,7 +72,7 @@ private:
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findImpl(auto&& rng, auto condition) {
+    D const* findImpl(auto&& rng, auto condition) const {
         auto itr = ranges::find_if(rng, condition, ToAddress);
         return itr != ranges::end(rng) ?
                    dynamic_cast<D const*>(std::to_address(*itr)) :

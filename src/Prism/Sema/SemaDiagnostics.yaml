@@ -11,6 +11,22 @@ diags:
       str << "Use of undeclared identifier '" << getID(facet(), sourceContext())
           << "'";
 
+  - name: Redefinition
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: name
+        type: std::string_view
+      - name: existing
+        type: Symbol const*
+        ctor_only: true
+    ctor_body: >
+      addNote(existing->facet(), [=](std::ostream& str) {
+          str << "Existing declaration is here";
+      });
+    header: >
+      str << "Redefition of name '" << name << "'";
+
   - name: TypeDefCycle
     base: SemaDiagnostic
     kind: Error

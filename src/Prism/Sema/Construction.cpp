@@ -50,7 +50,8 @@ static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
 namespace {
 
 struct InstantiationBase: AnalysisBase {
-    std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
+    std::string_view getNameView(
+        std::derived_from<DeclFacet> auto const& facet) const {
         PRISM_ASSERT(sourceContext);
         auto token = [&] {
             if constexpr (std::same_as<Token, decltype(facet.name())>)
@@ -59,7 +60,11 @@ struct InstantiationBase: AnalysisBase {
                 return cast<TerminalFacet const&>(*facet.name()).token();
         }();
         PRISM_ASSERT(token.kind == TokenKind::Identifier);
-        return std::string(sourceContext->getTokenStr(token));
+        return sourceContext->getTokenStr(token);
+    }
+
+    std::string getName(std::derived_from<DeclFacet> auto const& facet) const {
+        return std::string(getNameView(facet));
     }
 };
 
@@ -69,7 +74,7 @@ struct GlobalDeclDeclare: InstantiationBase {
     Scope* globalScope;
 
     void run(std::span<SourceFilePair const> input);
-    void declareChildren(Scope* scope, auto const& children);
+    void declareChildren(Symbol* sym, auto const& children);
     void declareFile(SourceFileFacet const& facet,
                      SourceContext const& sourceContext);
     Symbol* declare(Facet const* facet, Scope* scope);
@@ -78,9 +83,20 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
-    Symbol* doDeclareGen(CompTypeDeclFacet const& facet, Scope* parent);
     Symbol* doDeclare(TraitImplFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(TraitImplFacet const& facet, Scope* parent);
+
+    template <std::derived_from<Symbol> S, typename... Args>
+    S* declare(std::derived_from<DeclFacet> auto const& facet, Scope* parent,
+               Args&&... args) {
+        if (!preventRedef<S>(facet, parent)) return nullptr;
+        return ctx.make<S>(getName(facet), &facet, parent,
+                           std::forward<Args>(args)...);
+    }
+
+    template <std::derived_from<Symbol> S>
+    bool preventRedef(std::derived_from<DeclFacet> auto const& facet,
+                      Scope* parent);
 };
 
 } // namespace
@@ -89,7 +105,9 @@ void GlobalDeclDeclare::run(std::span<SourceFilePair const> input) {
     ranges::for_each(input, FN1(&, declareFile(*_1.facet, *_1.context)));
 }
 
-void GlobalDeclDeclare::declareChildren(Scope* scope, auto const& children) {
+void GlobalDeclDeclare::declareChildren(Symbol* symbol, auto const& children) {
+    if (!symbol) return;
+    auto* scope = symbol->associatedScope();
     ranges::for_each(children, FN1(&, declare(_1, scope)));
 }
 
@@ -98,7 +116,7 @@ void GlobalDeclDeclare::declareFile(SourceFileFacet const& facet,
     this->sourceContext = &sourceContext;
     auto* file = ctx.make<SourceFile>(sourceContext.filepath().string(), &facet,
                                       globalScope, sourceContext);
-    declareChildren(file->associatedScope(), facet.decls());
+    declareChildren(file, facet.decls());
 }
 
 Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
@@ -107,51 +125,36 @@ Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(VarDeclFacet const& facet, Scope* parent) {
-    return ctx.make<Variable>(getName(facet), &facet, parent, QualType());
+    return declare<Variable>(facet, parent, QualType());
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
-    if (facet.genParams()) return doDeclareGen(facet, parent);
+    if (facet.genParams()) return declare<GenFuncImpl>(facet, parent);
     if (facet.body() && isa<CompoundFacet>(facet.body()))
-        return ctx.make<FunctionImpl>(getName(facet), &facet, parent);
-    return ctx.make<Function>(getName(facet), &facet, parent);
+        return declare<FunctionImpl>(facet, parent);
+    return declare<Function>(facet, parent);
 }
 
 Symbol* GlobalDeclDeclare::doDeclareGen(FuncDefFacet const& facet,
                                         Scope* parent) {
-    return ctx.make<GenFuncImpl>(getName(facet), &facet, parent);
+    return declare<GenFuncImpl>(facet, parent);
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(CompTypeDeclFacet const& facet,
                                      Scope* parent) {
-    if (facet.genParams()) return doDeclareGen(facet, parent);
     auto* typeOrTrait = [&]() -> Symbol* {
         switch (facet.declarator().kind) {
         case TokenKind::Struct:
-            return ctx.make<StructType>(getName(facet), &facet, parent);
+            if (facet.genParams()) return declare<GenStructType>(facet, parent);
+            return declare<StructType>(facet, parent);
         case TokenKind::Trait:
-            return ctx.make<TraitDef>(getName(facet), &facet, parent);
+            if (facet.genParams()) return declare<GenTrait>(facet, parent);
+            return declare<TraitDef>(facet, parent);
         default:
             PRISM_UNREACHABLE();
         }
     }();
-    declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
-    return typeOrTrait;
-}
-
-Symbol* GlobalDeclDeclare::doDeclareGen(CompTypeDeclFacet const& facet,
-                                        Scope* parent) {
-    auto* typeOrTrait = [&]() -> Symbol* {
-        switch (facet.declarator().kind) {
-        case TokenKind::Struct:
-            return ctx.make<GenStructType>(getName(facet), &facet, parent);
-        case TokenKind::Trait:
-            return ctx.make<GenTrait>(getName(facet), &facet, parent);
-        default:
-            PRISM_UNREACHABLE();
-        }
-    }();
-    declareChildren(typeOrTrait->associatedScope(), facet.body()->elems());
+    declareChildren(typeOrTrait, facet.body()->elems());
     return typeOrTrait;
 }
 
@@ -161,7 +164,7 @@ Symbol* GlobalDeclDeclare::doDeclare(TraitImplFacet const& facet,
     auto* impl = ctx.make<TraitImplDef>(&facet, parent);
     auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
     PRISM_ASSERT(implFacet->body());
-    declareChildren(impl->associatedScope(), implFacet->body()->elems());
+    declareChildren(impl, implFacet->body()->elems());
     return impl;
 }
 
@@ -170,8 +173,21 @@ Symbol* GlobalDeclDeclare::doDeclareGen(TraitImplFacet const& facet,
     auto* impl = ctx.make<GenTraitImpl>(&facet, parent);
     auto* implFacet = cast<TraitImplTypeFacet const*>(facet.definition());
     PRISM_ASSERT(implFacet->body());
-    declareChildren(impl->associatedScope(), implFacet->body()->elems());
+    declareChildren(impl, implFacet->body()->elems());
     return impl;
+}
+
+template <std::derived_from<Symbol> S>
+bool GlobalDeclDeclare::preventRedef(
+    std::derived_from<DeclFacet> auto const& facet, Scope* parent) {
+    auto name = getNameView(facet);
+    auto existing = parent->symbolsByName(name);
+    if (existing.empty()) return true;
+    if (csp::impl::isaIDImpl<Function>(csp::impl::TypeToID<S>) &&
+        isa<Function>(existing.front()))
+        return true;
+    DE.emit<Redefinition>(sourceContext, &facet, name, existing.front());
+    return false;
 }
 
 static void declareGlobals(SemaContext& ctx, DiagnosticEmitter& DE,

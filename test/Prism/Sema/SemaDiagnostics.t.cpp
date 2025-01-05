@@ -12,6 +12,27 @@ fn foo(arg: Bar) {}
     CHECK(c.findDiagOnLine<UndeclaredID>(2));
 }
 
+TEST_CASE("Redefinition", "[sema]") {
+    auto c = makeDiagChecker(R"(
+/* 2: */ struct MyType {}
+/* 3: */ struct MyType {}
+/* 4: */ trait MyTrait {}
+/* 5: */ trait MyTrait {}
+/* 6: */ var MyVar: i32;
+/* 7: */ var MyVar: i32;
+/* 8: */ fn MyFunc() -> i32 {}
+/* 9: */ fn MyFunc(n: i32) -> i32 {}
+)");
+    CHECK(c.noDiagOnLine(2));
+    CHECK(c.findDiagOnLine<Redefinition>(3));
+    CHECK(c.noDiagOnLine(4));
+    CHECK(c.findDiagOnLine<Redefinition>(5));
+    CHECK(c.noDiagOnLine(6));
+    CHECK(c.findDiagOnLine<Redefinition>(7));
+    CHECK(c.noDiagOnLine(8));
+    CHECK(c.noDiagOnLine(9));
+}
+
 TEST_CASE("TypeDefCycle", "[sema]") {
     auto c = makeDiagChecker(R"(
 struct Foo { var bar: Bar; }
