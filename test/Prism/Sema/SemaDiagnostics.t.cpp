@@ -88,3 +88,14 @@ TEST_CASE("Bad generic instantiation", "[sema]") {
     CHECK(c.findDiagOnLine<BadSymRef>(6));
     CHECK(c.findDiagOnLine<BadGenTypeArg>(7));
 }
+
+TEST_CASE("Members and base classes in trait", "[sema]") {
+    auto c = makeDiagChecker(R"(
+trait T: S {
+    var value: i32;
+}
+struct S {}
+)");
+    CHECK(c.findDiagOnLine<BaseClassInTrait>(2));
+    CHECK(c.findDiagOnLine<MemVarInTrait>(3));
+}

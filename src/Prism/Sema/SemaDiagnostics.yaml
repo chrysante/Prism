@@ -106,6 +106,29 @@ diags:
           str << "Declaration of " << formatName(impl)
               << " is missing implementations for a base trait";
      
+  - name: BaseClassInTrait
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: trait
+        type: Symbol const*
+      - name: base
+        type: BaseClass const*
+    header: >
+      str << "Trait " << formatName(trait) << " cannot inherit from struct "
+          << formatName(base->type());
+
+  - name: MemVarInTrait
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: trait
+        type: Symbol const*
+      - name: member
+        type: MemberVar const*
+    header: >
+      str << "Trait " << formatName(trait)
+          << " cannot have non-static member variables";
 
   - name: DuplicateTraitImpl
     base: SemaDiagnostic

@@ -413,9 +413,11 @@ void GlobalNameResolver::resolveInterface(TraitInterface& interface) {
         if (auto* basetrait = dyncast<BaseTrait*>(sym))
             interface._baseTraits.push_back(basetrait);
         else if (auto* baseclass = dyncast<BaseClass*>(sym))
-            PRISM_UNIMPLEMENTED(); // Error
+            DE.emit<BaseClassInTrait>(ctx.getSourceContext(baseclass->facet()),
+                                      baseclass->facet(), &trait, baseclass);
         else if (auto* memvar = dyncast<MemberVar*>(sym))
-            PRISM_UNIMPLEMENTED(); // Error
+            DE.emit<MemVarInTrait>(ctx.getSourceContext(memvar->facet()),
+                                   memvar->facet(), &trait, memvar);
     });
     resolveChildren(trait);
 }
