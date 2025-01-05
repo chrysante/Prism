@@ -282,6 +282,8 @@ bool prism::conformsTo(ValueType const& type, Trait const& trait) {
                            FN1(&, conformsTo(*_1->type(), trait))))
             return true;
     }
+    if (auto* param = dyncast<GenericTypeParam const*>(&type))
+        return conformsTo(*param->traitBound(), trait);
     if (type.findTraitImpl(&trait) != nullptr) return true;
     if (auto* inst = dyncast<GenTraitInst const*>(&trait)) {
         auto impls = type.findTraitImpls(inst->genTemplate());
