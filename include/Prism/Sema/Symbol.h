@@ -900,6 +900,12 @@ public:
     /// \overload
     std::span<FuncParam const* const> params() const { return _params; }
 
+    /// \Returns the parameter at \p index
+    FuncParam* paramAt(size_t index) { return params()[index]; }
+
+    /// \overload
+    FuncParam const* paramAt(size_t index) const { return params()[index]; }
+
     /// \Returns the return type of this function
     Type const* retType() const { return signature().retType(); }
 
