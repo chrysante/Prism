@@ -29,9 +29,14 @@ InvocationTester prism::makeInvTester(std::string source,
                                       InvocationStage stage) {
     InvocationTester t;
     doInvoke(t.invocation(), std::move(source), stage);
-    if (options.expectNoErrors &&
-        t.invocation().getDiagnosticHandler().hasErrors())
-        throw std::runtime_error("Failed to compile");
+    auto& diags = t.invocation().getDiagnosticHandler();
+    if (options.expectNoErrors && diags.hasErrors()) {
+        std::stringstream sstr;
+        sstr << "Failed to compile: ";
+        SourceContext ctx;
+        diags.format(sstr, ctx);
+        throw std::runtime_error(std::move(sstr).str());
+    }
     return t;
 }
 

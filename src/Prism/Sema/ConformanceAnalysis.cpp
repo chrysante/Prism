@@ -18,8 +18,10 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+using ranges::views::concat;
 using ranges::views::reverse;
 using ranges::views::transform;
+using ranges::views::zip;
 
 static csp::unique_ptr<Obligation> clone(Obligation const& obl) {
     return visit<csp::unique_ptr<Obligation>>(obl, []<class T>(T const& obl) {
@@ -170,9 +172,13 @@ void ConfAnaContext::doAnalyze(TraitImplInterface& interface) {
     auto* conf = interface.conformingType();
     if (!trait || !conf) return;
     auto* existing = [&]() -> Symbol const* {
-        if (auto* ex = conf->findTraitImpl(trait)) return ex;
-        auto itr = ranges::find(conf->baseTraits(), trait, FN1(_1->trait()));
-        return itr != conf->baseTraits().end() ? *itr : nullptr;
+        if (auto* ex = conf->findTraitImpl(trait)) return &ex->traitImpl();
+        if (auto* compType = dyncast<CompositeType*>(conf)) {
+            auto baseTraits = compType->baseTraits();
+            auto itr = ranges::find(baseTraits, trait, FN1(_1->trait()));
+            return itr != baseTraits.end() ? *itr : nullptr;
+        }
+        return nullptr;
     }();
     auto& impl = interface.traitImpl();
     if (existing) {
@@ -185,14 +191,12 @@ void ConfAnaContext::doAnalyze(TraitImplInterface& interface) {
     if (!interface.isComplete())
         diagHandler.push<IncompleteImpl>(sourceContext, impl.facet(), &impl,
                                          interface);
-    visit(impl, [&]<typename T>(T& impl) {
-        if constexpr (std::same_as<T, TraitImplDef>)
-            conf->setTraitImpl(impl);
-        else if constexpr (std::same_as<T, GenTraitImpl>)
-            conf->setTraitImpl(impl);
-        else
-            PRISM_UNREACHABLE();
-    });
+    // clang-format off
+    visit(impl, csp::overload{
+        [&](TraitImplDef& impl) { conf->setTraitImpl(impl); },
+        [&](GenTraitImpl& impl) { conf->setTraitImpl(impl); },
+        [&](Symbol const&) { PRISM_UNREACHABLE(); }
+    }); // clang-format on
 }
 
 void ConfAnaContext::analyze(TraitImplDef& impl) {
@@ -242,4 +246,60 @@ void prism::analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
                                DiagnosticHandler& diagHandler, Symbol& sym) {
     ConfAnaContext confCtx{ ctx, diagHandler, getSourceContext(&sym) };
     visit(sym, FN1(&, confCtx.analyze(_1)));
+}
+
+static bool specArgMatch(Symbol const* existingArg, Symbol const* newArg) {
+    if (existingArg == newArg) return true;
+    if (auto* typeParam = dyncast<GenericTypeParam const*>(existingArg)) {
+        auto* typeArg = dyncast<ValueType const*>(newArg);
+        if (!typeArg) return false;
+        return conformsTo(*typeArg, *typeParam->trait());
+    }
+    return false;
+}
+
+static bool isSpecializationOf(Symbol const* spec, Symbol const* general) {
+    if (spec == general) return true;
+    // clang-format off
+    return visit(*spec, csp::overload{
+        [&](GenTraitInst const& spec) {
+            auto* genInst = dyncast<GenTraitInst const*>(general);
+            if (!genInst) return false;
+            if (spec.genTemplate() != genInst->genTemplate())
+                return false;
+            return ranges::all_of(zip(genInst->genArguments(),
+                                      spec.genArguments()),
+                                  FN1(specArgMatch(_1.first, _1.second)));
+        },
+        [](Symbol const&) { return false; },
+    }); // clang-format on
+}
+
+bool prism::conformsTo(ValueType const& type, Trait const& trait) {
+    if (trait.name() == "type") // Ugh, how to we fix this?!
+        return true;            // All types conform to the `type` trait
+    if (auto* compType = dyncast<CompositeType const*>(&type)) {
+        if (ranges::any_of(compType->baseTraits(),
+                           FN1(&, conformsTo(*_1->trait(), trait))))
+            return true;
+        if (ranges::any_of(compType->baseClasses(),
+                           FN1(&, conformsTo(*_1->type(), trait))))
+            return true;
+    }
+    if (type.findTraitImpl(&trait) != nullptr) return true;
+    if (auto* inst = dyncast<GenTraitInst const*>(&trait)) {
+        auto impls = type.findTraitImpls(inst->genTemplate());
+        for (auto* impl: impls)
+            if (isSpecializationOf(&type, impl->conformingType()) &&
+                isSpecializationOf(&trait, impl->trait()))
+                return true;
+    }
+    return false;
+}
+
+bool prism::conformsTo(Trait const& derived, Trait const& base) {
+    if (base.name() == "type") return true;
+    if (&derived == &base) return true;
+    return ranges::any_of(derived.baseTraits(),
+                          FN1(&, conformsTo(*_1->trait(), base)));
 }

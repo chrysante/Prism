@@ -1,3 +1,16 @@
+trait [To: type] ConvertibleTo {
+    fn convert(&this) -> To;
+}
+
+struct S {}
+
+trait Int32 {}
+
+impl Int32 for i32 {}
+
+impl [T: Int32] ConvertibleTo(T) for S {
+    fn convert(&this) -> T {}
+}
 
 /*
 
@@ -30,7 +43,7 @@ struct S: Foo {
 }
 
 */
-
+/*
 trait [To: type] ConvertibleTo {
     fn convert(&this) -> To;
 }
@@ -40,7 +53,7 @@ struct S {}
 impl ConvertibleTo(i32) for S {
     fn convert(&this) -> i32 { 42 }
 }
-
+*/
 
 //fn [T: type] foo(arg: T) {}
 //

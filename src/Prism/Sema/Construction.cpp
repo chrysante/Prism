@@ -315,8 +315,8 @@ void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
     auto* def = cast<TraitImplTypeFacet const*>(facet->definition());
     interface._trait =
         analyzeFacet<Trait>(impl.associatedScope(), def->traitDeclRef());
-    interface._conf = analyzeFacet<CompositeType>(impl.associatedScope(),
-                                                  def->conformingTypename());
+    interface._conf = analyzeFacet<ValueType>(impl.associatedScope(),
+                                              def->conformingTypename());
     auto* node = getNode(impl);
     addDependency(node, interface._trait);
     addDependency(node, interface._conf);
@@ -474,6 +474,7 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
             return ctx.getDynTraitType(trait);
         },
         [&](TraitImpl& impl) { return impl.conformingType(); },
+        [&](GenTraitImpl& impl) { return impl.conformingType(); },
         [](Symbol const&) { PRISM_UNIMPLEMENTED(); }
     }); // clang-format on
     if (ref) {

@@ -47,28 +47,30 @@ ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
     ValueType(symType, std::move(name), facet, parent, layout),
     AssocScope(ctx, scope, this) {}
 
-TraitImpl const* CompTypeInterface::findTraitImpl(Trait const* trait) const {
-    return doFindTraitImpl<TraitImpl>(trait);
+TraitImplInterface const* TraitConformer::findTraitImpl(
+    Trait const* trait) const {
+    auto itr = _traitImpls.find(trait);
+    return itr != _traitImpls.end() ? itr->second : nullptr;
 }
 
 /// \overload
-GenTraitImpl const* CompTypeInterface::findTraitImpl(
+std::span<GenTraitImpl const* const> TraitConformer::findTraitImpls(
     GenTrait const* trait) const {
-    return doFindTraitImpl<GenTraitImpl>(trait);
+    auto itr = _genTraitImpls.find(trait);
+    if (itr != _genTraitImpls.end()) return itr->second;
+    return {};
 }
 
-template <typename Impl>
-Impl const* CompTypeInterface::doFindTraitImpl(Symbol const* trait) const {
-    auto itr = _traitImpls.find(trait);
-    return itr != _traitImpls.end() ? cast<Impl const*>(itr->second) : nullptr;
-}
-
-void CompTypeInterface::setTraitImpl(TraitImpl& impl) {
+void TraitConformer::setTraitImpl(TraitImpl& impl) {
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
     PRISM_ASSERT(success, "Duplicate implementation");
 }
 
-void CompTypeInterface::setTraitImpl(GenTraitImpl& impl) {
+void TraitConformer::setTraitImpl(GenTraitImpl& impl) {
+    if (auto* trait = dyncast<GenTraitInst*>(impl.trait())) {
+        _genTraitImpls[trait->genTemplate()].push_back(&impl);
+        return;
+    }
     auto [itr, success] = _traitImpls.insert({ impl.trait(), &impl });
     PRISM_ASSERT(success, "Duplicate implementation");
 }

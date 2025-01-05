@@ -19,6 +19,12 @@ void analyzeConformances(MonotonicBufferResource& resource, SemaContext& ctx,
 void analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
                         DiagnosticHandler& diagHandler, Symbol& sym);
 
+/// \Returns true of \p type conforms to \p trait
+bool conformsTo(ValueType const& type, Trait const& trait);
+
+/// \Returns true of \p derived conforms to \p base
+bool conformsTo(Trait const& derived, Trait const& base);
+
 } // namespace prism
 
 #endif // PRISM_SEMA_CONFORMANCEANALYSIS_H

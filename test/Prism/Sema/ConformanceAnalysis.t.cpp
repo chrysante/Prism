@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/Symbol.h"
 #include "Prism/TestUtils/TestCompiler.h"
 
@@ -26,9 +27,13 @@ impl MyTrait for S {
                                 { .expectNoErrors = true });
     auto* S = tester.eval<StructType>("S");
     CHECK(S->isComplete());
-    auto* impl = S->findTraitImpl(tester.eval<Trait>("MyTrait"));
+    auto* MyTrait = tester.eval<Trait>("MyTrait");
+    auto* impl = S->findTraitImpl(MyTrait);
     REQUIRE(impl);
     CHECK(impl->isComplete());
+    auto* MyOtherTrait = tester.eval<Trait>("MyOtherTrait");
+    CHECK(conformsTo(*S, *MyTrait));
+    CHECK(conformsTo(*S, *MyOtherTrait));
 }
 
 TEST_CASE("Impl for generic trait", "[sema]") {
@@ -48,10 +53,34 @@ impl ConvertibleTo(i32) for S {
     auto* impl = S->findTraitImpl(tester.eval<Trait>("ConvertibleTo(i32)"));
     REQUIRE(impl);
     CHECK(impl->isComplete());
-    auto* implScope = impl->associatedScope();
+    auto* implScope = impl->traitImpl().associatedScope();
     auto* convert = tester.eval<Function>(implScope, "convert");
     CHECK(convert->parentScope() == implScope);
     auto* thisType = dyncast<ReferenceType const*>(convert->paramAt(0)->type());
     REQUIRE(thisType);
     CHECK(thisType->referred().get() == S);
+}
+
+TEST_CASE("Generic trait implementation", "[sema]") {
+    auto tester = makeInvTester(R"(
+trait [To: type] ConvertibleTo {
+    fn convert(&this) -> To;
+}
+
+struct S {}
+
+trait Int32 {}
+
+impl Int32 for i32 {}
+
+impl [T: Int32] ConvertibleTo(T) for S {
+    fn convert(&this) -> T {}
+}
+)",
+                                { .expectNoErrors = true });
+    auto* S = tester.eval<StructType>("S");
+    auto* convToI32 = tester.eval<Trait>("ConvertibleTo(i32)");
+    CHECK(conformsTo(*S, *convToI32));
+    auto* convToI64 = tester.eval<Trait>("ConvertibleTo(i64)");
+    CHECK(!conformsTo(*S, *convToI64));
 }

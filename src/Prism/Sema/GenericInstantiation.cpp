@@ -7,6 +7,7 @@
 #include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
+#include "Prism/Sema/ConformanceAnalysis.h"
 #include "Prism/Sema/SemaContext.h"
 #include "Prism/Sema/Symbol.h"
 
@@ -154,12 +155,6 @@ Symbol* GenInstContext::instantiate(GenTrait& templ) {
         instantiation->_baseTraits.push_back(newBase);
     }
     return instantiation;
-}
-
-static bool conformsTo(ValueType const&, Trait const& trait) {
-    if (trait.name() == "type") // Ugh, how to we fix this?!
-        return true;            // All types conform to the `type` trait
-    return false;               // For now
 }
 
 static bool validateArguments(GenericSymbol& gensym,

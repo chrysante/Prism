@@ -22,9 +22,8 @@ void DiagnosticHandler::print(SourceContext const& ctx) {
     format(std::cerr, ctx);
 }
 
-void DiagnosticHandler::format(std::ostream& str,
-                               SourceContext const& ctx) const {
+void DiagnosticHandler::format(std::ostream& str, SourceContext const&) const {
     for (auto& issue: *this) {
-        issue.format(str, &ctx);
+        issue.format(str, nullptr);
     }
 }

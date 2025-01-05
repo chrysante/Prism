@@ -10,6 +10,7 @@
 
 #include <APMath/APInt.h>
 #include <utl/hashtable.hpp>
+#include <utl/small_ptr_vector.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Assert.h>
@@ -198,9 +199,47 @@ private:
     TypeLayout _layout;
 };
 
+class TraitImplInterface;
+
+/// Base class for symbols that can conform to traits. This should probably be
+/// only `ValueType`
+class TraitConformer {
+public:
+    /// \Returns the implementation for \p trait if it exists
+    TraitImplInterface* findTraitImpl(Trait const* trait) {
+        return const_cast<TraitImplInterface*>(
+            std::as_const(*this).findTraitImpl(trait));
+    }
+
+    /// \overload
+    std::span<GenTraitImpl* const> findTraitImpl(GenTrait const* trait) {
+        auto result = std::as_const(*this).findTraitImpls(trait);
+        return { const_cast<GenTraitImpl* const*>(result.data()),
+                 result.size() };
+    }
+
+    /// \overload
+    TraitImplInterface const* findTraitImpl(Trait const* trait) const;
+
+    /// \overload
+    std::span<GenTraitImpl const* const> findTraitImpls(
+        GenTrait const* trait) const;
+
+    ///
+    void setTraitImpl(TraitImpl& impl);
+
+    ///
+    void setTraitImpl(GenTraitImpl& impl);
+
+private:
+    utl::hashmap<Trait const*, TraitImplInterface*> _traitImpls;
+    utl::hashmap<GenTrait const*, utl::small_ptr_vector<GenTraitImpl*>>
+        _genTraitImpls;
+};
+
 /// Base class of types that contain "values" as opposed to references and
 /// functions
-class ValueType: public Type {
+class ValueType: public Type, public TraitConformer {
 protected:
     using Type::Type;
 };
@@ -275,44 +314,16 @@ public:
     /// \overload
     std::span<MemberVar const* const> memberVars() const { return _memvars; }
 
-    /// \Returns the implementation for \p trait if it exists
-    TraitImpl* findTraitImpl(Trait const* trait) {
-        return const_cast<TraitImpl*>(
-            std::as_const(*this).findTraitImpl(trait));
-    }
-
-    /// \overload
-    GenTraitImpl* findTraitImpl(GenTrait const* trait) {
-        return const_cast<GenTraitImpl*>(
-            std::as_const(*this).findTraitImpl(trait));
-    }
-
-    /// \overload
-    TraitImpl const* findTraitImpl(Trait const* trait) const;
-
-    /// \overload
-    GenTraitImpl const* findTraitImpl(GenTrait const* trait) const;
-
-    ///
-    void setTraitImpl(TraitImpl& impl);
-
-    ///
-    void setTraitImpl(GenTraitImpl& impl);
-
 private:
     friend struct GlobalNameResolver;
     friend struct InstantiationContext;
     friend struct GenInstContext;
     friend class GenStructTypeInst;
 
-    template <typename Impl>
-    Impl const* doFindTraitImpl(Symbol const* trait) const;
-
     Symbol& _sym;
     std::vector<BaseTrait*> _baseTraits;
     std::vector<BaseClass*> _bases;
     std::vector<MemberVar*> _memvars;
-    utl::hashmap<Symbol const*, Symbol*> _traitImpls;
 };
 
 /// Base class of all types with non-static member variables
@@ -662,7 +673,7 @@ private:
 class TraitImplInterface: public InterfaceLike {
 public:
     explicit TraitImplInterface(Symbol* traitImpl, Trait* trait,
-                                CompositeType* conforming):
+                                ValueType* conforming):
         _sym(*traitImpl), _trait(trait), _conf(conforming) {}
 
     ///
@@ -682,17 +693,17 @@ public:
     Trait const* trait() const { return _trait; }
 
     /// \Returns the type for which \p trait is implemented
-    CompositeType* conformingType() { return _conf; }
+    ValueType* conformingType() { return _conf; }
 
     /// \overload
-    CompositeType const* conformingType() const { return _conf; }
+    ValueType const* conformingType() const { return _conf; }
 
 private:
     friend struct GlobalNameResolver;
 
     Symbol& _sym;
     Trait* _trait = nullptr;
-    CompositeType* _conf = nullptr;
+    ValueType* _conf = nullptr;
 };
 
 ///
@@ -707,7 +718,7 @@ public:
 
 protected:
     explicit TraitImpl(SymbolType symType, SemaContext& ctx, Facet const* facet,
-                       Scope* parent, Trait* trait, CompositeType* conforming):
+                       Scope* parent, Trait* trait, ValueType* conforming):
         Symbol(symType, /* name: */ {}, facet, parent),
         AssocScope(ctx, nullptr, this),
         TraitImplInterface(this, trait, conforming) {}
@@ -733,7 +744,7 @@ public:
     explicit GenTraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
                           Scope* scope, utl::small_vector<Symbol*>&& genParams,
                           Trait* trait = nullptr,
-                          CompositeType* conforming = nullptr):
+                          ValueType* conforming = nullptr):
         GenericSymbol(SymbolType::GenTraitImpl, ctx, /* name: */ {}, facet,
                       parent, scope, std::move(genParams)),
         TraitImplInterface(this, trait, conforming) {}

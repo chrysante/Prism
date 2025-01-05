@@ -12,9 +12,9 @@
 using namespace prism;
 using namespace tfmt::modifiers;
 
-void Diagnostic::format(std::ostream& str, SourceContext const* ctx) const {
+void Diagnostic::format(std::ostream& str, SourceContext const*) const {
     TreeFormatter fmt(str);
-    formatImpl(fmt, ctx);
+    formatImpl(fmt, sourceContext());
 }
 
 std::optional<FullSourceRange> Diagnostic::sourceRange() const {
