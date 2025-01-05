@@ -1,5 +1,6 @@
 #include "Prism/Facet/Facet.h"
 
+#include <algorithm>
 #include <string_view>
 #include <vector>
 
@@ -11,6 +12,17 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+
+Facet::Facet(FacetType nodeType, std::span<Facet const* const> children):
+    data{ .nonTerm{ .flag = 1,
+                    .numChildren = static_cast<uint32_t>(children.size()),
+                    .type = nodeType } } {
+    std::transform(children.begin(), children.end(), getChildrenPtr(),
+                   [&](Facet const* child) {
+        if (child) const_cast<Facet*>(child)->_parent = this;
+        return child;
+    });
+}
 
 using namespace tfmt::modifiers;
 

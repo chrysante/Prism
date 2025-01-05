@@ -1,7 +1,34 @@
+///
+/// \File Facet.h
+///
+/// \Brief Facet Classes for Parse Tree Representation
+///
+/// This module defines the `Facet` class hierarchy, which represents the nodes
+/// of a parse tree used in the parsing process of the Prism language. Each
+/// `Facet` corresponds to a node in the parse tree, allowing for the
+/// representation of both terminal and non-terminal constructs within the
+/// language's grammar.
+///
+/// The `Facet` class serves as the base class, providing common functionalities
+/// such as storing child nodes, accessing parent nodes, and determining the
+/// type of node (terminal or non-terminal). Derived classes, such as
+/// `TerminalFacet` and `NonTerminalFacet`, implement specific behaviors for
+/// their respective types of nodes.
+///
+/// Additionally, specialized list facets (e.g., `ListFacet`, `StmtListFacet`)
+/// facilitate the organization of collections of nodes, enabling the
+/// representation of sequences like statements or parameters within the parse
+/// tree.
+///
+/// Further derived facet classes are defined in the included
+/// `Facets.inl` file, which extends the functionality of the base
+/// `NonTerminalFacet` class and provides additional specific node types used
+/// throughout the parsing process.
+///
+
 #ifndef PRISM_FACET_FACET_H
 #define PRISM_FACET_FACET_H
 
-#include <algorithm>
 #include <bit>
 #include <iosfwd>
 #include <span>
@@ -20,6 +47,7 @@
 
 namespace prism {
 
+/// Base class of all facets
 class Facet {
 public:
     std::span<Facet const* const> children() const {
@@ -36,26 +64,23 @@ public:
         return cast<F const*>(childAt(index));
     }
 
-protected:
-    explicit Facet(Token tok): term{ .tok = tok } {}
+    Facet const* parent() const { return _parent; }
 
-    explicit Facet(FacetType nodeType, std::span<Facet const* const> children):
-        nonTerm{ .flag = 1,
-                 .numChildren = static_cast<uint32_t>(children.size()),
-                 .type = nodeType } {
-        std::copy(children.begin(), children.end(), getChildrenPtr());
-    }
+protected:
+    explicit Facet(Token tok): data{ .term{ .tok = tok } } {}
+
+    explicit Facet(FacetType nodeType, std::span<Facet const* const> children);
 
     friend FacetType get_rtti(Facet const& node) { return node.getNodeType(); }
 
     FacetType getNodeType() const {
         auto cat = getCategory();
-        return cat == FacetType::NonTerminalFacet ? nonTerm.type : cat;
+        return cat == FacetType::NonTerminalFacet ? data.nonTerm.type : cat;
     }
 
     FacetType getCategory() const {
         using enum FacetType;
-        size_t index = std::bit_cast<uint64_t>(*this) & 1;
+        size_t index = std::bit_cast<uint64_t>(data) & 1;
         return std::array{ TerminalFacet, NonTerminalFacet }[index];
     }
 
@@ -65,7 +90,7 @@ protected:
 
     size_t getNumChildren() const {
         return getCategory() == FacetType::NonTerminalFacet ?
-                   nonTerm.numChildren :
+                   data.nonTerm.numChildren :
                    0;
     }
 
@@ -82,10 +107,11 @@ protected:
     union alignas(void*) {
         Term term;
         NonTerm nonTerm;
-    };
+    } data;
+    Facet const* _parent = nullptr;
 };
 
-static_assert(sizeof(Facet) == sizeof(void*));
+static_assert(sizeof(Facet) == 2 * sizeof(void*));
 static_assert(alignof(Facet) == alignof(void*));
 
 template <std::derived_from<Facet> T, typename... Args>
@@ -115,7 +141,7 @@ public:
     std::span<Facet const* const> children() const { return {}; }
 
     /// \Returns the wrapped token
-    Token token() const { return term.tok; }
+    Token token() const { return data.term.tok; }
 
 private:
     friend FacetType get_rtti(TerminalFacet const&) {
@@ -154,7 +180,7 @@ protected:
 
 private:
     friend FacetType get_rtti(NonTerminalFacet const& node) {
-        return node.nonTerm.type;
+        return node.data.nonTerm.type;
     }
 };
 
