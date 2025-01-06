@@ -35,6 +35,9 @@ symbols:
   - name: GenericTypeParam
     base: ValueType
 
+  - name: Typedef
+    base: ValueType
+
   - name: ScopedType
     base: ValueType
     abstract: true

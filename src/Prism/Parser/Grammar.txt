@@ -1,6 +1,6 @@
 <source-file>        ::= <global-decl>*
-<global-decl>        ::= [<access-spec>] (<func-decl> | <comp-type-decl> | <var-decl>)
-<local-decl>         ::= <var-decl>
+<global-decl>        ::= [<access-spec>] (<func-decl> | <comp-type-decl> | <trait-impl> | <var-decl> | <typedef-decl>)
+<local-decl>         ::= <var-decl> | <typedef-decl>
 <access-spec>        ::= 'public' | 'internal' | 'private'
 <func-def>           ::= <func-decl> (';' | <compound-expr>)
 <func-decl>          ::= 'fn' <name> <param-list> ['->' <type-spec>]
@@ -15,6 +15,7 @@
 <base-decl>          ::= [<access-spec>] <name>
 <member-decl-list>   ::= <global-decl>*
 <var-decl>           ::= ('var' | 'let') <name> [':' <type-spec>] ['=' <assign-expr>] ';'
+<typedef-decl>       ::= 'typedef' <name> [':' <type-spec>] ['=' <type-spec>] ';'
 <stmt>               ::= <local-decl>
                        | <ctrl-flow-stmt>
                        | <import-stmt>

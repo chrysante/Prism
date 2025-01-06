@@ -199,6 +199,24 @@ facets:
       - name: definition
         type: TraitImplDefFacet
 
+  - name: TypedefFacet
+    base: DeclFacet
+    members:
+      - name: declarator
+        type: TerminalFacet
+      - name: name
+        type: TerminalFacet
+      - name: colon
+        type: TerminalFacet
+      - name: traitBound
+        type: Facet
+      - name: assign
+        type: TerminalFacet
+      - name: initExpr
+        type: Facet
+      - name: semicolon
+        type: TerminalFacet
+
   - name: SourceFileFacet
     base: NonTerminalFacet
     decl_only: true

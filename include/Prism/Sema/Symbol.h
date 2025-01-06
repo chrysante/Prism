@@ -265,6 +265,33 @@ private:
     Trait* _traitBound;
 };
 
+///
+class Typedef: public ValueType {
+public:
+    explicit Typedef(std::string name, Facet const* facet, Scope* parent,
+                     Trait* traitBound, ValueType* definition):
+        ValueType(SymbolType::Typedef, std::move(name), facet, parent,
+                  TypeLayout::Incomplete),
+        _traitBound(traitBound),
+        _def(definition) {}
+
+    FACET_TYPE(TypedefFacet)
+
+    Trait* traitBound() { return _traitBound; }
+
+    Trait const* traitBound() const { return _traitBound; }
+
+    ValueType* definition() { return _def; }
+
+    ValueType const* definition() const { return _def; }
+
+private:
+    friend struct GlobalNameResolver;
+
+    Trait* _traitBound;
+    ValueType* _def;
+};
+
 /// Base class of all types with a scope
 class ScopedType: public ValueType, public detail::AssocScope {
 public:

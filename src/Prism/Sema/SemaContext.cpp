@@ -87,12 +87,12 @@ static T getOrMake(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {
     return result;
 }
 
-ReferenceType const* SemaContext::getRefType(QualType referred) {
+ReferenceType* SemaContext::getRefType(QualType referred) {
     return getOrMake(impl->refTypes, std::bit_cast<uintptr_t>(referred),
                      [&] { return make<ReferenceType>(referred); });
 }
 
-DynTraitType const* SemaContext::getDynTraitType(Trait* trait) {
+DynTraitType* SemaContext::getDynTraitType(Trait* trait) {
     return getOrMake(impl->dynTraitTypes, trait,
                      [&] { return make<DynTraitType>(trait); });
 }

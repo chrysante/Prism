@@ -80,6 +80,7 @@ struct GlobalDeclDeclare: InstantiationBase {
     Symbol* declare(Facet const* facet, Scope* scope);
     Symbol* doDeclare(Facet const&, Scope const*) { PRISM_UNREACHABLE(); }
     Symbol* doDeclare(VarDeclFacet const& facet, Scope* parent);
+    Symbol* doDeclare(TypedefFacet const& facet, Scope* parent);
     Symbol* doDeclare(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclareGen(FuncDefFacet const& facet, Scope* parent);
     Symbol* doDeclare(CompTypeDeclFacet const& facet, Scope* parent);
@@ -126,6 +127,10 @@ Symbol* GlobalDeclDeclare::declare(Facet const* facet, Scope* scope) {
 
 Symbol* GlobalDeclDeclare::doDeclare(VarDeclFacet const& facet, Scope* parent) {
     return declare<Variable>(facet, parent, QualType());
+}
+
+Symbol* GlobalDeclDeclare::doDeclare(TypedefFacet const& facet, Scope* parent) {
+    return declare<Typedef>(facet, parent, nullptr, nullptr);
 }
 
 Symbol* GlobalDeclDeclare::doDeclare(FuncDefFacet const& facet, Scope* parent) {
@@ -213,6 +218,7 @@ struct GlobalNameResolver: InstantiationBase {
     void resolve(Symbol* symbol);
     void doResolve(Symbol&) {}
     void doResolve(Variable& var);
+    void doResolve(Typedef& type);
     Symbol* declareGenParam(Scope* scope, GenParamDeclFacet const* decl);
     utl::small_vector<Symbol*> resolveGenParams(Scope* scope,
                                                 GenParamListFacet const& facet);
@@ -286,6 +292,20 @@ void GlobalNameResolver::doResolve(Variable& var) {
     auto* type = analyzeFacet<ValueType>(var.parentScope(), facet->typespec());
     var._type = QualType::Mut(type);
     addDependency(var, type);
+}
+
+void GlobalNameResolver::doResolve(Typedef& type) {
+    auto* facet = type.facet();
+    if (facet->traitBound())
+        type._traitBound =
+            analyzeFacet<Trait>(type.parentScope(), facet->traitBound());
+    else
+        type._traitBound = ctx.getType();
+    if (facet->initExpr())
+        type._def =
+            analyzeFacet<ValueType>(type.parentScope(), facet->initExpr());
+    addDependency(type, type._traitBound);
+    addDependency(type, type._def);
 }
 
 Symbol* GlobalNameResolver::declareGenParam(Scope* scope,

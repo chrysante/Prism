@@ -44,6 +44,7 @@ struct Parser: LinearParser {
     TraitImplTypeFacet const* parseTraitTypeDecl();
     TraitImplFuncFacet const* parseTraitFuncDecl();
     VarDeclFacet const* parseVarDecl();
+    TypedefFacet const* parseTypedef();
     StmtFacet const* parseStmt();
     DeclFacet const* parseLocalDecl();
     ParamDeclFacet const* parseParamDecl();
@@ -166,10 +167,11 @@ SourceFileFacet const* Parser::parseSourceFile() {
 }
 
 DeclFacet const* Parser::parseGlobalDecl() {
-    if (auto fn = parseFuncDef()) return fn;
-    if (auto str = parseCompTypeDecl()) return str;
-    if (auto var = parseVarDecl()) return var;
-    if (auto impl = parseTraitImpl()) return impl;
+    if (auto* fn = parseFuncDef()) return fn;
+    if (auto* str = parseCompTypeDecl()) return str;
+    if (auto* impl = parseTraitImpl()) return impl;
+    if (auto* var = parseVarDecl()) return var;
+    if (auto* type = parseTypedef()) return type;
     return nullptr;
 }
 
@@ -242,9 +244,10 @@ BaseListFacet const* Parser::parseBaseList() {
 }
 
 DeclFacet const* Parser::parseCompTypeMemberDecl() {
-    if (auto fn = parseFuncDef()) return fn;
-    if (auto str = parseCompTypeDecl()) return str;
-    if (auto var = parseVarDecl()) return var;
+    if (auto* fn = parseFuncDef()) return fn;
+    if (auto* str = parseCompTypeDecl()) return str;
+    if (auto* var = parseVarDecl()) return var;
+    if (auto* type = parseTypedef()) return type;
     return nullptr;
 }
 
@@ -313,6 +316,22 @@ VarDeclFacet const* Parser::parseVarDecl() {
                                   semicolon);
 }
 
+TypedefFacet const* Parser::parseTypedef() {
+    auto [declarator, name, colon, traitBound, assign, def, semicolon] =
+        makeParser()
+            .fastFail(Match(Typedef))
+            .rule(FN(parseUnqualName))
+            .optRule({ Match(Colon),
+                       { FN(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
+            .optRule({ Match(Equal),
+                       { FN(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
+            .rule(MatchExpect(Semicolon))
+            .eval();
+    if (!declarator) return nullptr;
+    return allocate<TypedefFacet>(declarator, name, colon, traitBound, assign,
+                                  def, semicolon);
+}
+
 StmtFacet const* Parser::parseStmt() {
     if (auto* decl = parseLocalDecl()) return decl;
     if (auto* stmt = parseReturnStmt()) return stmt;
@@ -322,7 +341,8 @@ StmtFacet const* Parser::parseStmt() {
 }
 
 DeclFacet const* Parser::parseLocalDecl() {
-    if (auto var = parseVarDecl()) return var;
+    if (auto* var = parseVarDecl()) return var;
+    if (auto* type = parseTypedef()) return type;
     return nullptr;
 }
 

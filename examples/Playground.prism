@@ -1,32 +1,53 @@
-var s: S(i32);
 
-var t: S(i64);
 
-trait Integral {}
 
-impl Integral for i32 {}
+trait [rhs_type: type] term {
+    typedef result_type;
 
-struct [T: Integral] S {}
+    fn add(&this, rhs: &rhs_type) -> result_type;
+    
+    fn add_assign(&mut this, rhs: &rhs_type) -> void {
+        // this = this.add(rhs);
+    }
+}
+
+
+
+impl term(i32) for i32 {
+    typedef result_type = i32;
+
+    fn add(&this, rhs: &i32) -> i32 {
+        // builtin.add_i32(this, rhs)
+    }
+}
+
 
 
 
 
 /*
-trait Integral {}
-impl Integral for i32 {}
-impl Integral for i64 {}
 
-trait Int32: Integral {}
-impl Int32 for i32 {}
 
-struct [T: Integral] IntWrapper {
+
+trait [T: type] ConvertibleTo {
+    fn convert(&this) -> T;
+}
+
+struct [T: ConvertibleTo(i32)] MyType {
     var value: T;
 }
 
-struct [T: Integral] S {
-    var value: IntWrapper(T);
+let value: MyType(S);
+
+struct S {}
+
+impl [T: Integral] ConvertibleTo(T) for S {
+    fn convert(&this) -> T { 42 }
 }
 
+trait Integral {}
 
+impl Integral for i32 {}
 
-*/
+ */
+

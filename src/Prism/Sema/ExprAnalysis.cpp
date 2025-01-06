@@ -34,6 +34,7 @@ struct AnaContext: AnalysisBase {
     Symbol* analyzeID(TerminalFacet const& id);
     IntLiteral* analyzeIntLiteral(TerminalFacet const& term, int base);
     Symbol* doAnalyze(TerminalFacet const& term);
+    Symbol* doAnalyze(PrefixFacet const& prefix);
     Symbol* doAnalyze(CallFacet const& call);
 };
 
@@ -101,6 +102,20 @@ IntLiteral* AnaContext::analyzeIntLiteral(TerminalFacet const& term, int base) {
     auto value = APInt::parse(str, base, 32);
     if (!value) PRISM_UNIMPLEMENTED();
     return ctx.make<IntLiteral>(&term, *std::move(value), ctx.getInt32());
+}
+
+Symbol* AnaContext::doAnalyze(PrefixFacet const& prefix) {
+    auto* operand = analyze(prefix.operand());
+    if (!operand) return nullptr;
+    if (auto* type = dyncast<ValueType*>(operand)) {
+        switch (prefix.operation().kind) {
+        case TokenKind::Ampersand:
+            return ctx.getRefType(QualType::Const(type));
+        default:
+            PRISM_UNIMPLEMENTED();
+        }
+    }
+    PRISM_UNIMPLEMENTED();
 }
 
 Symbol* AnaContext::doAnalyze(CallFacet const& call) {
