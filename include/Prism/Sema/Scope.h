@@ -8,7 +8,7 @@
 
 #include <utl/hashtable.hpp>
 #include <utl/metric_table.hpp>
-#include <utl/small_ptr_vector.hpp>
+#include <utl/tiny_ptr_vector.hpp>
 #include <utl/vector.hpp>
 
 namespace prism {
@@ -68,8 +68,8 @@ private:
     Scope* _parentScope = nullptr;
     Symbol* _assocSymbol = nullptr;
     std::vector<Symbol*> _symbols;
-    utl::hashmap<std::string_view, utl::small_ptr_vector<Symbol*>> _names;
-    utl::metric_map<std::string_view, utl::small_ptr_vector<Symbol*>>
+    utl::hashmap<std::string_view, utl::tiny_ptr_vector<Symbol*>> _names;
+    utl::metric_map<std::string_view, utl::tiny_ptr_vector<Symbol*>>
         _approxNames;
 };
 

@@ -4,7 +4,7 @@
 #include <vector>
 
 #include <utl/hashtable.hpp>
-#include <utl/small_ptr_vector.hpp>
+#include <utl/tiny_ptr_vector.hpp>
 
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Common/Rtti.h>
@@ -69,7 +69,7 @@ private:
     SpecType _type;
     Symbol* _sym;
     Symbol* _owner;
-    utl::small_ptr_vector<Symbol*> _conf;
+    utl::tiny_ptr_vector<Symbol*> _conf;
 };
 
 class TypeObligation: public Obligation {
@@ -167,11 +167,11 @@ private:
     bool addObligationImpl(FuncObligation* obl, SpecAddMode mode);
 
     Symbol* _symbol;
-    utl::hashmap<std::string, utl::small_ptr_vector<TypeObligation*>> _typeObls;
+    utl::hashmap<std::string, utl::tiny_ptr_vector<TypeObligation*>> _typeObls;
     utl::hashmap<Typedef const*, TypeObligation const*> _typedefOblMap;
-    utl::hashmap<ValueType const*, utl::small_ptr_vector<Typedef const*>>
+    utl::hashmap<ValueType const*, utl::tiny_ptr_vector<Typedef const*>>
         _typedefDefinitionMap;
-    utl::hashmap<FuncObligationKey, utl::small_ptr_vector<FuncObligation*>,
+    utl::hashmap<FuncObligationKey, utl::tiny_ptr_vector<FuncObligation*>,
                  FuncObligationKey::Hash, FuncObligationKey::Equal>
         _funcObls;
     std::vector<csp::unique_ptr<Obligation>> bag;

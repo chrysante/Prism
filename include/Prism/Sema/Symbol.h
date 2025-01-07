@@ -10,7 +10,7 @@
 
 #include <APMath/APInt.h>
 #include <utl/hashtable.hpp>
-#include <utl/small_ptr_vector.hpp>
+#include <utl/tiny_ptr_vector.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Assert.h>
@@ -235,7 +235,7 @@ public:
 
 private:
     utl::hashmap<Trait const*, TraitImplInterface*> _traitImpls;
-    utl::hashmap<GenTrait const*, utl::small_ptr_vector<GenTraitImpl*>>
+    utl::hashmap<GenTrait const*, utl::tiny_ptr_vector<GenTraitImpl*>>
         _genTraitImpls;
 };
 
