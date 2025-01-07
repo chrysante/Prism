@@ -312,7 +312,7 @@ protected:
 /// Common interface of `CompositeType` and `GenCompositeType`
 class CompTypeInterface: public InterfaceLike {
 public:
-    explicit CompTypeInterface(Symbol* sym): _sym(*sym) {}
+    explicit CompTypeInterface(Symbol* sym): InterfaceLike(sym), _sym(*sym) {}
 
     /// \Returns the owning type or generic type
     Symbol& compositeType() { return _sym; }
@@ -617,7 +617,8 @@ public:
 /// Common interface of `Trait` and `GenTrait`
 class TraitInterface: public InterfaceLike {
 public:
-    explicit TraitInterface(Symbol* trait): _sym(*trait) {}
+    explicit TraitInterface(Symbol* trait):
+        InterfaceLike(trait), _sym(*trait) {}
 
     ///
     Symbol& trait() { return _sym; }
@@ -718,7 +719,10 @@ class TraitImplInterface: public InterfaceLike {
 public:
     explicit TraitImplInterface(Symbol* traitImpl, Trait* trait,
                                 ValueType* conforming):
-        _sym(*traitImpl), _trait(trait), _conf(conforming) {}
+        InterfaceLike(traitImpl),
+        _sym(*traitImpl),
+        _trait(trait),
+        _conf(conforming) {}
 
     ///
     Symbol& traitImpl() { return _sym; }

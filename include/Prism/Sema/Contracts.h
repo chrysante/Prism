@@ -74,7 +74,10 @@ private:
 
 class TypeObligation: public Obligation {
 public:
-    explicit TypeObligation(Trait* trait, Symbol* owner);
+    explicit TypeObligation(Typedef* type, Symbol* owner);
+
+    /// \Returns the requiring typedef
+    Typedef* type() const;
 };
 
 class FuncObligation: public Obligation {
@@ -85,33 +88,67 @@ public:
     Function* function() const;
 };
 
+class InterfaceLike;
+
 struct FuncObligationKey {
     std::string_view name;
     FuncSig const& funcSig;
 
-    bool operator==(FuncObligationKey const& rhs) const {
-        return name == rhs.name && funcSig.compareEqIgnoringFirst(rhs.funcSig);
-    }
+    struct Equal {
+        Equal(InterfaceLike const* interface): interface(interface) {}
+
+        bool operator()(FuncObligationKey const& lhs,
+                        FuncObligationKey const& rhs) const;
+
+        InterfaceLike const* interface;
+    };
+
+    struct Hash {
+        Hash(InterfaceLike const* interface): interface(interface) {}
+
+        size_t operator()(FuncObligationKey const& key) const;
+
+        InterfaceLike const* interface;
+    };
 };
+
+namespace detail {
+
+struct InterfaceCompareImpl;
+
+}
 
 /// Base class for symbols that define and conform to interfaces
 class InterfaceLike {
 public:
-    InterfaceLike();
+    InterfaceLike(Symbol* symbol);
     ~InterfaceLike();
     InterfaceLike(InterfaceLike const&) = delete;
     InterfaceLike& operator=(InterfaceLike const&) = delete;
 
-    std::span<FuncObligation* const> matchObligation(std::string_view name,
-                                                     FuncSig const& sig) {
-        auto itr = obls.find({ name, sig });
-        if (itr != obls.end()) return itr->second;
+    Symbol& symbol() { return *_symbol; }
+
+    Symbol const& symbol() const { return *_symbol; }
+
+    std::span<TypeObligation* const> matchTypeObligation(
+        std::string_view name) {
+        auto itr = _typeObls.find(name);
+        if (itr != _typeObls.end()) return itr->second;
+        return {};
+    }
+
+    std::span<FuncObligation* const> matchFuncObligation(std::string_view name,
+                                                         FuncSig const& sig) {
+        auto itr = _funcObls.find({ name, sig });
+        if (itr != _funcObls.end()) return itr->second;
         return {};
     }
 
     void addObligation(csp::unique_ptr<Obligation> obl, SpecAddMode);
 
-    auto const& obligations() const { return obls; }
+    auto const& typeObligations() const { return _typeObls; }
+
+    auto const& funcObligations() const { return _funcObls; }
 
     /// \Returns true if all obligations are unambiguously implemented
     bool isComplete() const;
@@ -120,24 +157,26 @@ public:
     /// implemented
     bool isCompleteForTraits() const;
 
+    ///
+    void setTypeConformance(Typedef const* impl, TypeObligation const* obl);
+
 private:
-    bool addObligationImpl(TypeObligation*, SpecAddMode) { return false; }
+    friend struct detail::InterfaceCompareImpl;
+
+    bool addObligationImpl(TypeObligation* obl, SpecAddMode mode);
     bool addObligationImpl(FuncObligation* obl, SpecAddMode mode);
 
-    utl::hashmap<FuncObligationKey, utl::small_ptr_vector<FuncObligation*>>
-        obls;
+    Symbol* _symbol;
+    utl::hashmap<std::string, utl::small_ptr_vector<TypeObligation*>> _typeObls;
+    utl::hashmap<Typedef const*, TypeObligation const*> _typedefOblMap;
+    utl::hashmap<ValueType const*, utl::small_ptr_vector<Typedef const*>>
+        _typedefDefinitionMap;
+    utl::hashmap<FuncObligationKey, utl::small_ptr_vector<FuncObligation*>,
+                 FuncObligationKey::Hash, FuncObligationKey::Equal>
+        _funcObls;
     std::vector<csp::unique_ptr<Obligation>> bag;
 };
 
 } // namespace prism
-
-template <>
-struct std::hash<prism::FuncObligationKey> {
-    size_t operator()(prism::FuncObligationKey const& key) const {
-        size_t seed = key.funcSig.hashValueIgnoringFirst();
-        utl::hash_combine(seed, key.name);
-        return seed;
-    }
-};
 
 #endif // PRISM_SEMA_CONTRACTS_H

@@ -278,6 +278,13 @@ static void fmtDeclImpl(Variable const& var, std::ostream& str,
         << fmtName(var.type(), asSecondaryName(options));
 }
 
+static void fmtDeclImpl(Typedef const& type, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("typedef") << " " << fmtName(type, asPrimaryName(options))
+        << ": " << fmtName(type.traitBound(), asSecondaryName(options)) << " = "
+        << fmtName(type.definition(), asSecondaryName(options));
+}
+
 static void fmtDeclImpl(BaseClass const& base, std::ostream& str,
                         FmtDeclOptions options) {
     str << Keyword("base class") << " " << fmtName(base, asPrimaryName(options))
@@ -458,7 +465,10 @@ struct SymbolPrinter {
 
     void printObligations(InterfaceLike const& interface) {
         buf.indented([&] {
-            for (auto& [key, list]: interface.obligations())
+            for (auto& [key, list]: interface.typeObligations())
+                for (auto* obl: list)
+                    printObligation(*obl);
+            for (auto& [key, list]: interface.funcObligations())
                 for (auto* obl: list)
                     printObligation(*obl);
         });
@@ -493,6 +503,8 @@ struct SymbolPrinter {
     }
 
     void printImpl(Variable const& var) { str << fmtDecl(var) << " "; }
+
+    void printImpl(Typedef const& type) { str << fmtDecl(type) << " "; }
 
     void printImpl(MemberSymbol const& member) { str << fmtDecl(member); }
 

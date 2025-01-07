@@ -17,7 +17,10 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+using ranges::views::concat;
+using ranges::views::join;
 using ranges::views::transform;
+using ranges::views::values;
 
 static Facet const* findNonNullChild(auto&& children) {
     auto itr = ranges::find_if(children, ToAddress);
@@ -193,29 +196,30 @@ static void AmbiguousConformanceNotes(
 
 static void IncompleteImplNotes(IncompleteImpl& diag,
                                 InterfaceLike const& interface) {
-    for (auto& [key, list]: interface.obligations()) {
-        for (auto* obl: list) {
-            auto confs = obl->conformances();
-            auto* sym = obl->symbol();
-            if (confs.empty()) {
-                diag.addNote(sym->facet(), [=](std::ostream& str) {
-                    str << "Missing implementation for "
-                        << formatDecl(sym, { .primaryQualified = true });
-                });
-                continue;
-            }
-            if (confs.size() == 1) continue;
-            auto* note = diag.addNote(sym->facet(), [=](std::ostream& str) {
-                str << "Multiple implementations for "
-                    << formatDecl(sym, { .primaryQualified = true })
-                    << " must be resolved";
+    auto obligations = concat(interface.typeObligations() | values | join |
+                                  transform(cast<Obligation const*>),
+                              interface.funcObligations() | values | join);
+    for (auto obl: obligations) {
+        auto confs = obl->conformances();
+        auto* sym = obl->symbol();
+        if (confs.empty()) {
+            diag.addNote(sym->facet(), [=](std::ostream& str) {
+                str << "Missing implementation for "
+                    << formatDecl(sym, { .primaryQualified = true });
             });
-            for (auto* conf: confs)
-                note->addNote(conf->facet(), [=](std::ostream& str) {
-                    str << "Implemented by "
-                        << formatDecl(conf, { .primaryQualified = true });
-                });
+            continue;
         }
+        if (confs.size() == 1) continue;
+        auto* note = diag.addNote(sym->facet(), [=](std::ostream& str) {
+            str << "Multiple implementations for "
+                << formatDecl(sym, { .primaryQualified = true })
+                << " must be resolved";
+        });
+        for (auto* conf: confs)
+            note->addNote(conf->facet(), [=](std::ostream& str) {
+                str << "Implemented by "
+                    << formatDecl(conf, { .primaryQualified = true });
+            });
     }
 }
 

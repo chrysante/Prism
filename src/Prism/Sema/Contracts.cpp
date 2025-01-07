@@ -18,15 +18,90 @@ void Obligation::addConformance(Symbol* sym, SpecAddMode mode) {
     }
 }
 
-TypeObligation::TypeObligation(Trait* trait, Symbol* owner):
-    Obligation(SpecType::TypeObligation, trait, owner) {}
+TypeObligation::TypeObligation(Typedef* type, Symbol* owner):
+    Obligation(SpecType::TypeObligation, type, owner) {}
+
+Typedef* TypeObligation::type() const { return cast<Typedef*>(symbol()); }
 
 FuncObligation::FuncObligation(Function* func, Symbol* owner):
     Obligation(SpecType::FuncObligation, func, owner) {}
 
 Function* FuncObligation::function() const { return cast<Function*>(symbol()); }
 
-InterfaceLike::InterfaceLike() = default;
+static Type const* mapTypeParam(GenericTypeParam const* param,
+                                Symbol const& def) {
+    if (auto* traitImpl = dyncast<TraitImplDef const*>(&def)) {
+        auto* inst = dyncast<GenTraitInst const*>(traitImpl->trait());
+        if (!inst) return nullptr;
+        auto genParams = inst->genTemplate()->genParams();
+        auto itr = ranges::find(genParams, param);
+        if (itr == genParams.end()) return nullptr;
+        size_t index = utl::narrow_cast<size_t>(itr - genParams.begin());
+        return dyncast<Type const*>(inst->genArguments()[index]);
+    }
+    PRISM_UNIMPLEMENTED();
+}
+
+struct detail::InterfaceCompareImpl {
+    static bool impl(Type const* lhs, Type const* rhs,
+                     InterfaceLike const& interface) {
+        return lhs == rhs || implAsym(lhs, rhs, interface) ||
+               implAsym(rhs, lhs, interface);
+    }
+
+    static bool implAsym(Type const* lhs, Type const* rhs,
+                         InterfaceLike const& interface) {
+        if (auto itr = interface._typedefDefinitionMap.find(lhs);
+            itr != interface._typedefDefinitionMap.end())
+        {
+            for (auto* def: itr->second)
+                if (impl(def, rhs, interface)) return true;
+        }
+        if (auto* lhsTypedef = dyncast<Typedef const*>(lhs)) {
+            if (lhsTypedef->definition() == rhs) return true;
+            auto itr = interface._typedefOblMap.find(lhsTypedef);
+            if (itr == interface._typedefOblMap.end()) return false;
+            auto* obl = itr->second;
+            return impl(obl->type(), rhs, interface);
+        }
+        if (auto* lhsParam = dyncast<GenericTypeParam const*>(lhs))
+            return impl(mapTypeParam(lhsParam, interface.symbol()), rhs,
+                        interface);
+        if (auto* lhsRefType = dyncast<ReferenceType const*>(lhs)) {
+            auto* rhsRefType = dyncast<ReferenceType const*>(rhs);
+            return rhsRefType &&
+                   lhsRefType->referred().mutability() ==
+                       rhsRefType->referred().mutability() &&
+                   impl(lhsRefType->referred().get(),
+                        rhsRefType->referred().get(), interface);
+        }
+        return false;
+    }
+};
+
+static auto makeTypeCmp(InterfaceLike const& interface) {
+    return [&interface](Type const* lhs, Type const* rhs) -> bool {
+        return detail::InterfaceCompareImpl::impl(lhs, rhs, interface);
+    };
+}
+
+bool FuncObligationKey::Equal::operator()(FuncObligationKey const& lhs,
+                                          FuncObligationKey const& rhs) const {
+    return lhs.name == rhs.name &&
+           lhs.funcSig.compareEqIgnoringFirst(rhs.funcSig,
+                                              makeTypeCmp(*interface));
+}
+
+size_t FuncObligationKey::Hash::operator()(FuncObligationKey const& key) const {
+    return std::hash<std::string_view>{}(key.name);
+    //    size_t seed = 0;
+    //    utl::hash_combine_seed(seed, key.name);
+    //    utl::hash_combine_seed(seed, key.funcSig.hashValueIgnoringFirst());
+    //    return seed;
+}
+
+InterfaceLike::InterfaceLike(Symbol* symbol):
+    _symbol(symbol), _funcObls(0, this, this) {}
 
 InterfaceLike::~InterfaceLike() = default;
 
@@ -37,9 +112,40 @@ void InterfaceLike::addObligation(csp::unique_ptr<Obligation> obl,
         bag.push_back(std::move(obl));
 }
 
+void InterfaceLike::setTypeConformance(Typedef const* impl,
+                                       TypeObligation const* obl) {
+    bool success = _typedefOblMap.insert({ impl, obl }).second;
+    PRISM_ASSERT(success);
+    if (impl->definition())
+        _typedefDefinitionMap[impl->definition()].push_back(impl);
+}
+
+bool InterfaceLike::addObligationImpl(TypeObligation* obl, SpecAddMode mode) {
+    auto* type = obl->type();
+    auto& list = _typeObls[type->name()];
+    switch (mode) {
+    case SpecAddMode::Define: {
+        if (!list.empty()) return false;
+        list.push_back(obl);
+        return true;
+    }
+    case SpecAddMode::Inherit:
+        if (auto itr = ranges::find(list, type, FN1(_1->type()));
+            itr != list.end())
+        {
+            auto* existing = *itr;
+            for (auto* conf: obl->conformances())
+                existing->addConformance(conf, SpecAddMode::Inherit);
+            return false;
+        }
+        list.push_back(obl);
+        return true;
+    }
+}
+
 bool InterfaceLike::addObligationImpl(FuncObligation* obl, SpecAddMode mode) {
     auto* F = obl->function();
-    auto& list = obls[{ F->name(), F->signature() }];
+    auto& list = _funcObls[{ F->name(), F->signature() }];
     switch (mode) {
     case SpecAddMode::Define:
         if (!list.empty()) return false;
@@ -67,9 +173,13 @@ static bool isCompleteImpl(auto& obls, auto filter) {
 }
 
 bool InterfaceLike::isComplete() const {
-    return isCompleteImpl(obls, FN1(true));
+    auto filter = FN1(true);
+    return isCompleteImpl(_typeObls, filter) &&
+           isCompleteImpl(_funcObls, filter);
 }
 
 bool InterfaceLike::isCompleteForTraits() const {
-    return isCompleteImpl(obls, FN1(isa<Trait>(_1->owner())));
+    auto filter = FN1(isa<Trait>(_1->owner()));
+    return isCompleteImpl(_typeObls, filter) &&
+           isCompleteImpl(_funcObls, filter);
 }

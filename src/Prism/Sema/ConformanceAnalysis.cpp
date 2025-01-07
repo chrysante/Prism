@@ -59,10 +59,12 @@ namespace prism {
 struct ConfAnaContext: AnalysisBase {
     void analyzeObligation(Symbol* sym, InterfaceLike& interface);
     void doAnalyzeObligation(Symbol const&, InterfaceLike&) {}
+    void doAnalyzeObligation(Typedef& type, InterfaceLike& interface);
     void doAnalyzeObligation(Function& func, InterfaceLike& interface);
     void analyzeObligations(InterfaceLike& interface, Scope* scope);
     void analyzeConformance(Symbol* sym, InterfaceLike& interface);
     void doAnalyzeConformance(Symbol const&, InterfaceLike&) {}
+    void doAnalyzeConformance(Typedef& type, InterfaceLike& interface);
     void doAnalyzeConformance(FunctionImpl& func, InterfaceLike& interface);
     void analyzeConformances(InterfaceLike& interface, Scope* scope);
     void inheritObligations(InterfaceLike const& base, InterfaceLike& derived);
@@ -88,6 +90,14 @@ void ConfAnaContext::analyzeObligation(Symbol* sym, InterfaceLike& interface) {
     return visit(*sym, FN1(&, doAnalyzeObligation(_1, interface)));
 }
 
+void ConfAnaContext::doAnalyzeObligation(Typedef& type,
+                                         InterfaceLike& interface) {
+    auto* owner = type.parentScope()->assocSymbol();
+    if (!isa<TraitDef>(owner) && !isa<GenTrait>(owner)) return;
+    auto obl = csp::make_unique<TypeObligation>(&type, owner);
+    interface.addObligation(std::move(obl), SpecAddMode::Define);
+}
+
 void ConfAnaContext::doAnalyzeObligation(Function& func,
                                          InterfaceLike& interface) {
     if (func.params().empty() || !func.params().front()->isThis()) return;
@@ -108,10 +118,25 @@ void ConfAnaContext::analyzeConformance(Symbol* sym, InterfaceLike& interface) {
     visit(*sym, FN1(&, doAnalyzeConformance(_1, interface)));
 }
 
+void ConfAnaContext::doAnalyzeConformance(Typedef& type,
+                                          InterfaceLike& interface) {
+    if (!type.definition()) return;
+    auto matches = interface.matchTypeObligation(type.name());
+    if (matches.empty()) return;
+    if (matches.size() == 1) {
+        auto* obl = matches.front();
+        obl->addConformance(&type, SpecAddMode::Define);
+        interface.setTypeConformance(&type, obl);
+        return;
+    }
+    DE.emit<AmbiguousConformance>(sourceContext, type.facet(), &type,
+                                  matches | ToSmallVector<Obligation const*>);
+}
+
 void ConfAnaContext::doAnalyzeConformance(FunctionImpl& func,
                                           InterfaceLike& interface) {
     if (func.params().empty() || !func.params().front()->isThis()) return;
-    auto matches = interface.matchObligation(func.name(), func.signature());
+    auto matches = interface.matchFuncObligation(func.name(), func.signature());
     if (matches.empty()) return;
     if (matches.size() == 1) {
         matches.front()->addConformance(&func, SpecAddMode::Define);
@@ -129,7 +154,10 @@ void ConfAnaContext::analyzeConformances(InterfaceLike& interface,
 
 void ConfAnaContext::inheritObligations(InterfaceLike const& base,
                                         InterfaceLike& derived) {
-    for (auto& [key, list]: base.obligations())
+    for (auto& [key, list]: base.typeObligations())
+        for (auto* obl: list)
+            derived.addObligation(clone(*obl), SpecAddMode::Inherit);
+    for (auto& [key, list]: base.funcObligations())
         for (auto* obl: list)
             derived.addObligation(clone(*obl), SpecAddMode::Inherit);
 }
@@ -137,7 +165,11 @@ void ConfAnaContext::inheritObligations(InterfaceLike const& base,
 void ConfAnaContext::copyInstantiate(InterfaceLike& from, InterfaceLike& to,
                                      std::span<Symbol* const> genArgs,
                                      std::span<Symbol* const> genParams) {
-    for (auto& [key, list]: from.obligations())
+    for (auto& [key, list]: from.typeObligations())
+        for (auto* obl: list)
+            to.addObligation(cloneInstantiate(ctx, *obl, genArgs, genParams),
+                             SpecAddMode::Inherit);
+    for (auto& [key, list]: from.funcObligations())
         for (auto* obl: list)
             to.addObligation(cloneInstantiate(ctx, *obl, genArgs, genParams),
                              SpecAddMode::Inherit);
