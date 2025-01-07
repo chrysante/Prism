@@ -122,3 +122,24 @@ let s: S(i32);
     auto* s = tester.eval<Variable>("s");
     CHECK(s->type().get() == tester.eval("S(i32)"));
 }
+
+TEST_CASE("Trait conformance with typedefs", "[sema]") {
+    auto tester = makeInvTester(R"(
+trait [RhsType: type] Term {
+    fn add(&this, rhs: &RhsType) -> ResultType;
+    fn add_assign(&mut this, rhs: &RhsType) -> void {}
+    typedef ResultType;
+}
+impl Term(i32) for i32 {
+    fn add(&this, rhs: &i32) -> i32 { 42 }
+    typedef ResultType = i32;
+}
+)",
+                                { .expectNoErrors = true });
+    auto* i32 = tester.eval<ValueType>("i32");
+    REQUIRE(i32);
+    auto* TermI32 = tester.eval<Trait>("Term(i32)");
+    auto* impl = i32->findTraitImpl(TermI32);
+    REQUIRE(impl);
+    CHECK(impl->isComplete());
+}

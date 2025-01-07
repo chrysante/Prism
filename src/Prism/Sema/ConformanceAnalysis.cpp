@@ -148,8 +148,18 @@ void ConfAnaContext::doAnalyzeConformance(FunctionImpl& func,
 
 void ConfAnaContext::analyzeConformances(InterfaceLike& interface,
                                          Scope* scope) {
-    for (auto* sym: scope->symbols())
+    // We analyze functions after other symbols because function interfaces may
+    // depend on typedefs
+    utl::small_vector<Function*> functions;
+    for (auto* sym: scope->symbols()) {
+        if (auto* function = dyncast<Function*>(sym)) {
+            functions.push_back(function);
+            continue;
+        }
         analyzeConformance(sym, interface);
+    }
+    for (auto* function: functions)
+        analyzeConformance(function, interface);
 }
 
 void ConfAnaContext::inheritObligations(InterfaceLike const& base,
