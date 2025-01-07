@@ -3,6 +3,8 @@
 
 #include <span>
 
+#include <range/v3/algorithm.hpp>
+#include <utl/hash.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Sema/SemaFwd.h>
@@ -28,17 +30,35 @@ public:
 
     /// \Returns a hash value based on the address identities of the return and
     /// parameter types
-    size_t hashValue() const;
+    template <typename Proj = ranges::identity>
+    size_t hashValue(Proj&& proj = {}) const {
+        return hashImpl(retType(), paramTypes(), proj);
+    }
 
     /// Like `hashValue()` but ignores the first parameter. This exists to match
     /// overriding functions with different `this` parameter types
-    size_t hashValueIgnoringFirst() const;
+    template <typename Proj = ranges::identity>
+    size_t hashValueIgnoringFirst(Proj&& proj = {}) const {
+        return hashImpl(retType(), paramTypes().subspan(1), proj);
+    }
 
     ///
     bool operator==(FuncSig const&) const = default;
 
+    ///
+    template <typename Cmp = ranges::equal_to, typename Proj = ranges::identity>
+    bool compareEq(FuncSig const& rhs, Cmp&& cmp = {}, Proj&& proj = {}) const {
+        return cmpImpl(retType(), paramTypes(), rhs.retType(), rhs.paramTypes(),
+                       cmp, proj);
+    }
+
     /// See `hashValueIgnoringFirst()`
-    bool compareEqIgnoringFirst(FuncSig const& rhs) const;
+    template <typename Cmp = ranges::equal_to, typename Proj = ranges::identity>
+    bool compareEqIgnoringFirst(FuncSig const& rhs, Cmp&& cmp = {},
+                                Proj&& proj = {}) const {
+        return cmpImpl(retType(), paramTypes().subspan(1), rhs.retType(),
+                       rhs.paramTypes().subspan(1), cmp, proj);
+    }
 
     /// Function object to use with hash tables
     struct HashIgnoringFirst {
@@ -55,6 +75,25 @@ public:
     };
 
 private:
+    static size_t hashImpl(Type const* ret, std::span<Type const* const> params,
+                           auto&& proj) {
+        size_t seed = 0;
+        utl::hash_combine_seed(seed, std::invoke(proj, ret));
+        for (auto* type: params)
+            utl::hash_combine_seed(seed, std::invoke(proj, type));
+        return seed;
+    }
+
+    static bool cmpImpl(Type const* lhsRet,
+                        std::span<Type const* const> lhsParams,
+                        Type const* rhsRet,
+                        std::span<Type const* const> rhsParams, auto&& cmp,
+                        auto&& proj) {
+        return std::invoke(cmp, std::invoke(proj, lhsRet),
+                           std::invoke(proj, rhsRet)) &&
+               ranges::equal(lhsParams, rhsParams, cmp, proj, proj);
+    }
+
     Type const* _ret = nullptr;
     utl::small_vector<Type const*> _params;
 };
