@@ -11,6 +11,9 @@
 #include <utl/tiny_ptr_vector.hpp>
 #include <utl/vector.hpp>
 
+#include <Prism/Common/Assert.h>
+#include <Prism/Sema/FuncSig.h>
+
 namespace prism {
 
 class Symbol;
@@ -59,6 +62,24 @@ public:
     utl::small_vector<Symbol const*> symbolsByApproxName(
         std::string_view name) const;
 
+    ///
+    Function* functionBySignature(FuncSig const& funcSig) {
+        return const_cast<Function*>(
+            std::as_const(*this).functionBySignature(funcSig));
+    }
+
+    /// \overload
+    Function const* functionBySignature(FuncSig const& funcSig) const {
+        auto itr = _funcSigMap.find(funcSig);
+        return itr != _funcSigMap.end() ? itr->second : nullptr;
+    }
+
+    ///
+    void setFunctionSignature(FuncSig sig, Function* function) {
+        bool success = _funcSigMap.insert({ std::move(sig), function }).second;
+        PRISM_ASSERT(success, "Function signature is already defined");
+    }
+
 private:
     friend class Symbol;
     friend class detail::AssocScope;
@@ -71,6 +92,9 @@ private:
     utl::hashmap<std::string_view, utl::tiny_ptr_vector<Symbol*>> _names;
     utl::metric_map<std::string_view, utl::tiny_ptr_vector<Symbol*>>
         _approxNames;
+    utl::hashmap<FuncSig, Function*, FuncSig::HashIgnoringRet,
+                 FuncSig::CompareEqIgnoringRet>
+        _funcSigMap;
 };
 
 } // namespace prism

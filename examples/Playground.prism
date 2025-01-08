@@ -1,28 +1,41 @@
 
 
 
-trait [rhs_type: type] term {
-    typedef result_type;
+trait T {
+    typedef Type = i32;
+}
 
-    fn add(&this, rhs: &rhs_type) -> result_type;
-    
-    fn add_assign(&mut this, rhs: &rhs_type) -> void {
-        // this = this.add(rhs);
-    }
+trait U {
+    typedef Type = i64;
+}
+
+trait MyTrait: T, U {
+    typedef Type = i16;
+    fn bar(&this) -> Type;
+}
+
+impl MyTrait for i32 {
+    typedef Type = i32;
+    fn bar(&this) -> i16 { 42 }
+    fn bar(&this) -> i32 { 42 }
 }
 
 
-
-impl term(i32) for i32 {
-    typedef result_type = i32;
-
-    fn add(&this, rhs: &i32) -> i32 {
-        // builtin.add_i32(this, rhs)
-    }
+/*
+ 
+trait T {
+    typedef some_type;
 }
 
+trait U {
+    typedef some_type;
+}
 
+trait MyTrait: T, U {
+    fn foo(&this, rhs: some_type) -> void;
+}
 
+*/
 
 
 /*

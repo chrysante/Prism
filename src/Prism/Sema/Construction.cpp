@@ -532,6 +532,13 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
 void GlobalNameResolver::doResolve(Function& func) {
     resolveInterface(func.parentScope()->assocSymbol(), func.interface(),
                      *func.facet(), func.parentScope());
+    auto* scope = func.parentScope();
+    auto* existing = scope->functionBySignature(func.signature());
+    if (existing) {
+        DE.emit<FuncRedefinition>(sourceContext, func.facet(), &func, existing);
+        return;
+    }
+    scope->setFunctionSignature(func.signature(), &func);
 }
 
 void GlobalNameResolver::doResolve(GenFuncImpl& genfunc) {

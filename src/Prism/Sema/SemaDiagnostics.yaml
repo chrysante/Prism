@@ -43,6 +43,26 @@ diags:
     header: >
       str << "Redefition of name '" << name << "'";
 
+  - name: FuncRedefinition
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: function
+        type: Function const*
+      - name: existing
+        type: Function const*
+        ctor_only: true
+    ctor_body: >
+      addNote(existing->facet(), [=](std::ostream& str) {
+          str << "Existing declaration is here";
+      });
+      if (function->retType() != existing->retType())
+          addNote([=](std::ostream& str) {
+              str << "Overloading on return type is not allowed";
+          });
+    header: >
+      str << "Redefition of function '" << formatName(function) << "'";
+
   - name: TypeDefCycle
     base: SemaDiagnostic
     kind: Error

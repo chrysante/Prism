@@ -42,6 +42,13 @@ public:
         return hashImpl(retType(), paramTypes().subspan(1), proj);
     }
 
+    /// Like `hashValue()` but ignores the return type. This exists to prevent
+    /// function redefinitions
+    template <typename Proj = ranges::identity>
+    size_t hashValueIgnoringRet(Proj&& proj = {}) const {
+        return hashImpl(nullptr, paramTypes(), proj);
+    }
+
     ///
     bool operator==(FuncSig const&) const = default;
 
@@ -60,6 +67,14 @@ public:
                        rhs.paramTypes().subspan(1), cmp, proj);
     }
 
+    /// See `hashValueIgnoringFirst()`
+    template <typename Cmp = ranges::equal_to, typename Proj = ranges::identity>
+    bool compareEqIgnoringRet(FuncSig const& rhs, Cmp&& cmp = {},
+                              Proj&& proj = {}) const {
+        return cmpImpl(nullptr, paramTypes(), nullptr, rhs.paramTypes(), cmp,
+                       proj);
+    }
+
     /// Function object to use with hash tables
     struct HashIgnoringFirst {
         size_t operator()(FuncSig const& fs) const {
@@ -68,9 +83,23 @@ public:
     };
 
     /// Function object to use with hash tables
+    struct HashIgnoringRet {
+        size_t operator()(FuncSig const& fs) const {
+            return fs.hashValueIgnoringRet();
+        }
+    };
+
+    /// Function object to use with hash tables
     struct CompareEqIgnoringFirst {
         bool operator()(FuncSig const& a, FuncSig const& b) const {
             return a.compareEqIgnoringFirst(b);
+        }
+    };
+
+    /// Function object to use with hash tables
+    struct CompareEqIgnoringRet {
+        bool operator()(FuncSig const& a, FuncSig const& b) const {
+            return a.compareEqIgnoringRet(b);
         }
     };
 
