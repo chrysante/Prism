@@ -1,9 +1,7 @@
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
-#include <sstream>
 
 #include <CLI/CLI.hpp>
 #include <termfmt/termfmt.h>
@@ -12,10 +10,7 @@
 #include <Prism/Common/TreeFormatter.h>
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Diagnostic/DiagnosticFormat.h>
-#include <Prism/Facet/Facet.h>
-#include <Prism/Parser/Parser.h>
-#include <Prism/Sema/Analysis.h>
-#include <Prism/Sema/SemaContext.h>
+#include <Prism/Invocation/Invocation.h>
 #include <Prism/Sema/SemaPrint.h>
 #include <Prism/Sema/Symbol.h>
 #include <Prism/Source/SourceContext.h>
@@ -71,37 +66,32 @@ static void header(std::ostream& str, std::string_view title) {
 static int semaPlaygroundMain(Options options) {
     std::filesystem::path filepath = "examples/Playground.prism";
     std::fstream file(filepath);
-    if (!file) {
-        std::cerr << "Failed to open file\n";
-        return 1;
-    }
-    std::stringstream sstr;
-    sstr << file.rdbuf();
-    std::string source = std::move(sstr).str();
-    MonotonicBufferResource alloc;
-    SourceContext sourceContext(filepath, source);
-    auto DE = makeDefaultDiagnosticEmitter();
-    auto* parseTree = parseSourceFile(alloc, sourceContext, *DE);
+    Invocation inv;
+    inv.addSourceFile(filepath);
+    inv.runUntil(InvocationStage::Sema);
     if (options.printFacets) {
-        TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
         header(std::cout, "Parse Tree");
+        std::cerr << tfmt::format(tfmt::Red | tfmt::Bold,
+                                  "Facet printing not implemented")
+                  << "\n";
+#if 0
+        TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
+        auto* parseTree = inv.getParseTree(filepath);
         print(parseTree, fmt, { &sourceContext });
+#endif
     }
-    if (!DE->empty()) {
-        print(*DE);
-        return 1;
+    auto* target = inv.getTarget();
+    if (target) {
+        header(std::cout, "Sema IR");
+        print(*target, std::cout,
+              { .structureMemoryLayout = true,
+                .traitObligations = options.printConformances });
+        if (options.printScopes)
+            printScopeHierarchy(target->associatedScope(), std::cout);
     }
-    SemaContext ctx;
-    auto* target =
-        analyzeModule(alloc, ctx, *DE, { { { parseTree, &sourceContext } } });
-    header(std::cout, "Sema IR");
-    print(*target, std::cout,
-          { .structureMemoryLayout = true,
-            .traitObligations = options.printConformances });
-    if (options.printScopes)
-        printScopeHierarchy(target->associatedScope(), std::cout);
-    if (!DE->empty()) {
-        print(*DE);
+    auto& DE = inv.getDiagnosticEmitter();
+    if (!DE.empty()) {
+        print(DE);
         return 1;
     }
     return 0;
