@@ -5,11 +5,13 @@
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Sema/Scope.h"
 #include "Prism/Sema/Symbol.h"
 
 using namespace prism;
 using ranges::views::filter;
+using ranges::views::join;
 using ranges::views::transform;
 
 static NameLookupResult lookupSimilar(Scope* scope, std::string_view name) {
@@ -29,38 +31,73 @@ static NameLookupResult lookupSimilar(Scope* scope, std::string_view name) {
     return {};
 }
 
-NameLookupResult prism::unqualifiedLookup(Scope* const scope,
-                                          std::string_view name,
-                                          NameLookupOptions options) {
-    utl::small_vector<Symbol*> symbols;
-    bool isOverloadSet;
-    auto* currentScope = scope;
-    while (currentScope) {
-        auto scopeSymbols = currentScope->symbolsByName(name);
-        if (ranges::any_of(scopeSymbols, isa<Function>)) {
-            isOverloadSet = true;
-            ranges::copy(scopeSymbols | filter(isa<Function>),
-                         std::back_inserter(symbols));
-        }
-        else {
-            ranges::copy(scopeSymbols, std::back_inserter(symbols));
-        }
-        if (isOverloadSet || scopeSymbols.empty()) {
+namespace {
+
+struct LookupContext {
+    std::string_view name;
+    NameLookupOptions options;
+
+    NameLookupResult lookupUnqual(Scope* scope) {
+        utl::small_vector<Symbol*> symbols;
+        auto* currentScope = scope;
+        while (currentScope) {
+            auto scopeSymbols = searchScope(currentScope);
+            symbols.insert(symbols.end(), scopeSymbols.begin(),
+                           scopeSymbols.end());
+            if (symbols.size() == 1) return symbols.front();
+            if (!symbols.empty() && ranges::none_of(symbols, isa<Function>))
+                return symbols;
             currentScope = currentScope->parent();
-            continue;
         }
-        if (scopeSymbols.size() == 1) return scopeSymbols.front();
-        return scopeSymbols | ToSmallVector<>;
-    }
-    if (symbols.empty()) {
-        if (options.allowSimilarNames)
-            return lookupSimilar(scope, name);
-        else
-            return {};
-    }
-    if (!isOverloadSet) // Ambiguous case
+        if (symbols.empty()) {
+            if (options.allowSimilarNames)
+                return lookupSimilar(scope, name);
+            else
+                return {};
+        }
+        // Overload set
+        if (ranges::all_of(symbols, isa<Function>))
+            return symbols | transform(cast<Function*>) |
+                   ranges::to<utl::small_vector<Function*>>;
+        // Ambiguous
         return symbols;
-    if (symbols.size() == 1) return symbols.front();
-    return symbols | transform(cast<Function*>) |
-           ranges::to<utl::small_vector<Function*>>;
+    }
+
+    utl::small_vector<Symbol*> searchScope(Scope* scope) {
+        auto scopeSymbols = scope->symbolsByName(name) | ToSmallVector<>;
+        if (scopeSymbols.empty()) return searchBases(scope);
+        if (ranges::any_of(scopeSymbols, isa<Function>)) {
+            auto baseSymbols = searchBases(scope);
+            scopeSymbols.insert(scopeSymbols.end(), baseSymbols.begin(),
+                                baseSymbols.end());
+            return scopeSymbols;
+        }
+        return scopeSymbols;
+    }
+
+    utl::small_vector<Symbol*> searchBases(Scope* scope) {
+        auto* sym = scope->assocSymbol();
+        if (!sym) return {};
+        utl::small_vector<Symbol*> bases;
+        visit(*sym, csp::overload{
+                        [&](std::derived_from<CompTypeInterface> auto& type) {
+            ranges::copy(type.baseTraits() | transform(FN1(_1->trait())),
+                         std::back_inserter(bases));
+            ranges::copy(type.baseClasses() | transform(FN1(_1->type())),
+                         std::back_inserter(bases));
+        }, [&](std::derived_from<TraitInterface> auto& trait) {
+            ranges::copy(trait.baseTraits() | transform(FN1(_1->trait())),
+                         std::back_inserter(bases));
+        }, [](auto const&) {} });
+        return bases | transform(FN1(&, searchScope(_1->associatedScope()))) |
+               join | ToSmallVector<>;
+    }
+};
+
+} // namespace
+
+NameLookupResult prism::unqualifiedLookup(Scope* scope, std::string_view name,
+                                          NameLookupOptions options) {
+    LookupContext ctx{ name, options };
+    return ctx.lookupUnqual(scope);
 }

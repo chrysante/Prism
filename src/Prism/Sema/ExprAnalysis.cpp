@@ -91,8 +91,9 @@ Symbol* AnaContext::analyzeID(TerminalFacet const& id) {
         [&](std::span<Function* const> /* overloadSet */) -> Symbol* {
             PRISM_UNIMPLEMENTED();
         },
-        [&](std::span<Symbol const* const> /* ambiSet */) -> Symbol* {
-            PRISM_UNIMPLEMENTED();
+        [&](std::span<Symbol const* const> ambiSet) -> Symbol* {
+            DE.emit<AmbiguousNameLookup>(sourceContext, &id, ambiSet);
+            return nullptr;
         },
     }); // clang-format on
 }
