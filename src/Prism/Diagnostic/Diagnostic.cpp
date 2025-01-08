@@ -143,23 +143,24 @@ static void printSourceRange(SourceContext const& ctx, SourceRange range,
     SourceRange wholeRange = expandToWholeLines(ctx, range, 1, 1);
     std::string_view snipped = ctx.source(wholeRange);
     size_t lineIndex = ctx.getSourceLocation(wholeRange.index).line;
+    bool firstLine = true, firstHighlight = true;
     forEachLine(snipped, wholeRange, range,
-                [&, first = true](std::string_view begin,
-                                  std::string_view highlight,
-                                  std::string_view end) mutable {
-        if (!first) str << "\n";
+                [&](std::string_view begin, std::string_view highlight,
+                    std::string_view end) {
+        if (!std::exchange(firstLine, false)) str << "\n";
         str << StartSourceLine(++lineIndex) << tfmt::format(BrightGrey, begin)
             << tfmt::format(Bold, highlight) << tfmt::format(BrightGrey, end);
         if (!highlight.empty()) {
             std::string_view startIndicator = "^";
             std::string_view indicator = "~";
-            std::string_view start = first ? startIndicator : indicator;
+            std::string_view start = std::exchange(firstHighlight, false) ?
+                                         startIndicator :
+                                         indicator;
             str << "\n"
                 << StartSourceLine("") << fill(begin.size())
                 << fill(highlight.size(), start, indicator, Bold | Green)
                 << fill(end.size());
         }
-        first = false;
     });
 }
 
