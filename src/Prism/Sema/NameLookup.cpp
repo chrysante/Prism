@@ -79,18 +79,28 @@ struct LookupContext {
         auto* sym = scope->assocSymbol();
         if (!sym) return {};
         utl::small_vector<Symbol*> bases;
+        // clang-format off
         visit(*sym, csp::overload{
-                        [&](std::derived_from<CompTypeInterface> auto& type) {
-            ranges::copy(type.baseTraits() | transform(FN1(_1->trait())),
-                         std::back_inserter(bases));
-            ranges::copy(type.baseClasses() | transform(FN1(_1->type())),
-                         std::back_inserter(bases));
-        }, [&](std::derived_from<TraitInterface> auto& trait) {
-            ranges::copy(trait.baseTraits() | transform(FN1(_1->trait())),
-                         std::back_inserter(bases));
-        }, [](auto const&) {} });
-        return bases | transform(FN1(&, searchScope(_1->associatedScope()))) |
-               join | ToSmallVector<>;
+            [&](std::derived_from<CompTypeInterface> auto& type) {
+                bases.reserve(
+                    type.baseTraits().size() + type.baseClasses().size());
+                ranges::copy(type.baseTraits() | transform(FN1(_1->trait())),
+                             std::back_inserter(bases));
+                ranges::copy(type.baseClasses() | transform(FN1(_1->type())),
+                             std::back_inserter(bases));
+            },
+            [&](std::derived_from<TraitInterface> auto& trait) {
+                bases.reserve(trait.baseTraits().size());
+                ranges::copy(trait.baseTraits() | transform(FN1(_1->trait())),
+                             std::back_inserter(bases));
+            },
+            [](auto const&) {}
+        }); // clang-format on
+        utl::small_vector<Symbol*> result;
+        ranges::for_each(bases, [&](Symbol* base) {
+            result.insert(result.end(), searchScope(base->associatedScope()));
+        });
+        return result;
     }
 };
 
