@@ -1,6 +1,11 @@
 #include "Prism/Invocation/Invocation.h"
 
+#include <cstring>
+#include <fstream>
+#include <sstream>
+
 #include <utl/hashtable.hpp>
+#include <utl/strcat.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
@@ -60,7 +65,20 @@ Invocation& Invocation::operator=(Invocation&&) noexcept = default;
 
 Invocation::~Invocation() = default;
 
-void Invocation::addSourceFile(std::filesystem::path) { PRISM_UNIMPLEMENTED(); }
+[[noreturn]]
+static void throwFileError(std::filesystem::path const& path, int err) {
+    std::stringstream sstr;
+    sstr << "Failed to open file " << path << ": " << strerror(err);
+    throw std::runtime_error(std::move(sstr).str());
+}
+
+void Invocation::addSourceFile(std::filesystem::path path) {
+    std::fstream file(path);
+    if (!file) throwFileError(path, errno);
+    std::stringstream sstr;
+    sstr << file.rdbuf();
+    addSourceFile(std::move(path), std::move(sstr).str());
+}
 
 void Invocation::addSourceFile(std::filesystem::path path,
                                std::string sourceStr) {
@@ -84,6 +102,8 @@ void Invocation::runUntil(InvocationStage stage) {
         sourceFilePairs.push_back({ parseTree, &sourceContext });
     }
     if (stage < InvocationStage::Sema) return;
+    // For now we return before sema if we have parsing errors
+    if (!impl->DE->empty()) return;
     impl->target = analyzeModule(impl->resource, impl->semaContext, *impl->DE,
                                  sourceFilePairs);
 }
