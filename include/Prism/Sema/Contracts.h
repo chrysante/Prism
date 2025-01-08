@@ -158,7 +158,7 @@ public:
     bool isCompleteForTraits() const;
 
     ///
-    void setTypeConformance(Typedef const* impl, TypeObligation const* obl);
+    void addTypeConformance(Typedef const* impl, TypeObligation const* obl);
 
 private:
     friend struct detail::InterfaceCompareImpl;
@@ -168,7 +168,8 @@ private:
 
     Symbol* _symbol;
     utl::hashmap<std::string, utl::tiny_ptr_vector<TypeObligation*>> _typeObls;
-    utl::hashmap<Typedef const*, TypeObligation const*> _typedefOblMap;
+    utl::hashmap<Typedef const*, utl::tiny_ptr_vector<TypeObligation const*>>
+        _typedefOblMap;
     utl::hashmap<ValueType const*, utl::tiny_ptr_vector<Typedef const*>>
         _typedefDefinitionMap;
     utl::hashmap<FuncObligationKey, utl::tiny_ptr_vector<FuncObligation*>,

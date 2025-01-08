@@ -184,16 +184,6 @@ static void TypeDefCycleNotes(TypeDefCycle& diag,
     });
 }
 
-static void AmbiguousConformanceNotes(
-    AmbiguousConformance& diag, std::span<Obligation const* const> matches) {
-    for (auto* sym: matches | transform(FN1(_1->symbol()))) {
-        diag.addNote(sym->facet(), [=](std::ostream& str) {
-            str << "Declaration matches "
-                << formatDecl(sym, { .primaryQualified = true });
-        });
-    }
-}
-
 static void IncompleteImplNotes(IncompleteImpl& diag,
                                 InterfaceLike const& interface) {
     auto obligations = concat(interface.typeObligations() | values | join |

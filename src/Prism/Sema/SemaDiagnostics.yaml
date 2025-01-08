@@ -11,6 +11,22 @@ diags:
       str << "Use of undeclared identifier '" << getID(facet(), sourceContext())
           << "'";
 
+  - name: AmbiguousNameLookup
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: symbols
+        type: std::span<Symbol const* const>
+        ctor_only: true
+    ctor_body: >
+      for (auto* symbol: symbols)
+          addNote(symbol->facet(), [symbol](std::ostream& str) {
+              str << "'" << formatName(symbol) << "' declared here";
+          });
+    header: >
+      str << "Multiple symbols found for identifier '"
+          << getID(facet(), sourceContext()) << "'";
+
   - name: Redefinition
     base: SemaDiagnostic
     kind: Error
@@ -97,20 +113,6 @@ diags:
     header: >
       str << "'this' cannot appear in non-member functions";
 
-  - name: AmbiguousConformance
-    base: SemaDiagnostic
-    kind: Error
-    members:
-      - name: sym
-        type: Symbol const*
-      - name: matches
-        type: std::span<Obligation const* const>
-        ctor_only: true
-    ctor_body: AmbiguousConformanceNotes(*this, matches);
-    header: >
-      str << "Ambiguous conformance of "
-          << formatDecl(sym, { .primaryQualified = true });
- 
   - name: IncompleteImpl
     base: SemaDiagnostic
     kind: Error

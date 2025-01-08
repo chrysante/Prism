@@ -122,28 +122,18 @@ void ConfAnaContext::doAnalyzeConformance(Typedef& type,
                                           InterfaceLike& interface) {
     if (!type.definition()) return;
     auto matches = interface.matchTypeObligation(type.name());
-    if (matches.empty()) return;
-    if (matches.size() == 1) {
-        auto* obl = matches.front();
-        obl->addConformance(&type, SpecAddMode::Define);
-        interface.setTypeConformance(&type, obl);
-        return;
+    for (auto* match: matches) {
+        match->addConformance(&type, SpecAddMode::Define);
+        interface.addTypeConformance(&type, match);
     }
-    DE.emit<AmbiguousConformance>(sourceContext, type.facet(), &type,
-                                  matches | ToSmallVector<Obligation const*>);
 }
 
 void ConfAnaContext::doAnalyzeConformance(FunctionImpl& func,
                                           InterfaceLike& interface) {
     if (func.params().empty() || !func.params().front()->isThis()) return;
     auto matches = interface.matchFuncObligation(func.name(), func.signature());
-    if (matches.empty()) return;
-    if (matches.size() == 1) {
-        matches.front()->addConformance(&func, SpecAddMode::Define);
-        return;
-    }
-    DE.emit<AmbiguousConformance>(sourceContext, func.facet(), &func,
-                                  matches | ToSmallVector<Obligation const*>);
+    for (auto* match: matches)
+        match->addConformance(&func, SpecAddMode::Define);
 }
 
 void ConfAnaContext::analyzeConformances(InterfaceLike& interface,

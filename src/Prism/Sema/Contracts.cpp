@@ -58,11 +58,11 @@ struct detail::InterfaceCompareImpl {
                 if (impl(def, rhs, interface)) return true;
         }
         if (auto* lhsTypedef = dyncast<Typedef const*>(lhs)) {
-            if (lhsTypedef->definition() == rhs) return true;
             auto itr = interface._typedefOblMap.find(lhsTypedef);
-            if (itr == interface._typedefOblMap.end()) return false;
-            auto* obl = itr->second;
-            return impl(obl->type(), rhs, interface);
+            if (itr == interface._typedefOblMap.end())
+                return impl(lhsTypedef->definition(), rhs, interface);
+            for (auto* obl: itr->second)
+                if (impl(obl->type(), rhs, interface)) return true;
         }
         if (auto* lhsParam = dyncast<GenericTypeParam const*>(lhs))
             return impl(mapTypeParam(lhsParam, interface.symbol()), rhs,
@@ -94,10 +94,6 @@ bool FuncObligationKey::Equal::operator()(FuncObligationKey const& lhs,
 
 size_t FuncObligationKey::Hash::operator()(FuncObligationKey const& key) const {
     return std::hash<std::string_view>{}(key.name);
-    //    size_t seed = 0;
-    //    utl::hash_combine_seed(seed, key.name);
-    //    utl::hash_combine_seed(seed, key.funcSig.hashValueIgnoringFirst());
-    //    return seed;
 }
 
 InterfaceLike::InterfaceLike(Symbol* symbol):
@@ -112,10 +108,9 @@ void InterfaceLike::addObligation(csp::unique_ptr<Obligation> obl,
         bag.push_back(std::move(obl));
 }
 
-void InterfaceLike::setTypeConformance(Typedef const* impl,
+void InterfaceLike::addTypeConformance(Typedef const* impl,
                                        TypeObligation const* obl) {
-    bool success = _typedefOblMap.insert({ impl, obl }).second;
-    PRISM_ASSERT(success);
+    _typedefOblMap[impl].push_back(obl);
     if (impl->definition())
         _typedefDefinitionMap[impl->definition()].push_back(impl);
 }
@@ -125,8 +120,7 @@ bool InterfaceLike::addObligationImpl(TypeObligation* obl, SpecAddMode mode) {
     auto& list = _typeObls[type->name()];
     switch (mode) {
     case SpecAddMode::Define: {
-        if (!list.empty()) return false;
-        list.push_back(obl);
+        list = { obl };
         return true;
     }
     case SpecAddMode::Inherit:
@@ -148,8 +142,7 @@ bool InterfaceLike::addObligationImpl(FuncObligation* obl, SpecAddMode mode) {
     auto& list = _funcObls[{ F->name(), F->signature() }];
     switch (mode) {
     case SpecAddMode::Define:
-        if (!list.empty()) return false;
-        list.push_back(obl);
+        list = { obl };
         return true;
     case SpecAddMode::Inherit:
         if (auto itr = ranges::find(list, F, FN1(_1->function()));

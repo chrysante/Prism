@@ -74,17 +74,6 @@ fn bar(this) {}
     CHECK(c.findDiagOnLine<ThisParamFreeFunction>(3));
 }
 
-TEST_CASE("AmbiguousConformance", "[sema]") {
-    auto c = makeDiagChecker(R"(
-trait T1 { fn foo(&this); }
-trait T2 { fn foo(&this); }
-trait T: T1, T2 { fn foo(&this) {} }
-struct S: T1, T2 { fn foo(&this) {} }
-)");
-    CHECK(c.findDiagOnLine<AmbiguousConformance>(4));
-    CHECK(c.findDiagOnLine<AmbiguousConformance>(5));
-}
-
 TEST_CASE("IncompleteImpl", "[sema]") {
     auto c = makeDiagChecker(R"(
 trait T { fn foo(&this); }
