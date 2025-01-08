@@ -43,6 +43,7 @@ static auto fmt(Diagnostic::Kind kind) {
             str << tfmt::format(Bold | BrightYellow, "Warning:") << " ";
             break;
         case Note:
+            str << tfmt::format(Bold, "Note:") << " ";
             break;
         case Hint:
             str << tfmt::format(Bold | BrightGreen, "Hint:") << " ";

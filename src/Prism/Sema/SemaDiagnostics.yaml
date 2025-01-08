@@ -21,7 +21,9 @@ diags:
     ctor_body: >
       for (auto* symbol: symbols)
           addNote(symbol->facet(), [symbol](std::ostream& str) {
-              str << "'" << formatName(symbol) << "' declared here";
+              str << "Found " << prettyName(get_rtti(*symbol)) << " '"
+                  << formatName(symbol, { .qualified = true })
+                  << "' declared here";
           });
     header: >
       str << "Multiple symbols found for identifier '"
