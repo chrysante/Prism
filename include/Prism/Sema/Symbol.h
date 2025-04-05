@@ -297,16 +297,10 @@ private:
     ValueType* _def;
 };
 
-/// Base class of all types with a scope
-class ScopedType: public ValueType {
+/// Base class of all user defined types
+class UserType: public ValueType {
 protected:
     using ValueType::ValueType;
-};
-
-/// Base class of all user defined types
-class UserType: public ScopedType {
-protected:
-    using ScopedType::ScopedType;
 };
 
 /// Common interface of `CompositeType` and `GenCompositeType`
@@ -483,23 +477,23 @@ private:
 };
 
 ///
-class ByteType: public ScopedType {
+class ByteType: public ValueType {
 public:
     explicit ByteType(SemaContext& ctx, std::string name, Scope* parent):
-        ScopedType(SymbolType::ByteType, std::move(name), nullptr, parent,
-                   detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
+        ValueType(SymbolType::ByteType, std::move(name), nullptr, parent,
+                  detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 ///
-class BoolType: public ScopedType {
+class BoolType: public ValueType {
 public:
     explicit BoolType(SemaContext& ctx, std::string name, Scope* parent):
-        ScopedType(SymbolType::BoolType, std::move(name), nullptr, parent,
-                   detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
+        ValueType(SymbolType::BoolType, std::move(name), nullptr, parent,
+                  detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
-class ArithmeticType: public ScopedType {
+class ArithmeticType: public ValueType {
 public:
     /// \Returns the number of bits of this type
     size_t bitwidth() const { return layout().size() * 8; }
@@ -507,9 +501,9 @@ public:
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        ScopedType(symType, std::move(name), nullptr, parent,
-                   detail::make_scope(ctx, this, parent),
-                   TypeLayout(bitwidth / 8)) {
+        ValueType(symType, std::move(name), nullptr, parent,
+                  detail::make_scope(ctx, this, parent),
+                  TypeLayout(bitwidth / 8)) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
 };

@@ -38,12 +38,8 @@ symbols:
   - name: Typedef
     base: ValueType
 
-  - name: ScopedType
-    base: ValueType
-    abstract: true
-
   - name: UserType
-    base: ScopedType
+    base: ValueType
     abstract: true
 
   - name: CompositeType
@@ -70,13 +66,13 @@ symbols:
     base: ValueType
 
   - name: ByteType
-    base: ScopedType
+    base: ValueType
 
   - name: BoolType
-    base: ScopedType
+    base: ValueType
 
   - name: ArithmeticType
-    base: ScopedType
+    base: ValueType
     abstract: true
 
   - name: IntType
