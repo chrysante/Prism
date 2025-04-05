@@ -24,28 +24,22 @@ Scope const* Symbol::associatedScope() const {
     });
 }
 
-detail::AssocScope::AssocScope(SemaContext& ctx, Scope* scope, Symbol* This):
-    _scope(scope) {
-    if (!_scope) _scope = ctx.makeScope(This->parentScope());
-    _scope->_assocSymbol = This;
+Scope* detail::make_scope(SemaContext& ctx, Symbol* This, Scope* parent) {
+    auto* scope = ctx.makeScope(parent);
+    scope->_assocSymbol = This;
+    return scope;
 }
 
 Module::Module(SymbolType type, SemaContext& ctx, std::string name,
                Facet const* facet, Scope* parent):
     Symbol(type, std::move(name), facet, parent),
-    AssocScope(ctx, nullptr, this) {}
+    AssocScope(detail::make_scope(ctx, this, parent)) {}
 
 SourceFile::SourceFile(SemaContext& ctx, std::string name, Facet const* facet,
                        Scope* parent, SourceContext const& sourceCtx):
     Symbol(SymbolType::SourceFile, std::move(name), facet, parent),
-    AssocScope(ctx, nullptr, this),
+    AssocScope(detail::make_scope(ctx, this, parent)),
     sourceCtx(sourceCtx) {}
-
-ScopedType::ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
-                       Facet const* facet, Scope* parent, Scope* scope,
-                       TypeLayout layout):
-    ValueType(symType, std::move(name), facet, parent, layout),
-    AssocScope(ctx, scope, this) {}
 
 TraitImplInterface const* TraitConformer::findTraitImpl(
     Trait const* trait) const {
@@ -104,7 +98,7 @@ FunctionImpl::FunctionImpl(SemaContext& ctx, std::string name,
                            utl::small_vector<FuncParam*>&& params,
                            Type const* retType):
     Function(std::move(name), facet, parent, std::move(params), retType),
-    AssocScope(ctx, nullptr, this) {
+    AssocScope(detail::make_scope(ctx, this, parent)) {
     setSymbolType(SymbolType::FunctionImpl);
 }
 

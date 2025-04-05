@@ -72,14 +72,15 @@ private:
 
 namespace detail {
 
+Scope* make_scope(SemaContext& ctx, Symbol* This, Scope* parent);
+
 class AssocScope {
 public:
     Scope* associatedScope() { return _scope; }
 
     Scope const* associatedScope() const { return _scope; }
 
-protected:
-    explicit AssocScope(SemaContext& ctx, Scope* scope, Symbol* This);
+    explicit AssocScope(Scope* scope): _scope(scope) {}
 
 private:
     Scope* _scope;
@@ -176,7 +177,7 @@ protected:
                            Scope* scope,
                            utl::small_vector<Symbol*>&& genParams):
         Symbol(symType, std::move(name), facet, parent),
-        AssocScope(ctx, scope, this),
+        AssocScope(scope ? scope : detail::make_scope(ctx, this, parent)),
         _genParams(std::move(genParams)) {}
 
 private:
@@ -185,15 +186,19 @@ private:
     utl::small_vector<Symbol*> _genParams;
 };
 
-class Type: public Symbol {
+class Type: public Symbol, public detail::AssocScope {
 public:
+    using AssocScope::associatedScope;
+
     /// \Returns the memory layout of this type
     TypeLayout layout() const { return _layout; }
 
 protected:
     Type(SymbolType type, std::string name, Facet const* facet, Scope* parent,
-         TypeLayout layout):
-        Symbol(type, std::move(name), facet, parent), _layout(layout) {}
+         Scope* scope, TypeLayout layout):
+        Symbol(type, std::move(name), facet, parent),
+        AssocScope(scope),
+        _layout(layout) {}
 
     void setLayout(TypeLayout layout) { _layout = layout; }
 
@@ -252,7 +257,7 @@ public:
     explicit GenericTypeParam(std::string name, Facet const* facet,
                               Scope* parent, Trait* traitBound):
         ValueType(SymbolType::GenericTypeParam, std::move(name), facet, parent,
-                  TypeLayout::Incomplete),
+                  nullptr, TypeLayout::Incomplete),
         _traitBound(traitBound) {}
 
     /// \Returns the trait that this type argument conforms to
@@ -270,7 +275,7 @@ class Typedef: public ValueType {
 public:
     explicit Typedef(std::string name, Facet const* facet, Scope* parent,
                      Trait* traitBound, ValueType* definition):
-        ValueType(SymbolType::Typedef, std::move(name), facet, parent,
+        ValueType(SymbolType::Typedef, std::move(name), facet, parent, nullptr,
                   TypeLayout::Incomplete),
         _traitBound(traitBound),
         _def(definition) {}
@@ -293,14 +298,9 @@ private:
 };
 
 /// Base class of all types with a scope
-class ScopedType: public ValueType, public detail::AssocScope {
-public:
-    using AssocScope::associatedScope;
-
+class ScopedType: public ValueType {
 protected:
-    ScopedType(SymbolType symType, SemaContext& ctx, std::string name,
-               Facet const* facet, Scope* parent, Scope* scope,
-               TypeLayout layout);
+    using ValueType::ValueType;
 };
 
 /// Base class of all user defined types
@@ -363,7 +363,8 @@ public:
 protected:
     CompositeType(SymbolType symType, SemaContext& ctx, std::string name,
                   Facet const* facet, Scope* parent, TypeLayout layout):
-        UserType(symType, ctx, std::move(name), facet, parent, nullptr, layout),
+        UserType(symType, std::move(name), facet, parent,
+                 detail::make_scope(ctx, this, parent), layout),
         CompTypeInterface(this) {}
 
     friend struct InstantiationContext;
@@ -468,7 +469,7 @@ public:
                           Type const* retType,
                           utl::small_vector<Type const*> params):
         ValueType(SymbolType::FunctionType, {}, facet, parent,
-                  TypeLayout::Incomplete),
+                  /* scope: */ nullptr, TypeLayout::Incomplete),
         _retType(retType),
         _params(std::move(params)) {}
 
@@ -485,16 +486,16 @@ private:
 class ByteType: public ScopedType {
 public:
     explicit ByteType(SemaContext& ctx, std::string name, Scope* parent):
-        ScopedType(SymbolType::ByteType, ctx, std::move(name), nullptr, parent,
-                   nullptr, TypeLayout(1)) {}
+        ScopedType(SymbolType::ByteType, std::move(name), nullptr, parent,
+                   detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 ///
 class BoolType: public ScopedType {
 public:
     explicit BoolType(SemaContext& ctx, std::string name, Scope* parent):
-        ScopedType(SymbolType::BoolType, ctx, std::move(name), nullptr, parent,
-                   nullptr, TypeLayout(1)) {}
+        ScopedType(SymbolType::BoolType, std::move(name), nullptr, parent,
+                   detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
@@ -506,7 +507,8 @@ public:
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        ScopedType(symType, ctx, std::move(name), nullptr, parent, nullptr,
+        ScopedType(symType, std::move(name), nullptr, parent,
+                   detail::make_scope(ctx, this, parent),
                    TypeLayout(bitwidth / 8)) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
@@ -557,7 +559,7 @@ class ReferenceType: public Type {
 public:
     explicit ReferenceType(QualType referred):
         Type(SymbolType::ReferenceType, /* name: */ {}, /* facet: */ nullptr,
-             /* scope: */ nullptr, TypeLayout(8)),
+             /* parent-scope: */ nullptr, /* scope: */ nullptr, TypeLayout(8)),
         ref(referred) {}
 
     /// \Return the referred-to qual type, e.g., `mut i32` for a `&mut i32`
@@ -571,7 +573,7 @@ private:
 class VoidType: public Type {
 public:
     explicit VoidType(std::string name, Scope* parent):
-        Type(SymbolType::VoidType, std::move(name), nullptr, parent,
+        Type(SymbolType::VoidType, std::move(name), nullptr, parent, nullptr,
              TypeLayout::Incomplete) {}
 };
 
@@ -653,7 +655,7 @@ protected:
     explicit Trait(SymbolType symType, SemaContext& ctx, std::string name,
                    Facet const* facet, Scope* parent):
         Symbol(symType, std::move(name), facet, parent),
-        AssocScope(ctx, nullptr, this),
+        AssocScope(detail::make_scope(ctx, this, parent)),
         TraitInterface(this) {}
 };
 
@@ -768,7 +770,7 @@ protected:
     explicit TraitImpl(SymbolType symType, SemaContext& ctx, Facet const* facet,
                        Scope* parent, Trait* trait, ValueType* conforming):
         Symbol(symType, /* name: */ {}, facet, parent),
-        AssocScope(ctx, nullptr, this),
+        AssocScope(detail::make_scope(ctx, this, parent)),
         TraitImplInterface(this, trait, conforming) {}
 };
 
@@ -829,7 +831,8 @@ public:
 protected:
     explicit DynType(SymbolType symtype, Symbol* underlying):
         ValueType(symtype, /* name: */ {}, /* facet: */ nullptr,
-                  /* parentScope: */ nullptr, TypeLayout::Incomplete),
+                  /* parent-scope: */ nullptr, /* scope: */ nullptr,
+                  TypeLayout::Incomplete),
         _underlying(underlying) {}
 
 private:

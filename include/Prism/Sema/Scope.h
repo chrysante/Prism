@@ -17,10 +17,12 @@
 namespace prism {
 
 class Symbol;
+class SemaContext;
 
 namespace detail {
 class AssocScope;
-}
+Scope* make_scope(SemaContext& ctx, Symbol* This, Scope* parent);
+} // namespace detail
 
 ///
 class Scope {
@@ -83,6 +85,8 @@ public:
 private:
     friend class Symbol;
     friend class detail::AssocScope;
+
+    friend Scope* detail::make_scope(SemaContext&, Symbol*, Scope*);
 
     void addSymbol(Symbol& symbol);
 
