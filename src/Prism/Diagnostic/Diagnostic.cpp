@@ -75,7 +75,7 @@ static SourceRange expandToWholeLines(SourceContext const& ctx,
     do {
         while (end < source.size() && source[end] != '\n')
             ++end;
-        if (end < source.size() > 0 && endPadding > 0) ++end;
+        if (end < source.size() && endPadding > 0) ++end;
     } while (endPadding-- > 0);
     if (end < source.size()) ++end;
     return { begin, end - begin };
@@ -96,11 +96,13 @@ static void forEachLine(std::string_view text, SourceRange wholeRange,
         size_t highlightStart = std::min(breakIndex, size_t{ range.index });
         size_t highlightEnd =
             std::min(breakIndex, highlightStart + range.length);
-        while (highlightStart < line.size() &&
-               std::isspace(line[highlightStart]))
-            ++highlightStart;
-        while (highlightEnd > 0 && std::isspace(line[highlightEnd - 1]))
-            --highlightEnd;
+        if (highlightStart < highlightEnd) {
+            while (highlightStart < line.size() &&
+                   std::isspace(line[highlightStart]))
+                ++highlightStart;
+            while (highlightEnd > 0 && std::isspace(line[highlightEnd - 1]))
+                --highlightEnd;
+        }
         PRISM_ASSERT(highlightStart <= highlightEnd);
         size_t highlightCount = highlightEnd - highlightStart;
         auto begin = line.substr(0, highlightStart);

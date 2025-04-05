@@ -125,7 +125,7 @@ struct LinearParser: public ParserBase {
         LinParser<N + 1, Children..., IndexTree<N>> fastFail(
             ParserRule rule) const&& {
             rule.isFastFail = true;
-            return std::move(*this).template rule(std::move(rule));
+            return std::move(*this).rule(std::move(rule));
         }
 
         template <size_t M>
