@@ -34,13 +34,23 @@ function(create_empty_file filename)
     file(TOUCH ${filename})
 endfunction()
 
+function(auto_source_group base_dir file)
+    # Match first two segments: e.g., "foo/bar/" from "foo/bar/baz.cpp"
+    string(REGEX MATCH "^([^/]+/[^/]+/)" first_segment "${file}")
+    if(first_segment)
+        source_group(TREE "${base_dir}/${first_segment}" FILES "${file}")
+    endif()
+endfunction()
+
 function(add_code_generator target definitions template output filters)
+    string(REGEX MATCH "^[^/]+/" output_root "${output}")
     set(output ${CMAKE_BINARY_DIR}/${output})
     create_empty_file(${output})
-
     target_sources(${target} PRIVATE ${definitions} ${template} ${filters} ${output})
-    source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${definitions} ${template} ${filters})
-    source_group(TREE ${CMAKE_BINARY_DIR} FILES ${output})
+    auto_source_group(${CMAKE_SOURCE_DIR} "${definitions}")
+    auto_source_group(${CMAKE_SOURCE_DIR} "${template}")
+    auto_source_group(${CMAKE_SOURCE_DIR} "${filters}")
+    auto_source_group(${CMAKE_BINARY_DIR} "${output}")
 
     string(CONCAT command_source
       "${CMAKE_SOURCE_DIR}/generator/source_generator.sh "
@@ -242,7 +252,8 @@ target_sources(Prism
     ${PRISM_SOURCE_FILES}
 )
 
-source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${PRISM_SOURCE_FILES} ${PRISM_HEADER_FILES})
+source_group(TREE ${CMAKE_SOURCE_DIR}/src/Prism FILES ${PRISM_SOURCE_FILES})
+source_group(TREE ${CMAKE_SOURCE_DIR}/include/Prism FILES ${PRISM_HEADER_FILES})
 
 target_link_libraries(Prism 
   PUBLIC
@@ -267,7 +278,7 @@ target_sources(PrismTest
     ${PRISM_TEST_FILES}
 ) 
 
-source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${PRISM_TEST_FILES})
+source_group(TREE ${CMAKE_SOURCE_DIR}/test/Prism FILES ${PRISM_TEST_FILES})
 
 target_link_libraries(PrismTest
   PRIVATE

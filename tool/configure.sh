@@ -22,4 +22,4 @@ else
     error "Unknown OS \"$OS\""
 fi
 
-cmake -S $PROJ_DIR -B $PROJ_DIR/build $GENERATOR -DCPM_SOURCE_CACHE=build/srccache $@
+cmake -S $PROJ_DIR -B $PROJ_DIR/build $GENERATOR -DCPM_SOURCE_CACHE=.cache $@
