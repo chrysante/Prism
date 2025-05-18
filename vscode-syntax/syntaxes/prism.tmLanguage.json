@@ -1,0 +1,59 @@
+{
+    "name": "Prism",
+    "scopeName": "source.prism",
+    "patterns": [
+      {
+        "match": "\\b(if|else|do|while|for|return)\\b",
+        "name": "keyword.control.prism"
+      },
+      {
+        "match": "\\b(in|out|inout|sink|dyn|public|private)\\b",
+        "name": "storage.modifier.prism"
+      },
+      {
+        "match": "\\b(let|var|fn|struct|trait|impl|type)\\b",
+        "name": "keyword.declaration.prism"
+      },
+      {
+        "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|void)\\b",
+        "name": "storage.type.primitive.prism"
+      },
+      {
+        "match": "\\b(true|false|this|nil)\\b",
+        "name": "constant.language.prism"
+      },
+      {
+        "match": "@\\d+",
+        "name": "constant.language.prism"
+      },
+      {
+        "match": "\\b[-+]?\\d+(_\\d+)*\\b",
+        "name": "constant.numeric.integer.prism"
+      },
+      {
+        "match": "\\b[-+]?\\d*\\.\\d+([eE][-+]?\\d+)?\\b",
+        "name": "constant.numeric.float.prism"
+      },
+      {
+        "match": "'(\\\\|\\'|[^'\\\\])'",
+        "name": "constant.character.prism"
+      },
+      {
+        "match": "//.*$",
+        "name": "comment.line.double-slash.prism"
+      },
+      {
+        "match": "/\\*(?!\\*/)([^*]|\\*(?!/))*\\*/",
+        "name": "comment.block.prism"
+      },      
+      {
+        "match": "==|!=|<=|>=|&&|\\|\\||\\+\\+|--|->|<<|>>|[-+*/%=<>&^|!~]=?|[?:]",
+        "name": "keyword.operator.prism"
+      },
+      {
+        "match": "\"(?:[^\"\\\\]|\\\\.)*\"",
+        "name": "string.quoted.double.prism"
+      }
+    ]
+  }
+  

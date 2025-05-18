@@ -1,0 +1,51 @@
+{
+    "name": "prism-syntax",
+    "displayName": "Prism Syntax",
+    "description": "Basic syntax highlighting for Prism langage",
+    "version": "0.0.1",
+    "publisher": "chrysante",
+    "engines": {
+        "vscode": "^1.99.1"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "prism",
+                "aliases": [
+                    "Prism"
+                ],
+                "extensions": [
+                    ".prism"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "prism",
+                "scopeName": "source.prism",
+                "path": "./syntaxes/prism.tmLanguage.json"
+            }
+        ]
+    },
+    "main": "./extension.js",
+    "activationEvents": [
+        "onLanguage:prism"
+    ],
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/vscode": "^1.99.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/chrysante/Prism.git"
+    }
+}

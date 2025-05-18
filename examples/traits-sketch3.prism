@@ -1,0 +1,43 @@
+
+trait A {
+	virtual typedef T; // No default allowed
+
+	virtual fn foo(this,  arg: T);
+	virtual fn foo(this,  arg: bool);
+
+	virtual fn bar(this,  arg: i32);
+}
+
+trait B: A {
+	override fn bar(this, arg: i32) {} // Ok. provide default implementation for bar()
+}
+
+impl B for i32 {
+	override typedef T = bool;
+
+	override fn foo(this, arg: T) {} 
+}
+
+
+
+
+namespace std {
+
+trait [RhsType: type] term {
+	typedef result_type;
+
+	fn add(this, rhs: RhsType) -> result_type;
+}
+
+}
+
+struct MyInt { var value: i32; }
+
+impl std.term[MyInt] for MyInt {
+	typedef result_type = MyInt;
+	
+	fn add(this, rhs: MyInt) -> MyInt {
+		MyInt(value: this.value + rhs.value)
+	}
+}
+

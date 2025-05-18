@@ -1,0 +1,87 @@
+
+
+trait A {
+	// Defines an obligation for implementors with a default value
+	typedef T = i32;
+	
+	fn foo(&this, arg: T);	
+
+	fn bar(&this, arg: i32);
+}
+
+trait B: A {
+	// Overrides A.T
+    typedef T = bool;
+	
+	// Overrides A.foo
+	fn foo(&this, arg: bool) {}  	
+
+	// Overrides A.bar
+	fn bar(&this, arg: i32) {}
+}
+
+impl B for i32 {
+	// No implementation needed because B defines defaults for all obligations
+}
+
+trait C: B, A {}
+
+impl C for i32 {
+	// Must provide implementations for all obligations of A, because C directly inherits from A without defining defaults
+    
+    // Overrides A.T for both instances of A
+    typedef T = i64;
+
+	// Overrides A.foo for both instances of A
+	fn foo(&this, arg: i64) {}  	
+
+	// Overrides A.bar for both instances of A
+	fn bar(&this, arg: i32) {}
+}
+
+// Is i32.T ambiguous or is it i64?
+let value: i32.T;
+
+////////////////////
+
+trait clonable {
+    fn clone(&this) -> this type;
+}
+
+trait [RhsType: type] add {
+	typedef result_type;
+
+	fn op(&this, rhs: &RhsType) -> result_type;
+}
+
+trait [RhsType: type] add_assign {
+	fn op(&mut this, rhs: &RhsType) -> void;
+}
+
+struct S {}
+struct T {}
+
+impl add(T) for S {
+	typedef result_type = i32;
+	fn op(&this, rhs: &T) -> i32 { 42 }
+}
+
+impl add_assign(T) for S {
+	fn op(&mut this, rhs: &T) {}
+}
+
+fn test() {
+	var s: S;
+	var t: T;
+	s += t;
+}
+
+
+
+
+
+
+
+
+
+

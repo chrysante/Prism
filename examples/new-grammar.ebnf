@@ -1,0 +1,96 @@
+source_file        ::= global_decl*
+global_decl        ::= [access_spec] (func_decl | comp_type_decl | trait_impl | var_decl | typedef_decl)
+local_decl         ::= var_decl | typedef_decl
+access_spec        ::= 'public' | 'internal' | 'private'
+func_def           ::= func_decl (';' | compound_expr)
+func_decl          ::= 'fn' gen_param_list name param_list ['->' type_spec]
+param_list         ::= '(' ')'
+                     | '(' [param_decl (',' param_decl)*] ')'
+param_decl         ::= name ':' ['aliasing'] [param_qualifier] type_spec
+param_qualifier    ::= 'in' | 'inout' | 'sink'
+comp_type_decl     ::= ('struct' | 'trait') gen_param_list name [':' base_decl_list] '{' member_decl_list '}'
+trait_impl         ::= 'impl' gen_param_list trait_impl_decl
+trait_impl_decl    ::= func_decl 'for' type_spec compound_expr
+                     | type_spec for type_spec '{' member_decl_list '}'
+base_decl_list          ::= base_decl (',' base_decl)*
+base_decl          ::= [access_spec] name
+member_decl_list   ::= global_decl*
+var_decl           ::= ('var' | 'let') name [':' type_spec] ['=' assign_expr] ';'
+typedef_decl       ::= 'typedef' name [':' type_spec] ['=' type_spec] ';'
+stmt               ::= local_decl
+                     | ctrl_flow_stmt
+                     | import_stmt
+                     | expr_stmt
+                     | ';'
+import_stmt        ::= TODO
+expr_stmt          ::= compound_expr |
+                     | assign_facet ';'
+ctrl_flow_stmt     ::= return_stmt
+                     | if_stmt
+                     | while_stmt
+                     | do_while_stmt
+                     | for_stmt
+return_stmt        ::= 'return' [assign_facet] ';'
+if_stmt            ::= 'if' '(' assign_facet ')' stmt ['else' stmt]
+while_stmt         ::= 'while' '(' assign_facet ')' stmt
+do_while_stmt      ::= 'do' stmt 'while' '(' assign_facet ')' ';'
+for_stmt           ::= 'for' '(' var_decl assign_facet ';' assign_facet ')' stmt
+jump_stmt          ::= ('break' | 'continue') ';'
+type_spec          ::= prefix_facet
+assign_facet       ::= logical_or_facet
+                     | logical_or_facet ('=', '+=', ...) assign_facet
+logical_or_facet   ::= logical_and_facet
+                     | logical_or_facet '||' logical_and_facet
+logical_and_facet  ::= or_facet
+                     | logical_and_facet '&&' or_facet
+or_facet           ::= xor_facet
+                     | or_facet '|' xor_facet
+xor_facet          ::= and_facet
+                     | xor_facet '^' and_facet
+and_facet          ::= eq_facet
+                     | and_facet '^' eq_facet
+eq_facet           ::= rel_facet
+                     | eq_facet ('==' | '!=') rel_facet
+rel_facet          ::= shift_facet
+                     | rel_facet ('<' | '<=' | '>' | '>=')  shift_facet
+shift_facet        ::= add_facet
+                     | shift_facet ('<<' | '>>') add_facet
+add_facet          ::= mul_facet
+                     | add_facet ('+' | '-') mul_facet
+mul_facet          ::= cast_facet
+                     | mul_facet ('*' | '/' | '%') cast_facet
+cast_facet         ::= prefix_facet
+                     | cast_facet 'as' type_spec
+prefix_facet       ::= postfix_facet
+                     | prefix_op prefix_facet
+prefix_op          ::= '+' | '-' | '~' | '!' | '++' | '--'
+                     | ref_spec_facet
+                     | '*' | ('*' 'mut') | '&' | '?'
+                     | 'new' ['unique' | 'shared']
+ref_spec_facet     ::= 'mut' | 'dyn'
+postfix_facet      ::= primary_facet
+                     | postfix_facet ('++' | '--')
+                     | postfix_facet '(' ')'
+                     | postfix_facet '(' arg_list ')'
+                     | postfix_facet '{' arg_list '}'
+                     | postfix_facet '[' assign_facet ']'
+                     | postfix_facet '[' assign_facet (',' | ':') assign_facet ']'
+arg_list           ::= assign_facet (',' assign_facet)*
+primary_facet      ::= identifier
+                     | integer_literal
+                     | boolean_literal
+                     | floating_point_literal
+                     | string_literal
+                     | 'this' 'type'
+                     | 'this'
+                     | closure_expr | fn_type_facet
+                     | auto_arg
+                     | '(' assign_facet ')'
+                     | '[' assign_facet (',' assign_facet)* [','] ']'
+                     | compound_expr
+closure_expr       ::= 'fn' [param_list] ['->' type_spec] assign_expr
+fn_type_facet      ::= 'fn' param_list '->' type_spec
+auto_arg           ::= auto_arg_intro [: (param_qualifier | type_spec | param_qualifier type_spec)]
+auto_arg_intro     ::= '@0' | '@1' | ...
+compound_expr      ::= '{' stmt* [cast_facet] '}'
+fstring_mid_facet  ::= fstring_mid assign_facet

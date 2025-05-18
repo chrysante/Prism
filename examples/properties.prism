@@ -1,0 +1,209 @@
+// PROPERTIES 
+
+struct Foo {
+    property bar -> i64 {
+        get(this) { this.bar_value }
+        modify(inout this, f: fn (inout i64)) {
+            f(&this.bar_value);
+        }
+    }
+
+    private var bar_value: i64;
+}
+
+fn read_foo(foo: Foo) -> i64 { foo.bar }
+
+fn modify_i64(n: inout i64) {}
+
+fn modify_foo(foo: inout Foo, n: i64) {
+    print(foo.bar);
+    foo.bar = n; // -> foo.__bar_modify(fn @0: inout i64 = n);
+    modify_i64(&foo.bar); // -> foo.__bar_modify(fn modify_i64(@0: inout i64));
+}
+
+// -----------------------------------------------------------------------------
+
+struct Angle {
+    property radians -> f64 {
+        get(this) { this.value }
+        modify(inout this, f: fn (inout f64)) {
+            f(&this.value);
+            std.fmod(&this.value, 2 * std.constants.pi);
+        }
+    }
+
+    property degrees -> f64 {
+        static let conversion_factor = 180.0 / std.constants.pi;
+        get(this) { this.value * conversion_factor }
+        modify(inout this, f: fn (inout f64)) {
+            var deg = this.degrees;
+            f(&deg);
+            this.value = deg / conversion_factor; 
+        }
+    }
+
+    private var value: f64;
+}
+
+// -----------------------------------------------------------------------------
+
+struct MyArray {
+    property[](index: i64) -> i64 {
+        get(this) { 
+            assert(inbounds(index, this.values.count));
+            this.values[index]
+        }
+        modify(inout this, f: fn (inout i64)) {
+            assert(inbounds(index, this.values.count));
+            f(&this.values[index]);
+        }
+    }
+
+    property count { get(this) -> i64 { this.values.count } }
+
+    fn swap(inout this, i: i64, j: i64) {
+        this.values.swap(i, j);
+    }
+
+    private var values: [i64, 10];
+}
+
+fn modify_my_array(array: inout MyArray) {
+    array[7] *= 5; // -> array.__[]_modify(7, fn @0: inout i64 *= 5);
+}
+
+fn [T: type] my_swap(a: aliasing inout T, b: aliasing inout T) {
+    let tmp = a;
+    a = b; 
+    b = tmp;
+}
+
+fn sort(data: inout MyArray) {
+    for (n: data.count ..> 1) 
+        for (i: 0 ..< n - 1) 
+            if (data[i] > data[i + 1]) 
+                my_swap(data[i], data[i + 1]);
+}
+
+// my_swap(data[i], data[i + 1]) is rewritten by the compiler to 
+// data.__[]_modify(i, fn (__0: inout i64) { 
+//     data.__[]_modify(i + 1, fn (__1: inout i64) { 
+//         my_swap(&__0, &__1);
+//     })
+// })
+
+// -----------------------------------------------------------------------------
+
+struct [Key: std.hashable, Value: type] Hashmap {
+    fn lookup(this, key: Key) -> ?Value {
+        if (let index = this.find_buffer_index(key))
+            return this.buffer[index].value.copy();
+        else
+            return nil;
+    }
+
+    fn modify(inout this, key: Key, callback: fn (v: inout Value)) {
+        if (let index = this.find_buffer_index(key)) 
+            callback(this.buffer[index]);
+    }
+
+    private find_buffer_index(this, key: Key) -> ?i64 {
+        let h = std.hash(key);
+        for (i: 0..<buffer.count) {
+            let elem = buffer[h];
+            match (elem.flag) {
+            case Flag.Empty: 
+                return nil;
+            case Flag.Tombstone:
+                ;
+            case Flag.Alive:
+                if (elem.key == key) 
+                    return h;
+            }
+            h = (h + 1) % buffer.count;
+        }
+        nil
+    }
+
+    private enum Flag { case Empty; case Tombstone; case Alive; }
+
+    private struct Node {
+        var flag: Flag;
+        var key: Key;
+        var value: Value;
+    }
+    private var buffer: Buffer[Node];
+}
+
+fn use_hashmap(t: inout Hashmap[i64, i64]) {
+    t.modify(42, fn @0: inout i64 *= 7);
+}
+
+// Some errors:
+
+struct S {
+    var value: i64;
+}
+
+fn bar(n: i64, m: inout i64) {}
+
+fn foo(s: inout S) {
+    bar(s.value, &s.value); // Error: cannot bind s.value to m: inout 64 because s.value is already bound to n: i64
+}
+
+fn foo(t: inout Hashmap[i64, i64]) {
+    // Callback 'mod' is run when keys 1 and 2 exist and don't alias. Callback 'alias' is run when 1 and 2 exist and alias.
+    t.modify_with(a: 1, b: 2, 
+                  mod: fn bar(@0: in i64, @1: inout i64), 
+                  alias: nil); 
+}
+
+// Some test code: 
+
+struct S {
+	fn foo(this) {
+		this.value = 42; // Error. Cannot mutate member through `in` parameter (this).
+	}
+	fn bar(inout this) {
+		this.value = 42; // Ok
+	}
+
+	var value: i32;
+}
+
+// Mutation rewriting:
+
+struct Bar {
+    property[](index: i64) -> i32 {
+        get(this) { if (index == 0) n else m }
+        modify(inout this, f: fn (inout i64)) {
+            f(if (index == 0) n else m)
+        }
+    }
+
+    var n: i32;
+    var m: i32;
+}
+
+fn foo(bar: inout Bar) {
+    bind n = bar[0];
+    bind m = bar[1];
+    if (/* cond */)
+        n = 0;
+    else 
+        m = 0;
+    m = n; // Error! Cannot move out of bound object?
+}
+
+// Into:
+
+fn foo(bar: inout Bar) {
+    bar.__[]_modify(0, fn (n: inout i32) {
+        bar.__[]_modify(1, fn (m: inout i32) {
+            if (/* cond */) 
+                m = 0;
+            else
+                n = 0;
+        });
+    });
+}

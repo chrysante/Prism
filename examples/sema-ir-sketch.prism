@@ -1,0 +1,54 @@
+
+
+namespace std {
+
+trait callable[/* function type */] {
+	fn call(this, /* args... */) -> /* result_type */;
+}
+
+}
+
+struct AddFn {}
+
+// Explicitly specify function type
+impl std.callable[fn (in i32, in i32) -> sink i32] for AddFn {
+	fn call(this, a: in i32, b: in i32) -> sink i32 { a + b }
+}
+
+// or just omit and let compiler deduce
+impl std.callable for AddFn {
+	fn call(this, a: f32, b: f32) -> f32 { a + b }
+}
+
+fn higher_order_dyn_binding(arg: dyn fn (i32, i32) -> i32) -> i32 {
+	arg(20, 22)
+}
+
+fn higher_order_static_binding(arg: impl fn (i32, i32) -> i32) -> i32 {
+	arg(20, 22)
+}
+
+fn main() -> i32 {
+    return higher_order_dyn_binding(AddFn());
+}
+
+
+fn test() {
+	fn { 2 * @0 }(21)
+}
+
+// ==>
+
+struct test.__lambda_0;
+
+impl[T: type] std.callable[fn (in T) -> __decltype(2 * __declval[T])] for test.__lambda_0 {
+	fn call(__0: in T) -> __decltype(2 * __declval[T]) {
+        return 2 * __0; // Why no compile error? Cannot check definition here...
+	}
+}
+
+fn test() {
+	return test.__lambda_0()(21);
+	// ==>
+	return test.__lambda_0().call(21);
+}

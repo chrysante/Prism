@@ -1,0 +1,136 @@
+
+//     `in` passing convention 
+// Immutable reference visible to the callee. 
+// Can be implemented by passing a pointer to the object or by passing the value. 
+// This is the default passing convention
+// Similar to C++'s `const&`.
+fn InFn(arg: in i32) {}
+
+//     `inout` passing convention 
+// Mutable reference visible to the callee. 
+// Can be implemented by passing a pointer to the object or by copying the value 
+// in and out of the callee. 
+// Similar to C++'s `&`. 
+fn InoutFn(arg: inout i32) {}
+
+//     `sink` passing convention
+// Argument is moved to and eventually destroyed by the callee.
+// Similar to C++ by value or rvalue reference
+fn SinkFn(arg: sink i32) {}
+
+
+fn foo() {
+    fn { SinkFn(sink @0) }(42)
+}
+
+fn bar() {
+    var x: dyn fn (i32) -> void = nil; 
+    x = InFn; // Ok? -> YES, because `in` passing convention is chosen implicitly for parameter of x
+    x = InoutFn; // Ok? -> NO, incompatible passing convention
+    x = fn InoutFn(@0.copy()); // Solution: make explicit copy
+    x = SinkFn; // Ok? -> NO, incompatible passing convention
+	x = fn SinkFn(@0.copy()); // Solution: make explicit copy
+
+    var y: fn (inout i32) -> void = nil;
+    y = InFn; // Ok? -> YES, because `in` passing convention can bind to an `inout` parameter
+    y = InoutFn; // Ok? -> YES
+    y = SinkFn; // Ok? -> NO, because `sink` passing convention cannot bind to an `inout` parameter
+    y = fn SinkFn(&inout @0.copy()); // Solution: make explicit copy
+
+    var z: fn (sink i32) -> void = nil;
+    z = InFn; // Ok? -> YES, because `in` passing convention can bind to a `sink` parameter
+    z = InoutFn; // Ok? -> YES, because `inout` passing convention can bind to a `sink` parameter
+    z = SinkFn; // Ok? -> YES
+}
+
+// So: every parameter must be annotated with either `in`, `inout` or `sink`. 
+// `in` the is implicit passing convention if none is specified.
+
+var g_value: i32;
+
+//     `out` returning convention
+// Value is presented to caller but cannot be mutated and must be backed by 
+// storage provided by the callee (in this case by a global).
+fn ReturnOut() -> out i32 { g_value }
+
+//     `inout` returning convention
+// Value is presented to caller, may be mutated and must be backed by 
+// storage provided by the callee (in this case by a global).
+fn ReturnInout() -> inout i32 { &g_value }
+
+//     `sink` returning convention
+// Value is moved to caller. This is the default returning convention.
+fn ReturnSink() -> sink i32 { g_value }
+
+// Generic functions:
+
+// Takes any type as `in` parameter
+fn [T: type] take_in(arg: in T) {}
+
+// Takes copyable types as `in` parameter
+fn [T: std.copyable] take_in(arg: in T) -> T { arg.copy() /* return copy of argument */ }
+
+//
+fn by_const_ref(arg: in i32)
+
+// arg is copied into the function before the call and copied out after the call
+// Could be implemented by pointer to argument
+fn by_mut_ref(arg: inout i32) {}
+
+// 
+fn by_val(arg: sink i32) {}
+
+struct MyContainer {}
+
+impl std.index for MyContainer {
+	fn at(inout this, u64 index) -> 
+}
+
+fn main() {
+	var i: i32 = 0;
+	by_mut_ref(inout i);
+}
+
+// ALIASING
+
+struct Vec3{ var x: f64; var y: f64; var z: f64; }
+
+fn foo(v: inout Vec3, w: Vec3) -> f64 {
+    v.x = 0.0; 
+    v.x + v.y
+}
+
+fn bar() -> f64 {
+    var v = Vec3(1.0, 0.0, 0.0);
+    foo(v, v) // 0.0 or 1.0?
+}
+
+// SOLUTION
+
+// Example above is ill-formed and will be checked statically or, if that's not possible, dynamically.
+// But we allow parameters to be annotated with `aliasing` to allow aliasing
+
+fn foo_alias(v: inout Vec3, w: aliasing Vec3) -> f64 {
+    v.x = 0.0; 
+    v.x + v.y
+}
+
+// Now this function is well defined and returns 0.0
+
+fn bar() -> f64 {
+    var v = Vec3(1.0, 0.0, 0.0);
+    foo_alias(v, v) // 0.0 because the arguments alias and may do so
+}
+
+fn baz_no_alias(callback: fn (inout Vec3, Vec3) -> f64) -> f64 {
+    var v = Vec3(1.0, 0.0, 0.0);
+    callback(v, v) // Compile time or runtime error because arguments may not alias
+}
+
+// however this call is allowed
+
+baz_no_alias(foo_alias);
+
+// This call is also allowed, but the compiler has to generate a thunk to check for aliasing before calling foo
+fn baz_alias(callback: fn (inout Vec3, alias Vec3) -> f64) -> f64 {...}
+baz_alias(foo);

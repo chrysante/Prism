@@ -1,0 +1,34 @@
+
+trait std.lifetime {
+    fn delete(inout this);
+}
+
+trait std.lifetime_move: std.lifetime {
+    fn move(inout this) -> this_type;
+}
+
+trait std.lifetime_copy: std.lifetime_move {
+    fn copy(this) -> this_type;
+    
+    fn move(inout this) -> this_type { copy(this) }
+}
+
+
+struct MyType {
+    fn new() -> MyType {
+        MyType { i: 42 }
+    }
+
+    var i: i32;
+}
+
+impl std.lifetime for MyType {
+
+}
+
+fn foo(value: sink MyType) {
+    let other = value; // `value` is moved into `other`, `value` is empty after this line and must not be used anymore
+    let yet_another = other.copy(); // 
+    
+
+}
