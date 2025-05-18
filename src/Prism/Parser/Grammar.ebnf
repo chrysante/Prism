@@ -6,8 +6,9 @@ func_def           ::= func_decl (';' | compound_expr)
 func_decl          ::= 'fn' gen_param_list name param_list ['->' type_spec]
 param_list         ::= '(' ')'
                      | '(' [param_decl (',' param_decl)*] ')'
-param_decl         ::= name ':' ['aliasing'] [param_qualifier] type_spec
-param_qualifier    ::= 'in' | 'inout' | 'sink'
+param_decl         ::= name ':' [param_qualifier] [passing_convention] type_spec
+param_qualifier    ::= 'aliasing'
+passing_convention ::= 'in' | 'inout' | 'sink'
 comp_type_decl     ::= ('struct' | 'trait') gen_param_list name [':' base_decl_list] '{' member_decl_list '}'
 trait_impl         ::= 'impl' gen_param_list trait_impl_decl
 trait_impl_decl    ::= func_decl 'for' type_spec compound_expr
@@ -16,7 +17,7 @@ base_decl_list          ::= base_decl (',' base_decl)*
 base_decl          ::= [access_spec] name
 member_decl_list   ::= global_decl*
 var_decl           ::= ('var' | 'let') name [':' type_spec] ['=' assign_expr] ';'
-typedef_decl       ::= 'typedef' name [':' type_spec] ['=' type_spec] ';'
+typedef_decl       ::= 'type' name [':' type_spec] ['=' type_spec] ';'
 stmt               ::= local_decl
                      | ctrl_flow_stmt
                      | import_stmt
@@ -67,7 +68,7 @@ prefix_op          ::= '+' | '-' | '~' | '!' | '++' | '--'
                      | ref_spec_facet
                      | '*' | ('*' 'mut') | '&' | '?'
                      | 'new' ['unique' | 'shared']
-ref_spec_facet     ::= 'mut' | 'dyn'
+ref_spec_facet     ::= 'dyn'
 postfix_facet      ::= primary_facet
                      | postfix_facet ('++' | '--')
                      | postfix_facet '(' ')'

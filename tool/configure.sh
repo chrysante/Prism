@@ -10,16 +10,4 @@ fi
 source pyenv/bin/activate
 pip3 install -r requirements.txt
 
-source $SCRIPT_DIR/_impl/platform.sh
-
-if [ "$OS" = "linux" ]; then
-    GENERATOR=""
-elif [ "$OS" = "windows" ]; then
-    GENERATOR=""
-elif [ "$OS" = "mac" ]; then
-    GENERATOR=-GXcode
-else
-    error "Unknown OS \"$OS\""
-fi
-
-cmake -S $PROJ_DIR -B $PROJ_DIR/build $GENERATOR -DCPM_SOURCE_CACHE=.cache $@
+cmake -S $PROJ_DIR -B $PROJ_DIR/build -DCPM_SOURCE_CACHE=.cache $@

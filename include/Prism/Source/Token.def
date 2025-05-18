@@ -88,6 +88,26 @@ DECLARATOR_TOKEN_KIND(Typedef, "typedef")
 
 #undef DECLARATOR_TOKEN_KIND
 
+#ifndef PASSING_CONV_TOKEN_KIND
+#define PASSING_CONV_TOKEN_KIND(Kind, Spelling)                                \
+    KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
+
+PASSING_CONV_TOKEN_KIND(In, "in")
+PASSING_CONV_TOKEN_KIND(Inout, "inout")
+PASSING_CONV_TOKEN_KIND(Sink, "sink")
+
+#undef PASSING_CONV_TOKEN_KIND
+
+#ifndef PARAM_QUALIFIER_TOKEN_KIND
+#define PARAM_QUALIFIER_TOKEN_KIND(Kind, Spelling)                             \
+    KEYWORD_TOKEN_KIND(Kind, Spelling)
+#endif
+
+PARAM_QUALIFIER_TOKEN_KIND(Aliasing, "aliasing")
+
+#undef PARAM_QUALIFIER_TOKEN_KIND
+
 #ifndef CONTROL_FLOW_TOKEN_KIND
 #define CONTROL_FLOW_TOKEN_KIND(Kind, Spelling)                                \
     KEYWORD_TOKEN_KIND(Kind, Spelling)
@@ -110,17 +130,12 @@ ID_OPERATOR_TOKEN_KIND(As, "as")
 ID_OPERATOR_TOKEN_KIND(Mut, "mut")
 ID_OPERATOR_TOKEN_KIND(Dyn, "dyn")
 ID_OPERATOR_TOKEN_KIND(New, "new")
-ID_OPERATOR_TOKEN_KIND(Move, "move")
 
 #undef ID_OPERATOR_TOKEN_KIND
 
 #ifndef PRIMARY_TOKEN_KIND
 #define PRIMARY_TOKEN_KIND KEYWORD_TOKEN_KIND
 #endif
-
-PRIMARY_TOKEN_KIND(True, "true")
-PRIMARY_TOKEN_KIND(False, "false")
-PRIMARY_TOKEN_KIND(This, "this")
 
 #ifndef TYPE_TOKEN_KIND
 #define TYPE_TOKEN_KIND PRIMARY_TOKEN_KIND
@@ -143,6 +158,16 @@ TYPE_TOKEN_KIND(Float32, "f32")
 TYPE_TOKEN_KIND(Float64, "f64")
 
 #undef TYPE_TOKEN_KIND
+
+#ifndef KEYWORD_LITERAL_TOKEN_KIND
+#define KEYWORD_LITERAL_TOKEN_KIND PRIMARY_TOKEN_KIND
+#endif
+
+KEYWORD_LITERAL_TOKEN_KIND(True, "true")
+KEYWORD_LITERAL_TOKEN_KIND(False, "false")
+KEYWORD_LITERAL_TOKEN_KIND(This, "this")
+
+#undef KEYWORD_LITERAL_TOKEN_KIND
 
 #undef PRIMARY_TOKEN_KIND
 

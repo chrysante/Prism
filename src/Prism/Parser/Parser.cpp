@@ -49,6 +49,8 @@ struct Parser: LinearParser {
     DeclFacet const* parseLocalDecl();
     ParamDeclFacet const* parseParamDecl();
     ParamDeclFacet const* parseThisParamDecl();
+    TerminalFacet const* parseParamQualifier();
+    TerminalFacet const* parsePassingConvention();
     ParamListFacet const* parseParamList();
     GenParamDeclFacet const* parseGenericParamDecl();
     GenParamListFacet const* parseGenericParamList();
@@ -348,13 +350,16 @@ DeclFacet const* Parser::parseLocalDecl() {
 
 ParamDeclFacet const* Parser::parseParamDecl() {
     if (auto* This = parseThisParamDecl()) return This;
-    auto [name, colon, type] =
+    auto [name, colon, qualifier, passingConv, type] =
         makeParser()
             .rule({ FN(parseUnqualName), Raise<ExpectedDeclName>() })
             .rule(MatchExpect(Colon))
+            .rule(FN(parseParamQualifier))
+            .rule(FN(parsePassingConvention))
             .rule({ FN(parseTypeSpec), Raise<ExpectedTypeSpec>() })
             .eval();
-    return allocate<NamedParamDeclFacet>(name, colon, type);
+    return allocate<NamedParamDeclFacet>(name, colon, qualifier, passingConv,
+                                         type);
 }
 
 ParamDeclFacet const* Parser::parseThisParamDecl() {
@@ -363,7 +368,7 @@ ParamDeclFacet const* Parser::parseThisParamDecl() {
         return nullptr;
     };
     auto prefix = [&](auto& prefix) -> Facet const* {
-        auto tok = match({ Ampersand, Mut, Dyn });
+        auto tok = match(Dyn);
         if (!tok) return primary();
         auto [operand] =
             makeParser()
@@ -372,6 +377,17 @@ ParamDeclFacet const* Parser::parseThisParamDecl() {
         return allocate<PrefixFacet>(*tok, operand);
     };
     if (auto* spec = prefix(prefix)) return allocate<ThisParamDeclFacet>(spec);
+    return nullptr;
+}
+
+TerminalFacet const* Parser::parseParamQualifier() {
+    if (auto tok = match(Aliasing)) return allocate<TerminalFacet>(*tok);
+    return nullptr;
+}
+
+TerminalFacet const* Parser::parsePassingConvention() {
+    if (auto tok = match({ In, Inout, Sink }))
+        return allocate<TerminalFacet>(*tok);
     return nullptr;
 }
 
@@ -526,10 +542,10 @@ Facet const* Parser::parseCastFacet() {
 Facet const* Parser::parsePrefixFacet() {
     static constexpr std::array QualOps = { Exclam, Mut, Star, Ampersand,
                                             Question };
-    static constexpr std::array Ops = {
-        Plus, Minus, Tilde,     Exclam,   DoublePlus, DoubleMinus, Mut,
-        Dyn,  Star,  Ampersand, Question, New,        Move
-    };
+    static constexpr std::array Ops = { Plus,      Minus,      Tilde,
+                                        Exclam,    DoublePlus, DoubleMinus,
+                                        Mut,       Dyn,        Star,
+                                        Ampersand, Question,   New };
     auto* operation = Match(Ops)();
     if (!operation) return parsePostfixFacet();
     if (facetState == FacetState::Type &&
@@ -604,16 +620,23 @@ Facet const* Parser::parseMemAccessFacet(Facet const* primary) {
 }
 
 Facet const* Parser::parsePrimaryFacet() {
-    static constexpr std::array TermKinds = {
-#define PRIMARY_TOKEN_KIND(Name, ...) Name,
-#define LITERAL_TOKEN_KIND(Name, ...) Name,
+    static constexpr std::array LiteralKinds = {
+#define LITERAL_TOKEN_KIND(Name, ...)         Name,
+#define KEYWORD_LITERAL_TOKEN_KIND(Name, ...) Name,
+#include "Prism/Source/Token.def"
+    };
+    static constexpr std::array TypeKinds = {
+#define TYPE_TOKEN_KIND(Name, ...) Name,
 #include "Prism/Source/Token.def"
         Identifier
     };
+
     if (auto* thisFacet = parseThisFacet()) return thisFacet;
-    if (auto tok = match(TermKinds)) return allocate<TerminalFacet>(*tok);
+    if (auto tok = match(TypeKinds)) return allocate<TerminalFacet>(*tok);
     if (auto* closure = parseClosureOrFnTypeFacet()) return closure;
     if (facetState != FacetState::Type) {
+        if (auto tok = match(LiteralKinds))
+            return allocate<TerminalFacet>(*tok);
         if (auto* facet = parseParenthesisedFacet()) return facet;
         if (auto* array = parseArrayFacet()) return array;
         if (auto* cmpFacet = parseCompoundFacet()) return cmpFacet;
@@ -626,7 +649,12 @@ Facet const* Parser::parseThisFacet() {
     auto [thisTerm, typeTerm] =
         makeParser().fastFail(Match(This)).fastFail(Match(Type)).eval();
     if (!thisTerm) return nullptr;
-    if (!typeTerm) return thisTerm;
+    if (!typeTerm) {
+        if (facetState == FacetState::Type)
+            return nullptr;
+        else
+            return thisTerm;
+    }
     return allocate<PrefixFacet>(thisTerm, typeTerm);
 }
 
@@ -660,15 +688,16 @@ CompoundFacet const* Parser::parseCompoundFacet() {
 }
 
 Facet const* Parser::parseAutoArgFacet() {
-    auto [intro, name, colon, type] =
+    auto [intro, name, colon, passingConv, type] =
         makeParser()
             .fastFail(Match(AutoArgIntro))
             .optRule({ FN(parseUnqualName) })
             .optRule({ Match(Colon),
+                       FN(parsePassingConvention),
                        { FN(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
             .eval();
     if (!intro) return nullptr;
-    return allocate<AutoArgFacet>(intro, name, colon, type);
+    return allocate<AutoArgFacet>(intro, name, colon, passingConv, type);
 }
 
 Facet const* Parser::parseClosureOrFnTypeFacet() {

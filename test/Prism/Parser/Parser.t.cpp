@@ -170,7 +170,9 @@ TEST_CASE("Binary expressions", "[parser]") {
 }
 
 TEST_CASE("Function types", "[parser]") {
-    CHECK(*parseFile("let f: fn (n: int, m: int) -> int = fn (){};") ==
+    CHECK(*parseFile(
+               "let f: fn (n: in int, m: aliasing inout int) -> int = fn (){};")
+              ==
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
             Let,
@@ -179,8 +181,12 @@ TEST_CASE("Function types", "[parser]") {
             FnTypeFacet >> Tree{
                 Fn,
                 ParamListFacet >> Tree{
-                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
-                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int }
+                    NamedParamDeclFacet >> Tree{
+                        Identifier, Colon, NullNode, In, Int }
+                    ,
+                    NamedParamDeclFacet >> Tree{
+                        Identifier, Colon, Aliasing, Inout, Int
+                    }
                 },
                 Arrow,
                 Int
@@ -212,7 +218,9 @@ TEST_CASE("Function types", "[parser]") {
                 FnTypeFacet >> Tree{
                     Fn,
                     ParamListFacet >> Tree{
-                        NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
+                        NamedParamDeclFacet >> Tree{
+                            Identifier, Colon, NullNode, NullNode, Int
+                        },
                     },
                     Arrow,
                     Int
@@ -246,8 +254,12 @@ TEST_CASE("Currying", "[parser]") {
             ClosureFacet >> Tree {
                 Fn,
                 ParamListFacet >> Tree{
-                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int },
-                    NamedParamDeclFacet >> Tree{ Identifier, Colon, Int }
+                    NamedParamDeclFacet >> Tree{
+                        Identifier, Colon, NullNode, NullNode, Int
+                    },
+                    NamedParamDeclFacet >> Tree{
+                        Identifier, Colon, NullNode, NullNode, Int
+                    }
                 },
                 NullNode,
                 NullNode,
@@ -292,22 +304,22 @@ TEST_CASE("Currying", "[parser]") {
 }
 
 TEST_CASE("Expressions nested in type specs", "[parser]") {
-    CHECK(*parseExpr("fn -> T(int{}) @0") == ClosureFacet >> Tree{
+    CHECK(*parseExpr("fn -> T[i32{}] @0") == ClosureFacet >> Tree{
         Fn,
         NullNode,
         Arrow,
-        CallFacet >> Tree{
+        IndexFacet >> Tree{
             Identifier,
-            OpenParen,
+            OpenBracket,
             ListFacet >> Tree{
                 AggrConstructFacet >> Tree {
-                    Int,
+                    Int32,
                     OpenBrace,
                     ListFacet,
                     CloseBrace
                 },
             },
-            CloseParen
+            CloseBracket
         },
         AutoArgFacet
     });
@@ -326,27 +338,26 @@ TEST_CASE("Auto arguments", "[parser]") {
     CHECK(*parseExpr("@0arg") == AutoArgFacet >> Tree{
         AutoArgIntro, Identifier, NullNode, NullNode
     });
-    CHECK(*parseExpr("@0:&") == AutoArgFacet >> Tree{
-        AutoArgIntro, NullNode, Colon, Ampersand
+    CHECK(*parseExpr("@0:inout i32") == AutoArgFacet >> Tree{
+        AutoArgIntro, NullNode, Colon, Inout, Int32
     });
-    CHECK(*parseExpr("@0:int") == AutoArgFacet >> Tree{
-        AutoArgIntro, NullNode, Colon, Int
+    CHECK(*parseExpr("@0:i32") == AutoArgFacet >> Tree{
+        AutoArgIntro, NullNode, Colon, NullNode, Int32
     });
-    CHECK(*parseExpr("@0arg:int") == AutoArgFacet >> Tree{
-        AutoArgIntro, Identifier, Colon, Int
+    CHECK(*parseExpr("@0 arg:i32") == AutoArgFacet >> Tree{
+        AutoArgIntro, Identifier, Colon, NullNode, Int32
     });
-    CHECK(*parseExpr("fn @0arg:& (arg)") == ClosureFacet >> Tree{
+    CHECK(*parseExpr("fn @0arg: inout i32 = 42") == ClosureFacet >> Tree{
         Fn,
         NullNode,
         NullNode,
         NullNode,
-        CallFacet >> Tree{
+        BinaryFacet >> Tree{
             AutoArgFacet >> Tree{
-                AutoArgIntro, Identifier, Colon, Ampersand
+                AutoArgIntro, Identifier, Colon, Inout, Int32
             },
-            OpenParen,
-            ListFacet >> Tree{ Identifier },
-            CloseParen
+            Equal,
+            IntLiteralDec
         }
     });
 }
@@ -374,7 +385,7 @@ impl [R: type, M: MyTrait] std.function for MyFunction {}
     });
 
     auto* funcImpl = parseFile(R"(
-impl fn std.function.call(&this, n: int, m: int) -> int for MyFunction {}
+impl fn std.function.call(this, n: int, m: int) -> int for MyFunction {}
 )");
     CHECK(*funcImpl == SourceFileFacet >> Tree{
         TraitImplFacet >> Tree{

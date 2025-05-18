@@ -52,6 +52,10 @@ facets:
         type: TerminalFacet
       - name: colon
         type: TerminalFacet
+      - name: qualifier
+        type: TerminalFacet
+      - name: passingConvention
+        type: TerminalFacet
       - name: typespec
         type: Facet
 
@@ -379,5 +383,7 @@ facets:
         type: TerminalFacet
       - name: Colon
         type: TerminalFacet
+      - name: passingConvention
+        type: Facet
       - name: type
         type: Facet
