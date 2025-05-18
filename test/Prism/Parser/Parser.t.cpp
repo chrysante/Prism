@@ -401,6 +401,42 @@ impl fn std.function.call(this, n: int, m: int) -> int for MyFunction {}
     });
 }
 
+TEST_CASE("Properties", "[parser]") {
+    auto* file = parseFile(R"(
+struct MyType {
+    property my_property -> i32 {
+        get(this) { this.value }
+        modify(inout this, f: fn (arg: inout i32)) {
+            f(this.value)
+        }
+    }
+
+    var value: i32;
+}
+)");
+    CHECK(*file == SourceFileFacet >> Tree{
+        CompTypeDeclFacet >> Tree{
+            Struct,
+            NullNode,
+            Identifier,
+            NullNode,
+            NullNode,
+            OpenBrace,
+            MemberListFacet >> Tree{
+                PropertyDefFacet >> Tree{
+                    Property, Identifier, NullNode, Arrow, Int32, OpenBrace,
+                    PropertyImplListFacet >> Tree{
+                        PropertyImpl, PropertyImpl
+                    },
+                    CloseBrace
+                }
+            },
+            CloseBrace
+        },
+        VarDeclFacet
+    });
+}
+
 // clang-format on
 
 static std::vector<char> makeRandomBits(uint64_t seed, size_t count) {

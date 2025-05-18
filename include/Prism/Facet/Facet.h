@@ -207,6 +207,9 @@ PRISM_DEFINE_LIST_FACET(StmtListFacet, StmtFacet, elems)
 /// Parameter list facet
 PRISM_DEFINE_LIST_FACET(ParamListFacet, ParamDeclFacet, elems)
 
+///
+PRISM_DEFINE_LIST_FACET(PropertyImplListFacet, PropertyImpl, elems)
+
 /// Generic parameter list facet
 PRISM_DEFINE_LIST_FACET(GenParamListFacet, GenParamDeclFacet, elems)
 

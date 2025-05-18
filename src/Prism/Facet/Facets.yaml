@@ -107,6 +107,40 @@ facets:
       - name: body
         type: Facet
 
+  - name: PropertyImplListFacet
+    base: NonTerminalFacet
+    decl_only: true
+
+  - name: PropertyImpl
+    base: NonTerminalFacet
+    members:
+      - name: name  
+        type: TerminalFacet
+      - name: params
+        type: ParamListFacet
+      - name: body
+        type: CompoundFacet
+
+  - name: PropertyDefFacet
+    base: DeclFacet
+    members:
+      - name: declarator
+        type: TerminalFacet
+      - name: name
+        type: Facet
+      - name: params
+        type: ParamListFacet
+      - name: arrow
+        type: TerminalFacet
+      - name: retType
+        type: Facet
+      - name: openBrace
+        type: TerminalFacet
+      - name: impls
+        type: PropertyImplListFacet
+      - name: closeBrace
+        type: TerminalFacet
+
   - name: GenParamListFacet
     base: NonTerminalFacet
     decl_only: true

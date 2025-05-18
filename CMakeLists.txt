@@ -157,7 +157,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Lexer/Lexer.cpp
     src/Prism/Lexer/LexicalDiagnostic.cpp
     
-    src/Prism/Parser/Grammar.txt
+    src/Prism/Parser/Grammar.ebnf
     src/Prism/Parser/LinearParser.h
     src/Prism/Parser/LinearParser.cpp
     src/Prism/Parser/Parser.cpp

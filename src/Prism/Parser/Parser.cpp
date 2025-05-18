@@ -44,6 +44,8 @@ struct Parser: LinearParser {
     TraitImplTypeFacet const* parseTraitTypeDecl();
     TraitImplFuncFacet const* parseTraitFuncDecl();
     VarDeclFacet const* parseVarDecl();
+    PropertyDefFacet const* parsePropertyDef();
+    PropertyImpl const* parsePropertyImpl();
     TypedefFacet const* parseTypedef();
     StmtFacet const* parseStmt();
     DeclFacet const* parseLocalDecl();
@@ -249,6 +251,7 @@ DeclFacet const* Parser::parseCompTypeMemberDecl() {
     if (auto* fn = parseFuncDef()) return fn;
     if (auto* str = parseCompTypeDecl()) return str;
     if (auto* var = parseVarDecl()) return var;
+    if (auto* property = parsePropertyDef()) return property;
     if (auto* type = parseTypedef()) return type;
     return nullptr;
 }
@@ -318,6 +321,38 @@ VarDeclFacet const* Parser::parseVarDecl() {
                                   semicolon);
 }
 
+PropertyDefFacet const* Parser::parsePropertyDef() {
+    auto parsePropertyName = [this] { return parseName(); };
+    auto parseImplList = [this] {
+        auto seq = parseSequence(FN(parsePropertyImpl), Raise<ExpectedId>(),
+                                 CloseBrace);
+        return allocate<PropertyImplListFacet>(std::move(seq));
+    };
+    auto [declarator, name, params, arrow, typespec, openBrace, implList,
+          closeBrace] = makeParser()
+                            .fastFail(Match(Property))
+                            .rule(parsePropertyName)
+                            .rule(FN(parseParamList))
+                            .optRule({ Match(Arrow), FN(parseTypeSpec) })
+                            .rule(MatchExpect(OpenBrace))
+                            .rule(parseImplList)
+                            .rule(MatchExpect(CloseBrace))
+                            .eval();
+    if (!declarator) return nullptr;
+    return allocate<PropertyDefFacet>(declarator, name, params, arrow, typespec,
+                                      openBrace, implList, closeBrace);
+}
+
+PropertyImpl const* Parser::parsePropertyImpl() {
+    auto [name, params, body] = makeParser()
+                                    .fastFail(Match(Identifier))
+                                    .rule(FN(parseParamList))
+                                    .rule(FN(parseCompoundFacet))
+                                    .eval();
+    if (!name) return nullptr;
+    return allocate<PropertyImpl>(name, params, body);
+}
+
 TypedefFacet const* Parser::parseTypedef() {
     auto [declarator, name, colon, traitBound, assign, def, semicolon] =
         makeParser()
@@ -363,18 +398,18 @@ ParamDeclFacet const* Parser::parseParamDecl() {
 }
 
 ParamDeclFacet const* Parser::parseThisParamDecl() {
-    auto primary = [&]() -> Facet const* {
+    auto primaryThis = [&]() -> Facet const* {
         if (auto tok = match(This)) return allocate<TerminalFacet>(*tok);
         return nullptr;
     };
     auto prefix = [&](auto& prefix) -> Facet const* {
-        auto tok = match(Dyn);
-        if (!tok) return primary();
+        auto* passingConv = parsePassingConvention();
+        if (!passingConv) return primaryThis();
         auto [operand] =
             makeParser()
                 .rule({ FN0(&, prefix(prefix)), Raise<ExpectedTypeSpec>() })
                 .eval();
-        return allocate<PrefixFacet>(*tok, operand);
+        return allocate<PrefixFacet>(passingConv, operand);
     };
     if (auto* spec = prefix(prefix)) return allocate<ThisParamDeclFacet>(spec);
     return nullptr;

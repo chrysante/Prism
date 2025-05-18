@@ -1,21 +1,23 @@
 source_file        ::= global_decl*
-global_decl        ::= [access_spec] (func_decl | comp_type_decl | trait_impl | var_decl | typedef_decl)
+global_decl        ::= [access_spec] (func_def | comp_type_decl | trait_impl | var_decl | typedef_decl)
 local_decl         ::= var_decl | typedef_decl
 access_spec        ::= 'public' | 'internal' | 'private'
-func_def           ::= func_decl (';' | compound_expr)
+func_def           ::= func_decl (';' | compound_facet)
 func_decl          ::= 'fn' gen_param_list name param_list ['->' type_spec]
 param_list         ::= '(' ')'
                      | '(' [param_decl (',' param_decl)*] ')'
 param_decl         ::= name ':' [param_qualifier] [passing_convention] type_spec
 param_qualifier    ::= 'aliasing'
 passing_convention ::= 'in' | 'inout' | 'sink'
+property_def       ::= 'property' (name | '[' ']') [param_list] '->' type_spec '{' property_impl* '}' 
+property_impl      ::= name param_list compound_facet
 comp_type_decl     ::= ('struct' | 'trait') gen_param_list name [':' base_decl_list] '{' member_decl_list '}'
 trait_impl         ::= 'impl' gen_param_list trait_impl_decl
-trait_impl_decl    ::= func_decl 'for' type_spec compound_expr
+trait_impl_decl    ::= func_decl 'for' type_spec compound_facet
                      | type_spec for type_spec '{' member_decl_list '}'
 base_decl_list          ::= base_decl (',' base_decl)*
 base_decl          ::= [access_spec] name
-member_decl_list   ::= global_decl*
+member_decl_list   ::= (global_decl | [access_spec] property_def)*
 var_decl           ::= ('var' | 'let') name [':' type_spec] ['=' assign_expr] ';'
 typedef_decl       ::= 'type' name [':' type_spec] ['=' type_spec] ';'
 stmt               ::= local_decl
@@ -24,7 +26,7 @@ stmt               ::= local_decl
                      | expr_stmt
                      | ';'
 import_stmt        ::= TODO
-expr_stmt          ::= compound_expr |
+expr_stmt          ::= compound_facet |
                      | assign_facet ';'
 ctrl_flow_stmt     ::= return_stmt
                      | if_stmt
@@ -88,10 +90,10 @@ primary_facet      ::= identifier
                      | auto_arg
                      | '(' assign_facet ')'
                      | '[' assign_facet (',' assign_facet)* [','] ']'
-                     | compound_expr
+                     | compound_facet
 closure_expr       ::= 'fn' [param_list] ['->' type_spec] assign_expr
 fn_type_facet      ::= 'fn' param_list '->' type_spec
 auto_arg           ::= auto_arg_intro [: (param_qualifier | type_spec | param_qualifier type_spec)]
 auto_arg_intro     ::= '@0' | '@1' | ...
-compound_expr      ::= '{' stmt* [cast_facet] '}'
+compound_facet     ::= '{' stmt* [cast_facet] '}'
 fstring_mid_facet  ::= fstring_mid assign_facet
