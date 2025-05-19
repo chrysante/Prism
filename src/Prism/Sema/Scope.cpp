@@ -41,6 +41,22 @@ utl::small_vector<Symbol const*> Scope::symbolsByApproxName(
     return symbolsByApproxNameImpl<Symbol const>(name, _approxNames);
 }
 
+Function const* Scope::functionByNameAndSig(std::string_view name,
+                                            FuncSig const& funcSig) const {
+    auto overloadItr = _functionMap.find(name);
+    if (overloadItr == _functionMap.end()) return nullptr;
+    auto& overloadMap = overloadItr->second;
+    auto itr = overloadMap.find(funcSig);
+    return itr != overloadMap.end() ? itr->second : nullptr;
+}
+
+void Scope::setFunctionSignature(FuncSig sig, Function* function) {
+    bool success = _functionMap[function->name()]
+                       .insert({ std::move(sig), function })
+                       .second;
+    PRISM_ASSERT(success, "Function signature is already defined");
+}
+
 static bool isGenericInst(Symbol const& symbol) {
     return isa<GenStructTypeInst>(symbol) || isa<GenTraitInst>(symbol) ||
            isa<GenTraitImplInst>(symbol);

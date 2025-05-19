@@ -3,6 +3,7 @@
 
 #include <bit>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -64,23 +65,19 @@ public:
     utl::small_vector<Symbol const*> symbolsByApproxName(
         std::string_view name) const;
 
-    ///
-    Function* functionBySignature(FuncSig const& funcSig) {
+    /// \Returns the function named \p name with exact signature \p funcSig or null if none is found
+    Function* functionByNameAndSig(std::string_view name,
+                                   FuncSig const& funcSig) {
         return const_cast<Function*>(
-            std::as_const(*this).functionBySignature(funcSig));
+            std::as_const(*this).functionByNameAndSig(name, funcSig));
     }
 
     /// \overload
-    Function const* functionBySignature(FuncSig const& funcSig) const {
-        auto itr = _funcSigMap.find(funcSig);
-        return itr != _funcSigMap.end() ? itr->second : nullptr;
-    }
+    Function const* functionByNameAndSig(std::string_view name,
+                                         FuncSig const& funcSig) const;
 
     ///
-    void setFunctionSignature(FuncSig sig, Function* function) {
-        bool success = _funcSigMap.insert({ std::move(sig), function }).second;
-        PRISM_ASSERT(success, "Function signature is already defined");
-    }
+    void setFunctionSignature(FuncSig sig, Function* function);
 
 private:
     friend class Symbol;
@@ -96,9 +93,11 @@ private:
     utl::hashmap<std::string_view, utl::tiny_ptr_vector<Symbol*>> _names;
     utl::metric_map<std::string_view, utl::tiny_ptr_vector<Symbol*>>
         _approxNames;
-    utl::hashmap<FuncSig, Function*, FuncSig::HashIgnoringRet,
-                 FuncSig::CompareEqIgnoringRet>
-        _funcSigMap;
+    using OverloadMap =
+        utl::hashmap<FuncSig, Function*, FuncSig::HashIgnoringRet,
+                     FuncSig::CompareEqIgnoringRet>;
+
+    utl::hashmap<std::string, OverloadMap> _functionMap;
 };
 
 } // namespace prism

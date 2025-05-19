@@ -523,7 +523,7 @@ void GlobalNameResolver::doResolve(Function& func) {
     resolveInterface(func.parentScope()->assocSymbol(), func.interface(),
                      *func.facet(), func.parentScope());
     auto* scope = func.parentScope();
-    auto* existing = scope->functionBySignature(func.signature());
+    auto* existing = scope->functionByNameAndSig(func.name(), func.signature());
     if (existing) {
         DE.emit<FuncRedefinition>(sourceContext, func.facet(), &func, existing);
         return;
