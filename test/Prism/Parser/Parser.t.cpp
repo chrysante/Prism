@@ -11,6 +11,7 @@ using enum prism::FacetType;
 using enum prism::TokenKind;
 
 using prism::DiagnosticOnLine;
+using prism::Id;
 using prism::NullNode;
 using prism::parseExpr;
 using prism::parseFile;
@@ -23,12 +24,11 @@ TEST_CASE("FuncDecl", "[parser]") {
     auto* refTree = SourceFileFacet >> Tree{
         FuncDefFacet >> Tree{
             Fn,
-            NullNode,
-            Identifier,
+            Id("test"),
             ParamListFacet,
             Arrow,
             CallFacet >> Tree{
-                Identifier,
+                Id("T"),
                 OpenParen,
                 ListFacet >> Tree{ CompoundFacet },
                 CloseParen
@@ -38,7 +38,7 @@ TEST_CASE("FuncDecl", "[parser]") {
                 StmtListFacet >> Tree{
                     ExprStmtFacet >> Tree{
                         AggrConstructFacet >> Tree{
-                            Identifier, OpenBrace, ListFacet, CloseBrace
+                            Id("T"), OpenBrace, ListFacet, CloseBrace
                         },
                         Semicolon
                     }
@@ -47,7 +47,7 @@ TEST_CASE("FuncDecl", "[parser]") {
                     OpenBrace,
                     StmtListFacet,
                     AggrConstructFacet >> Tree{
-                        Identifier, OpenBrace, ListFacet, CloseBrace
+                        Id("T"), OpenBrace, ListFacet, CloseBrace
                     },
                     CloseBrace
                 },
@@ -65,78 +65,78 @@ TEST_CASE("Simple expressions", "[parser]") {
         BinaryFacet >> Tree{
             IntLiteralDec,
             Star,
-            PrefixFacet >> Tree{ DoublePlus, Identifier },
+            PrefixFacet >> Tree{ DoublePlus, Id("c") },
         }
     });
 
     CHECK(*parseExpr("f(x, y, z)") == CallFacet >> Tree{
-        Identifier,
+        Id("f"),
         OpenParen,
         ListFacet >> Tree{
-            Identifier, Identifier, Identifier
+            Id("x"), Id("y"), Id("z")
         },
         CloseParen
     });
 
     CHECK(*parseExpr("x < y < z") == BinaryFacet >> Tree{
         BinaryFacet >> Tree{
-            Identifier, LeftAngle, Identifier
+            Id("x"), LeftAngle, Id("y")
         },
         LeftAngle,
-        Identifier
+        Id("z")
     });
 
     CHECK(*parseExpr("x = y = z") == BinaryFacet >> Tree{
-        Identifier,
+        Id("x"),
         Equal,
         BinaryFacet >> Tree{
-            Identifier, Equal, Identifier
+            Id("y"), Equal, Id("z")
         }
     });
 }
 
 TEST_CASE("Conditionals", "[parser]") {
     CHECK(*parseExpr("x ? a + b : y ? c : d") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
         BinaryFacet >> Tree {
-            Identifier, Plus, Identifier
+            Id("a"), Plus, Id("b")
         },
         Colon,
         CondFacet >> Tree{
-            Identifier,
+            Id("y"),
             Question,
-            Identifier,
+            Id("c"),
             Colon,
-            Identifier
+            Id("d")
         }
     });
     CHECK(*parseExpr("x ? : b") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
         NullNode,
         Colon,
-        Identifier
+        Id("b")
     } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 4));
 
     CHECK(*parseExpr("x ? a b") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
-        Identifier,
+        Id("a"),
         NullNode,
-        Identifier
+        Id("b")
     } >> DiagnosticOnLine<prism::ExpectedToken>(0, 6));
 
     CHECK(*parseExpr("x ? a :") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
-        Identifier,
+        Id("a"),
         Colon,
         NullNode
     } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 7));
 
     CHECK(*parseExpr("x ? :") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
         NullNode,
         Colon,
@@ -145,7 +145,7 @@ TEST_CASE("Conditionals", "[parser]") {
       >> DiagnosticOnLine<prism::ExpectedExpr>(0, 5));
 
     CHECK(*parseExpr("x ?") == CondFacet >> Tree{
-        Identifier,
+        Id("x"),
         Question,
         NullNode,
         NullNode,
@@ -157,35 +157,35 @@ TEST_CASE("Conditionals", "[parser]") {
 
 TEST_CASE("Binary expressions", "[parser]") {
     CHECK(*parseExpr("x * ") == BinaryFacet >> Tree{
-        Identifier,
+        Id("x"),
         Star,
         NullNode,
     } >> DiagnosticOnLine<prism::ExpectedExpr>(0, 4));
     
     CHECK(*parseExpr("x * = x") == BinaryFacet >> Tree{
-        Identifier,
+        Id("x"),
         Star,
-        Identifier,
+        Id("x"),
     } >> DiagnosticOnLine<prism::UnexpectedToken>(0, 4));
 }
 
 TEST_CASE("Function types", "[parser]") {
     CHECK(*parseFile(
-               "let f: fn (in int, aliasing inout int) -> int = fn (){};")
+               "let f: fn (in int, aliasing inout int) -> int = fn () {};")
               ==
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
             Let,
-            Identifier,
+            Id("f"),
             Colon,
             FnTypeFacet >> Tree{
                 Fn,
                 ParamListFacet >> Tree{
                     NamedParamDeclFacet >> Tree{
-                        NullNode, NullNode, NullNode, In, Int
+                        In, Int
                     },
                     NamedParamDeclFacet >> Tree{
-                        NullNode, NullNode, Aliasing, Inout, Int
+                        Aliasing, Inout, Int
                     }
                 },
                 Arrow,
@@ -195,22 +195,20 @@ TEST_CASE("Function types", "[parser]") {
             ClosureFacet >> Tree {
                 Fn,
                 ParamListFacet,
-                NullNode,
-                NullNode,
                 CompoundFacet
             },
             Semicolon
         }
     });
 
-    CHECK(*parseFile("fn[T: type] foo() -> dyn fn (n: int) -> int { fn @0 }") ==
+    CHECK(*parseFile("fn[T: type] foo() -> dyn fn (int) -> int { fn @0 }") ==
           SourceFileFacet >> Tree{
         FuncDefFacet >> Tree{
             Fn,
             GenParamListFacet >> Tree{
-                GenParamDeclFacet >> Tree{ Identifier, Colon, Type }
+                GenParamDeclFacet >> Tree{ Id("T"), Colon, Type }
             },
-            Identifier,
+            Id("foo"),
             ParamListFacet,
             Arrow,
             PrefixFacet >> Tree {
@@ -219,7 +217,7 @@ TEST_CASE("Function types", "[parser]") {
                     Fn,
                     ParamListFacet >> Tree{
                         NamedParamDeclFacet >> Tree{
-                            Identifier, Colon, NullNode, NullNode, Int
+                            Int
                         },
                     },
                     Arrow,
@@ -231,9 +229,6 @@ TEST_CASE("Function types", "[parser]") {
                 StmtListFacet,
                 ClosureFacet >> Tree{
                     Fn,
-                    NullNode,
-                    NullNode,
-                    NullNode,
                     AutoArgFacet
                 },
                 CloseBrace
@@ -247,27 +242,23 @@ TEST_CASE("Currying", "[parser]") {
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
             Let,
-            Identifier,
-            NullNode,
-            NullNode,
+            Id("f"),
             Equal,
             ClosureFacet >> Tree {
                 Fn,
                 ParamListFacet >> Tree{
                     NamedParamDeclFacet >> Tree{
-                        Identifier, Colon, NullNode, NullNode, Int
+                        Id("x"), Colon, Int
                     },
                     NamedParamDeclFacet >> Tree{
-                        Identifier, Colon, NullNode, NullNode, Int
+                        Id("y"), Colon, Int
                     }
                 },
-                NullNode,
-                NullNode,
                 CompoundFacet >> Tree {
                     OpenBrace,
                     StmtListFacet,
                     BinaryFacet >> Tree {
-                        Identifier, Star, Identifier
+                        Id("x"), Star, Id("y")
                     },
                     CloseBrace
                 }
@@ -280,17 +271,12 @@ TEST_CASE("Currying", "[parser]") {
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
             Let,
-            Identifier,
-            NullNode,
-            NullNode,
+            Id("g"),
             Equal,
             ClosureFacet >> Tree{
                 Fn,
-                NullNode,
-                NullNode,
-                NullNode,
                 CallFacet >> Tree{
-                    Identifier,
+                    Id("f"),
                     OpenParen,
                     ListFacet >> Tree{
                         IntLiteralDec, AutoArgFacet
@@ -306,10 +292,9 @@ TEST_CASE("Currying", "[parser]") {
 TEST_CASE("Expressions nested in type specs", "[parser]") {
     CHECK(*parseExpr("fn -> T[i32{}] @0") == ClosureFacet >> Tree{
         Fn,
-        NullNode,
         Arrow,
         IndexFacet >> Tree{
-            Identifier,
+            Id("T"),
             OpenBracket,
             ListFacet >> Tree{
                 AggrConstructFacet >> Tree {
@@ -327,28 +312,25 @@ TEST_CASE("Expressions nested in type specs", "[parser]") {
 
 TEST_CASE("Auto arguments", "[parser]") {
     CHECK(*parseExpr("@0") == AutoArgFacet >> Tree{
-        AutoArgIntro, NullNode, NullNode, NullNode
+        AutoArgIntro
     });
-    CHECK(*parseExpr("@0arg") == AutoArgFacet >> Tree{
-        AutoArgIntro, Identifier, NullNode, NullNode
+    CHECK(*parseExpr("@0 arg") == AutoArgFacet >> Tree{
+        AutoArgIntro, Id("arg")
     });
     CHECK(*parseExpr("@0:inout i32") == AutoArgFacet >> Tree{
-        AutoArgIntro, NullNode, Colon, Inout, Int32
+        AutoArgIntro, Colon, Inout, Int32
     });
     CHECK(*parseExpr("@0:i32") == AutoArgFacet >> Tree{
-        AutoArgIntro, NullNode, Colon, NullNode, Int32
+        AutoArgIntro, Colon, Int32
     });
     CHECK(*parseExpr("@0 arg:i32") == AutoArgFacet >> Tree{
-        AutoArgIntro, Identifier, Colon, NullNode, Int32
+        AutoArgIntro, Id("arg"), Colon, Int32
     });
-    CHECK(*parseExpr("fn @0arg: inout i32 = 42") == ClosureFacet >> Tree{
+    CHECK(*parseExpr("fn @0 arg: inout i32 = 42") == ClosureFacet >> Tree{
         Fn,
-        NullNode,
-        NullNode,
-        NullNode,
         BinaryFacet >> Tree{
             AutoArgFacet >> Tree{
-                AutoArgIntro, Identifier, Colon, Inout, Int32
+                AutoArgIntro, Id("arg"), Colon, Inout, Int32
             },
             Equal,
             IntLiteralDec
@@ -364,13 +346,13 @@ impl [R: type, M: MyTrait] std.function for MyFunction {}
         TraitImplFacet >> Tree{
             Impl,
             GenParamListFacet >> Tree{
-                GenParamDeclFacet >> Tree{ Identifier, Colon, Type },
-                GenParamDeclFacet >> Tree{ Identifier, Colon, Identifier }
+                GenParamDeclFacet >> Tree{ Id("R"), Colon, Type },
+                GenParamDeclFacet >> Tree{ Id("M"), Colon, Id("MyTrait") }
             },
             TraitImplTypeFacet >> Tree{
-                BinaryFacet >> Tree{ Identifier, Period, Identifier },
+                BinaryFacet >> Tree{ Id("std"), Period, Id("function") },
                 For,
-                Identifier,
+                Id("MyFunction"),
                 OpenBrace,
                 MemberListFacet,
                 CloseBrace
@@ -384,11 +366,10 @@ impl fn std.function.call(this, n: int, m: int) -> int for MyFunction {}
     CHECK(*funcImpl == SourceFileFacet >> Tree{
         TraitImplFacet >> Tree{
             Impl,
-            NullNode,
             TraitImplFuncFacet >> Tree{
                 FuncDeclFacet,
                 For,
-                Identifier,
+                Id("MyFunction"),
                 CompoundFacet
             }
         }
@@ -411,19 +392,17 @@ struct MyType {
     CHECK(*file == SourceFileFacet >> Tree{
         CompTypeDeclFacet >> Tree{
             Struct,
-            NullNode,
-            Identifier,
-            NullNode,
-            NullNode,
+            Id("MyType"),
             OpenBrace,
             MemberListFacet >> Tree{
                 PropertyDefFacet >> Tree{
-                    Property, Identifier, NullNode, Arrow, Int32, OpenBrace,
+                    Property, Id("my_property"), Arrow, Int32, OpenBrace,
                     PropertyImplListFacet >> Tree{
                         PropertyImpl, PropertyImpl
                     },
                     CloseBrace
-                }
+                },
+                VarDeclFacet
             },
             CloseBrace
         },

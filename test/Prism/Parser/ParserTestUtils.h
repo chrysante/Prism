@@ -78,7 +78,15 @@ enum class NullNodeT : int;
 
 inline constexpr NullNodeT NullNode{};
 
-struct VarType: std::variant<FacetType, TokenKind, NullNodeT> {
+struct IdentifierNode {
+    std::string value;
+};
+
+inline IdentifierNode Id(std::string name) {
+    return IdentifierNode{ std::move(name) };
+}
+
+struct VarType: std::variant<FacetType, TokenKind, IdentifierNode, NullNodeT> {
     using variant::variant;
 };
 
@@ -106,6 +114,8 @@ private:
                          size_t index) const;
 
     bool verifyDiagnostics() const;
+
+    bool isNull() const { return std::holds_alternative<NullNodeT>(type); }
 
     VarType type;
     std::span<AstRefNode const* const> children;

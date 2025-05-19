@@ -83,6 +83,9 @@ static std::ostream& operator<<(std::ostream& str, VarType const& type) {
     std::visit(csp::overload{
         [&](FacetType type) { str << type; },
         [&](TokenKind type) { str << type; },
+        [&](IdentifierNode const& idNode) {
+            str << "Id: \"" << idNode.value << "\"";
+        },
         [&](NullNodeT) { str << "null"; }
     }, type); // clang-format on
     return str;
@@ -90,15 +93,27 @@ static std::ostream& operator<<(std::ostream& str, VarType const& type) {
 
 } // namespace prism
 
+MonotonicBufferResource internal::gAlloc;
+using internal::gAlloc;
+static SourceContext gCtx;
+static std::unique_ptr<DiagnosticEmitter> gDiagnosticEmitter =
+    makeDefaultDiagnosticEmitter();
+
 bool AstRefNode::compare(Facet const* facet, Facet const* parent,
                          size_t index) const {
     TreeErrorKey key{ facet, parent, index };
-    if (!facet)
-        return validate(std::holds_alternative<NullNodeT>(type), key,
-                        "Expected ", type);
-    if (auto* term = dyncast<TerminalFacet const*>(facet))
+    if (!facet) return validate(isNull(), key, "Expected ", type);
+    if (auto* term = dyncast<TerminalFacet const*>(facet)) {
+        auto tok = term->token();
+        if (auto* id = std::get_if<IdentifierNode>(&type)) {
+            auto tokenStr = gCtx.getTokenStr(tok);
+            return validate(tok.kind == TokenKind::Identifier &&
+                                id->value == tokenStr,
+                            key, utl::strcat("Expected ", type, " token"));
+        }
         return validate(checkType(term->token().kind), key,
                         utl::strcat("Expected ", type, " token"));
+    }
     bool result = validate(checkType(get_rtti(*facet)), key,
                            utl::strcat("Expected ", type));
     result &= compareChildren(facet, parent, index);
@@ -112,24 +127,24 @@ bool AstRefNode::checkType(T t) const {
 }
 
 bool AstRefNode::compareChildren(Facet const* node, Facet const* parent,
-                                 size_t index) const {
-    if (!children.empty())
-        validate(children.size() == node->children().size(),
-                 { node, parent, index }, "Invalid number of children");
+                                 size_t parentIndex) const {
+    if (children.empty()) return true;
     bool result = true;
-    for (auto [childRef, childFacet, index]:
-         zip(children, node->children(), iota(0u)))
+    auto refItr = children.begin();
+    for (auto [index, childFacet]: node->children() | ranges::views::enumerate)
     {
-        result &= childRef->compare(childFacet, node, index);
+        if (!childFacet && (refItr == children.end() || !(*refItr)->isNull()))
+            continue;
+        if (refItr == children.end()) {
+            validate(false, { node, parent, parentIndex },
+                     "Invalid number of children");
+            return false;
+        }
+        result &= (*refItr)->compare(childFacet, node, index);
+        ++refItr;
     }
     return result;
 }
-
-MonotonicBufferResource internal::gAlloc;
-using internal::gAlloc;
-static SourceContext gCtx;
-static std::unique_ptr<DiagnosticEmitter> gDiagnosticEmitter =
-    makeDefaultDiagnosticEmitter();
 
 static bool matchDiagnostic(ExpectedDiagnostic const& expIss,
                             utl::hashset<Diagnostic const*>& diags) {
