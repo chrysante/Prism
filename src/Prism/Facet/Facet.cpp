@@ -35,17 +35,29 @@ static constexpr utl::streammanip NullNode = [](std::ostream& str) {
     str << tfmt::format(BrightRed | Bold, "NULL");
 };
 
+static constexpr utl::streammanip FmtSourceLoc = [](std::ostream& str,
+                                                    SourceLocation sl) {
+    tfmt::FormatGuard guard(BrightGrey, str);
+    str << "<" << sl.line + 1 << ":" << sl.column + 1 << ">";
+};
+
 static constexpr utl::streammanip FacetName =
     [](std::ostream& str, Facet const& facet, SourceContext const* ctx) {
     static auto const Mod = Green | Italic;
-    if (auto* term = dyncast<TerminalFacet const*>(&facet)) {
-        if (ctx)
-            str << ctx->getTokenStr(term->token());
-        else
-            str << tfmt::format(Mod, term->token().kind);
+    auto* term = dyncast<TerminalFacet const*>(&facet);
+    if (!term) {
+        str << tfmt::format(Mod, get_rtti(facet));
+        if (ctx && isa<SourceFileFacet>(facet)) str << " " << ctx->filepath();
+        return;
+    }
+    auto token = term->token();
+    if (ctx) {
+        auto tokenStr = ctx->getTokenStr(token);
+        auto sourceLoc = ctx->getSourceLocation(token.index);
+        str << "\"" << tokenStr << "\" " << FmtSourceLoc(sourceLoc);
     }
     else {
-        str << tfmt::format(Mod, get_rtti(facet));
+        str << tfmt::format(Mod, (TokenKind)token.kind);
     }
 };
 
