@@ -549,11 +549,11 @@ class PointerType: public ValueType {};
 class RawPointerType: public PointerType {};
 
 ///
-class VoidType: public Type {
+class VoidType: public ValueType {
 public:
     explicit VoidType(std::string name, Scope* parent):
-        Type(SymbolType::VoidType, std::move(name), nullptr, parent, nullptr,
-             TypeLayout::Incomplete) {}
+        ValueType(SymbolType::VoidType, std::move(name), nullptr, parent,
+                  nullptr, TypeLayout(0)) {}
 };
 
 /// Base class of `BaseClass` and `MemberVar`
