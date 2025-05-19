@@ -1,66 +1,10 @@
 
-
-
 trait T {
-    typedef Type = i32;
+    fn bar(this) -> void;
 }
 
-trait U {
-    typedef Type = i64;
+impl T for i32 {
+    fn foo(this) -> void {}
+    fn bar(this) -> void {}
 }
-
-trait MyTrait: T, U {
-    typedef Type = i16;
-    fn bar(this) -> Type;
-}
-
-impl MyTrait for i32 {
-    typedef Type = i32;
-    fn bar(this) -> i16 { 42 }
-    fn bar(this) -> i32 { 42 }
-}
-
-
-/*
- 
-trait T {
-    typedef some_type;
-}
-
-trait U {
-    typedef some_type;
-}
-
-trait MyTrait: T, U {
-    fn foo(this, rhs: some_type) -> void;
-}
-
-*/
-
-
-/*
-
-
-
-trait [T: type] ConvertibleTo {
-    fn convert(this) -> T;
-}
-
-struct [T: ConvertibleTo(i32)] MyType {
-    var value: T;
-}
-
-let value: MyType(S);
-
-struct S {}
-
-impl [T: Integral] ConvertibleTo(T) for S {
-    fn convert(this) -> T { 42 }
-}
-
-trait Integral {}
-
-impl Integral for i32 {}
-
- */
 

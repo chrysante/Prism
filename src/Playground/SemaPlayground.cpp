@@ -54,13 +54,13 @@ static void header(std::ostream& str, std::string_view title) {
     size_t leftSpace = remainingSpace / 7;
     size_t rightSpace = remainingSpace - leftSpace;
     using namespace tfmt::modifiers;
-    auto mod = BrightMagenta | Bold;
-    str << tfmt::format(mod, "╦", repeat(numCols - 2, "═"), "╦") << "\n";
+    auto mod = BrightBlue | Bold;
+    str << tfmt::format(mod, "╔", repeat(numCols - 2, "═"), "╗") << "\n";
     str << tfmt::format(mod, "║", repeat(leftSpace, " "),
                         tfmt::format(Reset | Bold, title),
                         repeat(rightSpace, " "), "║")
         << "\n";
-    str << tfmt::format(mod, "╩", repeat(numCols - 2, "═"), "╩") << "\n";
+    str << tfmt::format(mod, "╚", repeat(numCols - 2, "═"), "╝") << "\n";
 }
 
 static int semaPlaygroundMain(Options options) {

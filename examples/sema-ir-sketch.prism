@@ -1,54 +1,48 @@
+// Lower simple program:
 
+// fn foo(number: i32) -> i32 {
+//     var retval = 7;
+//     if (number == 11) 
+//	       retval = 42;
+//     else
+//         retval *= 7;
+//     retval
+// }
 
-namespace std {
-
-trait callable[/* function type */] {
-	fn call(this, /* args... */) -> /* result_type */;
+fn foo /* or mangled name */ (number: noalias in i32) -> i32 {
+	local mut i32 retval = i32 0
+    temp bool cond = cmp number == retval
+	if cond then:
+        assign retval = i32 42
+	else:
+	    call std.arithmetic.mul_assign for i32(&retval, i32 42)
+	return retval
 }
 
+// fn gcd(a_in: i32, b_in: i32) -> i32 {
+//     var a = a_in.copy();
+//     var b = b_in.copy();
+//     while (b != 0) {
+//         let t = b.copy();
+//         b = a % b;
+//         a = t;
+// 	   }
+//     return a;
+// }
+
+fn gcd(a_in: noalias in i32, b_in: noalias in i32) {
+	temp i32 %0 = call std.lifetime.copy for i32(a_in)
+	local mut i32 a = %0
+	temp i32 %1 = call std.lifetime.copy for i32(b_in)
+	local mut i32 b = %1
+    while:
+        tmp bool %2 = cmp a != b
+		yield %2
+	do:
+	    tmp i32 %3 = call std.lifetime.copy for i32(i)
+	    local const i32 t = %3
+		temp i32 %4 = rem a, b
+		assign b = %4
+		assign a = t
 }
 
-struct AddFn {}
-
-// Explicitly specify function type
-impl std.callable[fn (in i32, in i32) -> sink i32] for AddFn {
-	fn call(this, a: in i32, b: in i32) -> sink i32 { a + b }
-}
-
-// or just omit and let compiler deduce
-impl std.callable for AddFn {
-	fn call(this, a: f32, b: f32) -> f32 { a + b }
-}
-
-fn higher_order_dyn_binding(arg: dyn fn (i32, i32) -> i32) -> i32 {
-	arg(20, 22)
-}
-
-fn higher_order_static_binding(arg: impl fn (i32, i32) -> i32) -> i32 {
-	arg(20, 22)
-}
-
-fn main() -> i32 {
-    return higher_order_dyn_binding(AddFn());
-}
-
-
-fn test() {
-	fn { 2 * @0 }(21)
-}
-
-// ==>
-
-struct test.__lambda_0;
-
-impl[T: type] std.callable[fn (in T) -> __decltype(2 * __declval[T])] for test.__lambda_0 {
-	fn call(__0: in T) -> __decltype(2 * __declval[T]) {
-        return 2 * __0; // Why no compile error? Cannot check definition here...
-	}
-}
-
-fn test() {
-	return test.__lambda_0()(21);
-	// ==>
-	return test.__lambda_0().call(21);
-}
