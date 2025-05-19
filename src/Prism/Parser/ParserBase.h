@@ -81,13 +81,16 @@ struct ParserBase {
 
     /// _Peeks_ and returns the peeked token, if its kind is any of the given
     /// arguments. Otherwise returns nullopt
-    std::optional<Token> peekMatch(TokenKind tok);
+    std::optional<Token> peekMatch(TokenKind tok, size_t offset = 1);
 
     /// \overload
-    std::optional<Token> peekMatch(VolatileList<TokenKind const> tokenKinds);
+    std::optional<Token> peekMatch(VolatileList<TokenKind const> tokenKinds,
+                                   size_t offset = 1);
 
-    /// \Returns the next token in the stream without consuming it
-    Token peek();
+    /// \param offset 1 means peek the next token, values > 1 mean tokens after
+    /// that.
+    /// \Returns the next token in the stream without consuming it.
+    Token peek(size_t offset = 1);
 
     /// \Returns the next token in the stream and consumes it
     Token eat();
@@ -127,10 +130,10 @@ protected:
 
 private:
     /// Implementation of `match()` and `peekMatch()`
-    std::optional<Token> matchImpl(bool eat, auto verify);
+    std::optional<Token> matchImpl(bool eat, auto verify, size_t offset = 1);
 
     /// Implementation of `eat()` and `peek()`
-    Token eatPeekImpl(uint32_t offset);
+    Token eatPeekImpl(uint32_t increment, size_t offset);
 
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;
