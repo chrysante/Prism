@@ -17,7 +17,7 @@ public:
     FuncSig() = default;
 
     explicit FuncSig(Type const* retType,
-                     utl::small_vector<ValueType const*> argTypes):
+                     utl::small_vector<Type const*> argTypes):
         _ret(retType), _args(std::move(argTypes)) {}
 
     static FuncSig Compute(Type const* ret,
@@ -27,7 +27,7 @@ public:
     Type const* retType() const { return _ret; }
 
     /// \Returns a view over the parameter types
-    std::span<ValueType const* const> paramTypes() const { return _args; }
+    std::span<Type const* const> paramTypes() const { return _args; }
 
     /// \Returns a hash value based on the address identities of the return and
     /// parameter types
@@ -105,8 +105,7 @@ public:
     };
 
 private:
-    static size_t hashImpl(Type const* ret,
-                           std::span<ValueType const* const> args,
+    static size_t hashImpl(Type const* ret, std::span<Type const* const> args,
                            auto&& proj) {
         size_t seed = 0;
         utl::hash_combine_seed(seed, std::invoke(proj, ret));
@@ -116,9 +115,9 @@ private:
     }
 
     static bool cmpImpl(Type const* lhsRet,
-                        std::span<ValueType const* const> lhsArgs,
+                        std::span<Type const* const> lhsArgs,
                         Type const* rhsRet,
-                        std::span<ValueType const* const> rhsArgs, auto&& cmp,
+                        std::span<Type const* const> rhsArgs, auto&& cmp,
                         auto&& proj) {
         return std::invoke(cmp, std::invoke(proj, lhsRet),
                            std::invoke(proj, rhsRet)) &&
@@ -126,7 +125,7 @@ private:
     }
 
     Type const* _ret = nullptr;
-    utl::small_vector<ValueType const*> _args;
+    utl::small_vector<Type const*> _args;
 };
 
 } // namespace prism

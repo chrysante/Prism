@@ -87,7 +87,7 @@ Symbol* MapContext::doMapSymbol(Function& func) {
 
 Symbol* MapContext::doMapSymbol(FuncArg& argument) {
     auto* newType =
-        selectGenArg<ValueType>(const_cast<ValueType*>(argument.type().get()));
+        selectGenArg<Type>(const_cast<Type*>(argument.type().get()));
     if (newType == argument.type().get()) return &argument;
     // FIXME: Scope should not be null
     return ctx.make<FuncArg>(argument.name(), argument.facet(),
@@ -175,10 +175,10 @@ static bool validateArguments(SemaContext const& ctx, DiagnosticEmitter& DE,
     bool result = true;
     for (auto [param, arg, facet]: zip(params, args, argFacets)) {
         auto* typeParam = cast<GenericTypeParam const*>(param);
-        auto* typeArg = dyncast<ValueType const*>(arg);
+        auto* typeArg = dyncast<Type const*>(arg);
         if (!typeArg) {
             DE.emit<BadSymRef>(ctx.getSourceContext(facet), facet, arg,
-                               SymbolType::ValueType);
+                               SymbolType::Type);
             result = false;
             continue;
         }

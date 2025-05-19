@@ -110,7 +110,7 @@ diags:
     kind: Error
     members:
       - name: argument
-        type: ValueType const*
+        type: Type const*
       - name: traitBound
         type: Trait const*
     header: >

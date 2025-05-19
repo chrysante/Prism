@@ -25,18 +25,14 @@ symbols:
     base: Symbol
     abstract: true
 
-  - name: ValueType
-    base: Type
-    abstract: true
-
   - name: GenericTypeParam
-    base: ValueType
+    base: Type
 
   - name: Typedef
-    base: ValueType
+    base: Type
 
   - name: UserType
-    base: ValueType
+    base: Type
     abstract: true
 
   - name: CompositeType
@@ -50,7 +46,7 @@ symbols:
     base: CompositeType
 
   - name: DynType
-    base: ValueType
+    base: Type
     abstract: true
 
   - name: DynStructType
@@ -60,16 +56,16 @@ symbols:
     base: DynType
 
   - name: FunctionType
-    base: ValueType
+    base: Type
 
   - name: ByteType
-    base: ValueType
+    base: Type
 
   - name: BoolType
-    base: ValueType
+    base: Type
 
   - name: ArithmeticType
-    base: ValueType
+    base: Type
     abstract: true
 
   - name: IntType
@@ -79,11 +75,11 @@ symbols:
     base: ArithmeticType
 
   - name: PointerType
-    base: ValueType
+    base: Type
     abstract: true
 
   - name: RawPointerType
-    base: ValueType
+    base: Type
     abstract: true
 
   - name: VoidType

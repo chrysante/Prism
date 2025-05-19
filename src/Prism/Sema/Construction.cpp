@@ -289,7 +289,7 @@ void GlobalNameResolver::resolve(Symbol* symbol) {
 void GlobalNameResolver::doResolve(Variable& var) {
     auto* facet = var.facet();
     if (!facet->typespec()) PRISM_UNIMPLEMENTED();
-    auto* type = analyzeFacet<ValueType>(var.parentScope(), facet->typespec());
+    auto* type = analyzeFacet<Type>(var.parentScope(), facet->typespec());
     var._type = QualType::Mut(type);
     addDependency(var, type);
 }
@@ -302,8 +302,7 @@ void GlobalNameResolver::doResolve(Typedef& type) {
     else
         type._traitBound = ctx.getType();
     if (facet->initExpr())
-        type._def =
-            analyzeFacet<ValueType>(type.parentScope(), facet->initExpr());
+        type._def = analyzeFacet<Type>(type.parentScope(), facet->initExpr());
     addDependency(type, type._traitBound);
     addDependency(type, type._def);
 }
@@ -342,8 +341,8 @@ void GlobalNameResolver::resolveInterface(TraitImplInterface& interface) {
     auto* def = cast<TraitImplTypeFacet const*>(facet->definition());
     interface._trait =
         analyzeFacet<Trait>(impl.associatedScope(), def->traitDeclRef());
-    interface._conf = analyzeFacet<ValueType>(impl.associatedScope(),
-                                              def->conformingTypename());
+    interface._conf =
+        analyzeFacet<Type>(impl.associatedScope(), def->conformingTypename());
     auto* node = getNode(impl);
     addDependency(node, interface._trait);
     addDependency(node, interface._conf);
@@ -371,7 +370,7 @@ Symbol* GlobalNameResolver::declareBase(Scope* scope,
 
 MemberVar* GlobalNameResolver::declareMemberVar(Scope* scope,
                                                 VarDeclFacet const& decl) {
-    auto* type = analyzeFacet<ValueType>(scope, decl.typespec());
+    auto* type = analyzeFacet<Type>(scope, decl.typespec());
     auto* var = ctx.make<MemberVar>(getName(decl), &decl, scope, type);
     addDependency(*var, type);
     return var;
@@ -473,17 +472,17 @@ FuncArg* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
                                             NamedParamDeclFacet const& param,
                                             Scope* scope, size_t /* index */) {
     auto pc = getPassingConv(param.passingConventionFacet());
-    auto* type = analyzeFacet<ValueType>(scope, param.typespec());
+    auto* type = analyzeFacet<Type>(scope, param.typespec());
     auto name = sourceContext->getTokenStr(param.name());
     return ctx.make<FuncArg>(std::string(name), &param, scope, type, pc,
                              /* isThis: */ false);
 }
 
-static ValueType const* getThisType(SemaContext& ctx, DiagnosticEmitter& DE,
-                                    Symbol* parentSymbol,
-                                    ThisParamDeclFacet const* paramFct) {
+static Type const* getThisType(SemaContext& ctx, DiagnosticEmitter& DE,
+                               Symbol* parentSymbol,
+                               ThisParamDeclFacet const* paramFct) {
     // clang-format off
-    return visit<ValueType const*>(*parentSymbol, csp::overload{
+    return visit<Type const*>(*parentSymbol, csp::overload{
         [&](CompositeType& type) { return &type; },
         [&](GenCompositeType& genType) {
             return instantiateGenericNoFail(ctx, genType, genType.genParams());

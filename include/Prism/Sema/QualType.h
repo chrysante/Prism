@@ -9,25 +9,25 @@
 
 namespace prism {
 
-/// Const/mutable qualified value type
+/// Const/mutable qualified type
 class QualType {
 public:
     QualType(): QualType(nullptr, {}) {}
 
-    QualType(ValueType const* type, Mutability mut): p(type, (unsigned)mut) {}
+    QualType(Type const* type, Mutability mut): p(type, (unsigned)mut) {}
 
     /// Static constructor for const qualtypes
-    static QualType Const(ValueType const* type) {
+    static QualType Const(Type const* type) {
         return QualType(type, Mutability::Const);
     }
 
     /// Static constructor for mutable qualtypes
-    static QualType Mut(ValueType const* type) {
+    static QualType Mut(Type const* type) {
         return QualType(type, Mutability::Mut);
     }
 
     /// \Return the type pointer
-    ValueType const* get() const { return p.pointer(); }
+    Type const* get() const { return p.pointer(); }
 
     /// \Returns the mutability qualifier
     Mutability mutability() const { return (Mutability)(p.integer()); }
@@ -37,7 +37,7 @@ public:
     bool isConst() const { return mutability() == Mutability::Const; }
 
 private:
-    utl::ipp<ValueType const*, unsigned, 1> p;
+    utl::ipp<Type const*, unsigned, 1> p;
 };
 
 } // namespace prism

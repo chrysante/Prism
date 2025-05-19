@@ -137,8 +137,7 @@ static Mutability passingConvToMut(PassingConvention pc) {
 }
 
 FuncArg::FuncArg(std::string name, Facet const* facet, Scope* parent,
-                 ValueType const* type, PassingConvention passingConv,
-                 bool isThis):
+                 Type const* type, PassingConvention passingConv, bool isThis):
     Value(SymbolType::FuncArg, std::move(name), facet, parent,
           QualType(type, passingConvToMut(passingConv)), ValueCat::LValue),
     _pc(passingConv),

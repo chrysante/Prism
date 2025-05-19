@@ -24,7 +24,7 @@ void analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
                         DiagnosticEmitter& DE, Symbol& sym);
 
 /// \Returns true of \p type conforms to \p trait
-bool conformsTo(ValueType const& type, Trait const& trait);
+bool conformsTo(Type const& type, Trait const& trait);
 
 /// \Returns true of \p derived conforms to \p base
 bool conformsTo(Trait const& derived, Trait const& base);

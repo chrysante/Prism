@@ -135,7 +135,7 @@ impl Term(i32) for i32 {
 }
 )",
                                 { .expectNoErrors = true });
-    auto* i32 = tester.eval<ValueType>("i32");
+    auto* i32 = tester.eval<Type>("i32");
     REQUIRE(i32);
     auto* TermI32 = tester.eval<Trait>("Term(i32)");
     auto* impl = i32->findTraitImpl(TermI32);

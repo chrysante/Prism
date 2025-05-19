@@ -286,7 +286,7 @@ void prism::analyzeConformance(MonotonicBufferResource&, SemaContext& ctx,
 static bool specArgMatch(Symbol const* existingArg, Symbol const* newArg) {
     if (existingArg == newArg) return true;
     if (auto* typeParam = dyncast<GenericTypeParam const*>(existingArg)) {
-        auto* typeArg = dyncast<ValueType const*>(newArg);
+        auto* typeArg = dyncast<Type const*>(newArg);
         if (!typeArg) return false;
         return conformsTo(*typeArg, *typeParam->traitBound());
     }
@@ -310,7 +310,7 @@ static bool isSpecializationOf(Symbol const* spec, Symbol const* general) {
     }); // clang-format on
 }
 
-bool prism::conformsTo(ValueType const& type, Trait const& trait) {
+bool prism::conformsTo(Type const& type, Trait const& trait) {
     if (trait.name() == "type") // Ugh, how to we fix this?!
         return true;            // All types conform to the `type` trait
     if (auto* compType = dyncast<CompositeType const*>(&type)) {

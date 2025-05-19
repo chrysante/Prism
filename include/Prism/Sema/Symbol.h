@@ -186,30 +186,10 @@ private:
     utl::small_vector<Symbol*> _genParams;
 };
 
-class Type: public Symbol, public detail::AssocScope {
-public:
-    using AssocScope::associatedScope;
-
-    /// \Returns the memory layout of this type
-    TypeLayout layout() const { return _layout; }
-
-protected:
-    Type(SymbolType type, std::string name, Facet const* facet, Scope* parent,
-         Scope* scope, TypeLayout layout):
-        Symbol(type, std::move(name), facet, parent),
-        AssocScope(scope),
-        _layout(layout) {}
-
-    void setLayout(TypeLayout layout) { _layout = layout; }
-
-private:
-    TypeLayout _layout;
-};
-
 class TraitImplInterface;
 
 /// Base class for symbols that can conform to traits. This should probably be
-/// only `ValueType`
+/// only `Type`
 class TraitConformer {
 public:
     /// \Returns the implementation for \p trait if it exists
@@ -244,20 +224,33 @@ private:
         _genTraitImpls;
 };
 
-/// Base class of types that contain "values" as opposed to references and
-/// functions
-class ValueType: public Type, public TraitConformer {
+class Type: public Symbol, public detail::AssocScope, public TraitConformer {
+public:
+    using AssocScope::associatedScope;
+
+    /// \Returns the memory layout of this type
+    TypeLayout layout() const { return _layout; }
+
 protected:
-    using Type::Type;
+    Type(SymbolType type, std::string name, Facet const* facet, Scope* parent,
+         Scope* scope, TypeLayout layout):
+        Symbol(type, std::move(name), facet, parent),
+        AssocScope(scope),
+        _layout(layout) {}
+
+    void setLayout(TypeLayout layout) { _layout = layout; }
+
+private:
+    TypeLayout _layout;
 };
 
 ///
-class GenericTypeParam: public ValueType {
+class GenericTypeParam: public Type {
 public:
     explicit GenericTypeParam(std::string name, Facet const* facet,
                               Scope* parent, Trait* traitBound):
-        ValueType(SymbolType::GenericTypeParam, std::move(name), facet, parent,
-                  nullptr, TypeLayout::Incomplete),
+        Type(SymbolType::GenericTypeParam, std::move(name), facet, parent,
+             nullptr, TypeLayout::Incomplete),
         _traitBound(traitBound) {}
 
     /// \Returns the trait that this type argument conforms to
@@ -271,12 +264,12 @@ private:
 };
 
 ///
-class Typedef: public ValueType {
+class Typedef: public Type {
 public:
     explicit Typedef(std::string name, Facet const* facet, Scope* parent,
-                     Trait* traitBound, ValueType* definition):
-        ValueType(SymbolType::Typedef, std::move(name), facet, parent, nullptr,
-                  TypeLayout::Incomplete),
+                     Trait* traitBound, Type* definition):
+        Type(SymbolType::Typedef, std::move(name), facet, parent, nullptr,
+             TypeLayout::Incomplete),
         _traitBound(traitBound),
         _def(definition) {}
 
@@ -286,21 +279,21 @@ public:
 
     Trait const* traitBound() const { return _traitBound; }
 
-    ValueType* definition() { return _def; }
+    Type* definition() { return _def; }
 
-    ValueType const* definition() const { return _def; }
+    Type const* definition() const { return _def; }
 
 private:
     friend struct GlobalNameResolver;
 
     Trait* _traitBound;
-    ValueType* _def;
+    Type* _def;
 };
 
 /// Base class of all user defined types
-class UserType: public ValueType {
+class UserType: public Type {
 protected:
-    using ValueType::ValueType;
+    using Type::Type;
 };
 
 /// Common interface of `CompositeType` and `GenCompositeType`
@@ -457,13 +450,13 @@ private:
 
 /// Not really sure about this. Do we even need it? And should it be a value
 /// type?
-class FunctionType: public ValueType {
+class FunctionType: public Type {
 public:
     explicit FunctionType(Facet const* facet, Scope* parent,
                           Type const* retType,
                           utl::small_vector<Type const*> params):
-        ValueType(SymbolType::FunctionType, {}, facet, parent,
-                  /* scope: */ nullptr, TypeLayout::Incomplete),
+        Type(SymbolType::FunctionType, {}, facet, parent,
+             /* scope: */ nullptr, TypeLayout::Incomplete),
         _retType(retType),
         _params(std::move(params)) {}
 
@@ -477,23 +470,23 @@ private:
 };
 
 ///
-class ByteType: public ValueType {
+class ByteType: public Type {
 public:
     explicit ByteType(SemaContext& ctx, std::string name, Scope* parent):
-        ValueType(SymbolType::ByteType, std::move(name), nullptr, parent,
-                  detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
+        Type(SymbolType::ByteType, std::move(name), nullptr, parent,
+             detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 ///
-class BoolType: public ValueType {
+class BoolType: public Type {
 public:
     explicit BoolType(SemaContext& ctx, std::string name, Scope* parent):
-        ValueType(SymbolType::BoolType, std::move(name), nullptr, parent,
-                  detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
+        Type(SymbolType::BoolType, std::move(name), nullptr, parent,
+             detail::make_scope(ctx, this, parent), TypeLayout(1)) {}
 };
 
 /// Common base class of `IntType` and `FloatType`
-class ArithmeticType: public ValueType {
+class ArithmeticType: public Type {
 public:
     /// \Returns the number of bits of this type
     size_t bitwidth() const { return layout().size() * 8; }
@@ -501,9 +494,8 @@ public:
 protected:
     ArithmeticType(SymbolType symType, SemaContext& ctx, std::string name,
                    Scope* parent, size_t bitwidth):
-        ValueType(symType, std::move(name), nullptr, parent,
-                  detail::make_scope(ctx, this, parent),
-                  TypeLayout(bitwidth / 8)) {
+        Type(symType, std::move(name), nullptr, parent,
+             detail::make_scope(ctx, this, parent), TypeLayout(bitwidth / 8)) {
         PRISM_ASSERT(bitwidth % 8 == 0);
     }
 };
@@ -543,35 +535,35 @@ public:
 };
 
 /// Base class of all pointer types
-class PointerType: public ValueType {};
+class PointerType: public Type {};
 
 ///
 class RawPointerType: public PointerType {};
 
 ///
-class VoidType: public ValueType {
+class VoidType: public Type {
 public:
     explicit VoidType(std::string name, Scope* parent):
-        ValueType(SymbolType::VoidType, std::move(name), nullptr, parent,
-                  nullptr, TypeLayout(0)) {}
+        Type(SymbolType::VoidType, std::move(name), nullptr, parent, nullptr,
+             TypeLayout(0)) {}
 };
 
 /// Base class of `BaseClass` and `MemberVar`
 class MemberSymbol: public Symbol {
 public:
-    ValueType* type() { return _type; }
+    Type* type() { return _type; }
 
-    ValueType const* type() const { return _type; }
+    Type const* type() const { return _type; }
 
 protected:
     MemberSymbol(SymbolType symType, std::string name, Facet const* facet,
-                 ValueType* type, Scope* parent):
+                 Type* type, Scope* parent):
         Symbol(symType, std::move(name), facet, parent), _type(type) {}
 
 private:
     friend struct GlobalNameResolver;
 
-    ValueType* _type;
+    Type* _type;
 };
 
 class BaseClass: public MemberSymbol {
@@ -590,7 +582,7 @@ public:
 class MemberVar: public MemberSymbol {
 public:
     explicit MemberVar(std::string name, Facet const* facet, Scope* parent,
-                       ValueType* type):
+                       Type* type):
         MemberSymbol(SymbolType::MemberVar, std::move(name), facet, type,
                      parent) {}
 };
@@ -699,7 +691,7 @@ private:
 class TraitImplInterface: public InterfaceLike {
 public:
     explicit TraitImplInterface(Symbol* traitImpl, Trait* trait,
-                                ValueType* conforming):
+                                Type* conforming):
         InterfaceLike(traitImpl),
         _sym(*traitImpl),
         _trait(trait),
@@ -722,17 +714,17 @@ public:
     Trait const* trait() const { return _trait; }
 
     /// \Returns the type for which \p trait is implemented
-    ValueType* conformingType() { return _conf; }
+    Type* conformingType() { return _conf; }
 
     /// \overload
-    ValueType const* conformingType() const { return _conf; }
+    Type const* conformingType() const { return _conf; }
 
 private:
     friend struct GlobalNameResolver;
 
     Symbol& _sym;
     Trait* _trait = nullptr;
-    ValueType* _conf = nullptr;
+    Type* _conf = nullptr;
 };
 
 ///
@@ -747,7 +739,7 @@ public:
 
 protected:
     explicit TraitImpl(SymbolType symType, SemaContext& ctx, Facet const* facet,
-                       Scope* parent, Trait* trait, ValueType* conforming):
+                       Scope* parent, Trait* trait, Type* conforming):
         Symbol(symType, /* name: */ {}, facet, parent),
         AssocScope(detail::make_scope(ctx, this, parent)),
         TraitImplInterface(this, trait, conforming) {}
@@ -773,8 +765,7 @@ public:
     explicit GenTraitImpl(SemaContext& ctx, Facet const* facet, Scope* parent,
                           Scope* scope = nullptr,
                           utl::small_vector<Symbol*>&& genParams = {},
-                          Trait* trait = nullptr,
-                          ValueType* conforming = nullptr):
+                          Trait* trait = nullptr, Type* conforming = nullptr):
         GenericSymbol(SymbolType::GenTraitImpl, ctx, /* name: */ {}, facet,
                       parent, scope, std::move(genParams)),
         TraitImplInterface(this, trait, conforming) {}
@@ -799,7 +790,7 @@ public:
 };
 
 ///
-class DynType: public ValueType {
+class DynType: public Type {
 public:
     ///
     Symbol* underlyingSymbol() { return _underlying; }
@@ -809,9 +800,9 @@ public:
 
 protected:
     explicit DynType(SymbolType symtype, Symbol* underlying):
-        ValueType(symtype, /* name: */ {}, /* facet: */ nullptr,
-                  /* parent-scope: */ nullptr, /* scope: */ nullptr,
-                  TypeLayout::Incomplete),
+        Type(symtype, /* name: */ {}, /* facet: */ nullptr,
+             /* parent-scope: */ nullptr, /* scope: */ nullptr,
+             TypeLayout::Incomplete),
         _underlying(underlying) {}
 
 private:
@@ -957,7 +948,7 @@ public:
 class FuncArg: public Value {
 public:
     explicit FuncArg(std::string name, Facet const* facet, Scope* parent,
-                     ValueType const* type, PassingConvention passingConv,
+                     Type const* type, PassingConvention passingConv,
                      bool isThis);
 
     FACET_TYPE(ParamDeclFacet)

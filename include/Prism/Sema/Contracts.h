@@ -170,7 +170,7 @@ private:
     utl::hashmap<std::string, utl::tiny_ptr_vector<TypeObligation*>> _typeObls;
     utl::hashmap<Typedef const*, utl::tiny_ptr_vector<TypeObligation const*>>
         _typedefOblMap;
-    utl::hashmap<ValueType const*, utl::tiny_ptr_vector<Typedef const*>>
+    utl::hashmap<Type const*, utl::tiny_ptr_vector<Typedef const*>>
         _typedefDefinitionMap;
     utl::hashmap<FuncObligationKey, utl::tiny_ptr_vector<FuncObligation*>,
                  FuncObligationKey::Hash, FuncObligationKey::Equal>
