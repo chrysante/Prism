@@ -48,7 +48,7 @@ struct Bar { var foo: Foo; }
 
 TEST_CASE("BadSymRef", "[sema]") {
     auto c = makeDiagChecker(R"(
-struct S: 0 {}
+struct S: Global {}
 fn foo() { return i32; }
 fn foo() -> Global { return ; }
 let Global: i32; 
@@ -60,8 +60,8 @@ let Global: i32;
 
 TEST_CASE("ThisParamBadPosition", "[sema]") {
     auto c = makeDiagChecker(R"(
-struct S {  fn foo(n: i32, &this); }
-trait T {  fn foo(n: i32, &this); }
+struct S {  fn foo(n: i32, this); }
+trait T {  fn foo(n: i32, this); }
 )");
     CHECK(c.findDiagOnLine<ThisParamBadPosition>(2));
     CHECK(c.findDiagOnLine<ThisParamBadPosition>(3));
@@ -69,7 +69,7 @@ trait T {  fn foo(n: i32, &this); }
 
 TEST_CASE("ThisParamFreeFunction", "[sema]") {
     auto c = makeDiagChecker(R"(
-fn foo(&this) {}
+fn foo(this) {}
 fn bar(this) {}
 )");
     CHECK(c.findDiagOnLine<ThisParamFreeFunction>(2));
@@ -78,7 +78,7 @@ fn bar(this) {}
 
 TEST_CASE("IncompleteImpl", "[sema]") {
     auto c = makeDiagChecker(R"(
-trait T { fn foo(&this); }
+trait T { fn foo(this); }
 struct S: T {}
 struct U {}
 impl T for U {}

@@ -466,36 +466,23 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
                                                    .isThis = false });
 }
 
+static std::tuple<bool, bool, Mutability> getDynRefMut(
+    ThisParamDeclFacet const& param) {
+    bool dyn = param.dynQualifierFacet() != nullptr;
+    if (param.passingConventionFacet()) {
+        auto kind = param.passingConvention().kind;
+        return { dyn, /* ref: */ kind != TokenKind::Sink,
+                 /* mut: */ kind != TokenKind::Inout ? Mutability::Const :
+                                                       Mutability::Mut };
+    }
+    return { dyn, true, Mutability::Const };
+}
+
 FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
                                               ThisParamDeclFacet const& param,
                                               Scope*, size_t index) {
     if (index != 0) DE.emit<ThisParamBadPosition>(sourceContext, &param);
-    Mutability mut = Mutability::Const;
-    bool dyn = false, ref = false;
-#if 0
-    auto* typeFacet = param.spec();
-    while (!isa<TerminalFacet>(typeFacet)) {
-        auto* prefix = cast<PrefixFacet const*>(typeFacet);
-        typeFacet = prefix->operand();
-        using enum TokenKind;
-        switch (prefix->operation().kind) {
-        case Mut:
-            mut = Mutability::Mut;
-            break;
-        case Dyn:
-            dyn = true;
-            break;
-        case Ampersand:
-            ref = true;
-            break;
-        default:
-            PRISM_UNREACHABLE();
-        }
-    }
-    PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
-                 TokenKind::This);
-#endif
-    PRISM_UNREACHABLE();
+    auto [dyn, ref, mut] = getDynRefMut(param);
     if (!parentSymbol) PRISM_UNIMPLEMENTED();
     // clang-format off
     auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{

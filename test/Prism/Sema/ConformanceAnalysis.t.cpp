@@ -10,19 +10,19 @@ using namespace prism;
 TEST_CASE("Simple trait impl", "[sema]") {
     auto tester = makeInvTester(R"(
 trait MyTrait {
-    fn foo(&this) -> i32;
+    fn foo(this) -> i32;
 }
 
 trait MyOtherTrait {
-    fn bar(&this) -> i32;
+    fn bar(this) -> i32;
 }
 
 struct S: MyOtherTrait {
-    fn bar(&this) -> i32 { 7 }
+    fn bar(this) -> i32 { 7 }
 }
 
 impl MyTrait for S {
-    fn foo(&this) -> i32 { 42 }
+    fn foo(this) -> i32 { 42 }
 }
 )",
                                 { .expectNoErrors = true });
@@ -40,13 +40,13 @@ impl MyTrait for S {
 TEST_CASE("Impl for generic trait", "[sema]") {
     auto tester = makeInvTester(R"(
 trait [To: type] ConvertibleTo {
-    fn convert(&this) -> To;
+    fn convert(this) -> To;
 }
 
 struct S {}
 
 impl ConvertibleTo(i32) for S {
-    fn convert(&this) -> i32 { 42 }
+    fn convert(this) -> i32 { 42 }
 }
 )",
                                 { .expectNoErrors = true });
@@ -65,7 +65,7 @@ impl ConvertibleTo(i32) for S {
 TEST_CASE("Generic trait implementation", "[sema]") {
     auto tester = makeInvTester(R"(
 trait [To: type] ConvertibleTo {
-    fn convert(&this) -> To;
+    fn convert(this) -> To;
 }
 
 struct S {}
@@ -75,7 +75,7 @@ trait Int32 {}
 impl Int32 for i32 {}
 
 impl [T: Int32] ConvertibleTo(T) for S {
-    fn convert(&this) -> T {}
+    fn convert(this) -> T {}
 }
 )",
                                 { .expectNoErrors = true });
@@ -126,12 +126,12 @@ let s: S(i32);
 TEST_CASE("Trait conformance with typedefs", "[sema]") {
     auto tester = makeInvTester(R"(
 trait [RhsType: type] Term {
-    fn add(&this, rhs: &RhsType) -> ResultType;
-    fn add_assign(&mut this, rhs: &RhsType) -> void {}
+    fn add(this, rhs: RhsType) -> ResultType;
+    fn add_assign(inout this, rhs: RhsType) -> void {}
     typedef ResultType;
 }
 impl Term(i32) for i32 {
-    fn add(&this, rhs: &i32) -> i32 { 42 }
+    fn add(this, rhs: i32) -> i32 { 42 }
     typedef ResultType = i32;
 }
 )",
