@@ -42,8 +42,12 @@ facets:
   - name: ThisParamDeclFacet
     base: ParamDeclFacet
     members:
-      - name: spec
-        type: Facet
+      - name: passingConvention
+        type: TerminalFacet
+      - name: dynQualifier
+        type: TerminalFacet
+      - name: thisToken
+        type: TerminalFacet
 
   - name: NamedParamDeclFacet
     base: ParamDeclFacet

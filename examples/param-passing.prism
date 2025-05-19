@@ -20,7 +20,7 @@ fn SinkFn(arg: sink i32) {}
 
 
 fn foo() {
-    fn { SinkFn(sink @0) }(42)
+    fn { SinkFn(@0: sink i32) }(42)
 }
 
 fn bar() {

@@ -54,6 +54,18 @@ struct ParserBase {
         return prism::allocate<T>(alloc, alloc, std::forward<Args>(args)...);
     }
 
+    /// Allocates and returns a terminal facet of \p tok has  a value, otherwise
+    /// returns null
+    TerminalFacet const* toTerminal(std::optional<Token> tok) {
+        if (tok) return toTerminal(*tok);
+        return nullptr;
+    };
+
+    /// \overload
+    TerminalFacet const* toTerminal(Token tok) {
+        return allocate<TerminalFacet>(tok);
+    };
+
     // MARK: Token consumption
     /// _Eats_ and returns the eaten token, if its kind is any of the given
     /// arguments. Otherwise returns nullopt
@@ -93,7 +105,7 @@ struct ParserBase {
     Token peek(size_t offset = 1);
 
     /// \Returns the next token in the stream and consumes it
-    Token eat();
+    Token eat(size_t count = 1);
 
     // MARK: Diagnostic
     ///
@@ -133,7 +145,7 @@ private:
     std::optional<Token> matchImpl(bool eat, auto verify, size_t offset = 1);
 
     /// Implementation of `eat()` and `peek()`
-    Token eatPeekImpl(uint32_t increment, size_t offset);
+    Token eatPeekImpl(size_t increment, size_t offset);
 
     MonotonicBufferResource& alloc;
     SourceContext const& sourceCtx;

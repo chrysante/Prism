@@ -171,7 +171,7 @@ TEST_CASE("Binary expressions", "[parser]") {
 
 TEST_CASE("Function types", "[parser]") {
     CHECK(*parseFile(
-               "let f: fn (n: in int, m: aliasing inout int) -> int = fn (){};")
+               "let f: fn (in int, aliasing inout int) -> int = fn (){};")
               ==
           SourceFileFacet >> Tree{
         VarDeclFacet >> Tree{
@@ -182,10 +182,10 @@ TEST_CASE("Function types", "[parser]") {
                 Fn,
                 ParamListFacet >> Tree{
                     NamedParamDeclFacet >> Tree{
-                        Identifier, Colon, NullNode, In, Int }
-                    ,
+                        NullNode, NullNode, NullNode, In, Int
+                    },
                     NamedParamDeclFacet >> Tree{
-                        Identifier, Colon, Aliasing, Inout, Int
+                        NullNode, NullNode, Aliasing, Inout, Int
                     }
                 },
                 Arrow,
@@ -325,12 +325,6 @@ TEST_CASE("Expressions nested in type specs", "[parser]") {
     });
 }
 
-TEST_CASE("Deduction qualifiers", "[parser]") {
-    CHECK(*parseTypeSpec("&mut") == PrefixFacet >> Tree{
-        Ampersand, Mut
-    });
-}
-
 TEST_CASE("Auto arguments", "[parser]") {
     CHECK(*parseExpr("@0") == AutoArgFacet >> Tree{
         AutoArgIntro, NullNode, NullNode, NullNode
@@ -406,7 +400,7 @@ TEST_CASE("Properties", "[parser]") {
 struct MyType {
     property my_property -> i32 {
         get(this) { this.value }
-        modify(inout this, f: fn (arg: inout i32)) {
+        modify(inout this, f: fn (inout i32)) {
             f(this.value)
         }
     }

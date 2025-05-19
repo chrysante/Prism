@@ -472,6 +472,7 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
     if (index != 0) DE.emit<ThisParamBadPosition>(sourceContext, &param);
     Mutability mut = Mutability::Const;
     bool dyn = false, ref = false;
+#if 0
     auto* typeFacet = param.spec();
     while (!isa<TerminalFacet>(typeFacet)) {
         auto* prefix = cast<PrefixFacet const*>(typeFacet);
@@ -493,6 +494,8 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
     }
     PRISM_ASSERT(cast<TerminalFacet const*>(typeFacet)->token().kind ==
                  TokenKind::This);
+#endif
+    PRISM_UNREACHABLE();
     if (!parentSymbol) PRISM_UNIMPLEMENTED();
     // clang-format off
     auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{
@@ -510,8 +513,8 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
         [&](TraitImpl& impl) { return impl.conformingType(); },
         [&](GenTraitImpl& impl) { return impl.conformingType(); },
         [&](Symbol const&) {
-            DE.emit<ThisParamFreeFunction>(ctx.getSourceContext(typeFacet),
-                                           typeFacet);
+            DE.emit<ThisParamFreeFunction>(ctx.getSourceContext(&param),
+                                           &param);
             return nullptr;
         }
     }); // clang-format on

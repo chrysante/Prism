@@ -6,7 +6,7 @@ func_def           ::= func_decl (';' | compound_facet)
 func_decl          ::= 'fn' gen_param_list name param_list ['->' type_spec]
 param_list         ::= '(' ')'
                      | '(' [param_decl (',' param_decl)*] ')'
-param_decl         ::= name ':' [param_qualifier] [passing_convention] type_spec
+param_decl         ::= [name ':'] [param_qualifier] [passing_convention] type_spec
 param_qualifier    ::= 'aliasing'
 passing_convention ::= 'in' | 'inout' | 'sink'
 property_def       ::= 'property' (name | '[' ']') [param_list] '->' type_spec '{' property_impl* '}' 

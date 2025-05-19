@@ -24,10 +24,9 @@ std::optional<Token> ParserBase::peekMatch(TokenKind kind, size_t offset) {
 
 std::optional<Token> ParserBase::matchImpl(bool eat, auto verify,
                                            size_t offset) {
-    PRISM_ASSERT(offset == 1 || !eat, "Can only eat if offset == 1");
     auto tok = peek(offset);
     if (!verify(tok.kind)) return std::nullopt;
-    if (eat) this->eat();
+    if (eat) this->eat(offset);
     return tok;
 }
 
@@ -41,11 +40,11 @@ Token ParserBase::peek(size_t offset) {
     return eatPeekImpl(/* increment: */ 0, offset - 1);
 }
 
-Token ParserBase::eat() {
-    return eatPeekImpl(/* increment: */ 1, /* offset: */ 0);
+Token ParserBase::eat(size_t count) {
+    return eatPeekImpl(/* increment: */ count, /* offset: */ count - 1);
 }
 
-Token ParserBase::eatPeekImpl(uint32_t increment, size_t offset) {
+Token ParserBase::eatPeekImpl(size_t increment, size_t offset) {
     while (tokenIndex + offset >= tokens.size())
         tokens.push_back(lexer.next());
     auto tok = tokens[tokenIndex + offset];

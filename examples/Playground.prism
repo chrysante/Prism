@@ -11,13 +11,13 @@ trait U {
 
 trait MyTrait: T, U {
     typedef Type = i16;
-    fn bar(&this) -> Type;
+    fn bar(this) -> Type;
 }
 
 impl MyTrait for i32 {
     typedef Type = i32;
-    fn bar(&this) -> i16 { 42 }
-    fn bar(&this) -> i32 { 42 }
+    fn bar(this) -> i16 { 42 }
+    fn bar(this) -> i32 { 42 }
 }
 
 
@@ -32,7 +32,7 @@ trait U {
 }
 
 trait MyTrait: T, U {
-    fn foo(&this, rhs: some_type) -> void;
+    fn foo(this, rhs: some_type) -> void;
 }
 
 */
@@ -43,7 +43,7 @@ trait MyTrait: T, U {
 
 
 trait [T: type] ConvertibleTo {
-    fn convert(&this) -> T;
+    fn convert(this) -> T;
 }
 
 struct [T: ConvertibleTo(i32)] MyType {
@@ -55,7 +55,7 @@ let value: MyType(S);
 struct S {}
 
 impl [T: Integral] ConvertibleTo(T) for S {
-    fn convert(&this) -> T { 42 }
+    fn convert(this) -> T { 42 }
 }
 
 trait Integral {}

@@ -8,7 +8,7 @@ struct Foo {
         }
     }
 
-    private var bar_value: i64;
+    var bar_value: i64;
 }
 
 fn read_foo(foo: Foo) -> i64 { foo.bar }
@@ -59,13 +59,13 @@ struct MyArray {
         }
     }
 
-    property count { get(this) -> i64 { this.values.count } }
+    property count -> i64 { get(this) { this.values.count } }
 
     fn swap(inout this, i: i64, j: i64) {
         this.values.swap(i, j);
     }
 
-    private var values: [i64, 10];
+    var values: [i64, 10];
 }
 
 fn modify_my_array(array: inout MyArray) {
@@ -107,7 +107,7 @@ struct [Key: std.hashable, Value: type] Hashmap {
             callback(this.buffer[index]);
     }
 
-    private find_buffer_index(this, key: Key) -> ?i64 {
+    private fn find_buffer_index(this, key: Key) -> ?i64 {
         let h = std.hash(key);
         for (i: 0..<buffer.count) {
             let elem = buffer[h];
