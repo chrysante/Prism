@@ -125,7 +125,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/SemaDiagnostic.h
     include/Prism/Sema/SemaPrint.h
     include/Prism/Sema/Symbol.h
-    include/Prism/Sema/Symbol.def
     include/Prism/Sema/SemaFwd.h
     include/Prism/Sema/TypeLayout.h
     include/Prism/Sema/QualType.h
