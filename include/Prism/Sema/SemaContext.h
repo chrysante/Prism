@@ -54,8 +54,6 @@ public:
 #define SEMA_BUILTIN(Name, Spelling, SymType) SymType* get##Name() const;
 #include <Prism/Sema/Builtins.def>
 
-    ReferenceType* getRefType(QualType referred);
-
     DynTraitType* getDynTraitType(Trait* trait);
 
     template <std::derived_from<Symbol> S, std::derived_from<GenericSymbol> G>

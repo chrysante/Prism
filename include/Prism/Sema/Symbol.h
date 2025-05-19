@@ -549,21 +549,6 @@ class PointerType: public ValueType {};
 class RawPointerType: public PointerType {};
 
 ///
-class ReferenceType: public Type {
-public:
-    explicit ReferenceType(QualType referred):
-        Type(SymbolType::ReferenceType, /* name: */ {}, /* facet: */ nullptr,
-             /* parent-scope: */ nullptr, /* scope: */ nullptr, TypeLayout(8)),
-        ref(referred) {}
-
-    /// \Return the referred-to qual type, e.g., `mut i32` for a `&mut i32`
-    QualType referred() const { return ref; }
-
-private:
-    QualType ref;
-};
-
-///
 class VoidType: public Type {
 public:
     explicit VoidType(std::string name, Scope* parent):

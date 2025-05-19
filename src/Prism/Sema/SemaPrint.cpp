@@ -109,11 +109,6 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
         fmtGenArgs(trait->genArguments(), str);
         return;
     }
-    if (auto* ref = dyncast<ReferenceType const*>(symbol)) {
-        str << "&";
-        fmtName(ref->referred(), str, options);
-        return;
-    }
     if (auto* dynType = dyncast<DynType const*>(symbol)) {
         str << Keyword("dyn") << " ";
         fmtName(dynType->underlyingSymbol(), str, options);

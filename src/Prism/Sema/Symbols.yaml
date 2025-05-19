@@ -86,9 +86,6 @@ symbols:
     base: ValueType
     abstract: true
 
-  - name: ReferenceType
-    base: Type
-
   - name: VoidType
     base: Type
 

@@ -108,14 +108,6 @@ IntLiteral* AnaContext::analyzeIntLiteral(TerminalFacet const& term, int base) {
 Symbol* AnaContext::doAnalyze(PrefixFacet const& prefix) {
     auto* operand = analyze(prefix.operand());
     if (!operand) return nullptr;
-    if (auto* type = dyncast<ValueType*>(operand)) {
-        switch (prefix.operation().kind) {
-        case TokenKind::Ampersand:
-            return ctx.getRefType(QualType::Const(type));
-        default:
-            PRISM_UNIMPLEMENTED();
-        }
-    }
     PRISM_UNIMPLEMENTED();
 }
 

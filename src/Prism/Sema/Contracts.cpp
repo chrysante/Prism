@@ -64,17 +64,6 @@ struct detail::InterfaceCompareImpl {
             for (auto* obl: itr->second)
                 if (impl(obl->type(), rhs, interface)) return true;
         }
-        if (auto* lhsParam = dyncast<GenericTypeParam const*>(lhs))
-            return impl(mapTypeParam(lhsParam, interface.symbol()), rhs,
-                        interface);
-        if (auto* lhsRefType = dyncast<ReferenceType const*>(lhs)) {
-            auto* rhsRefType = dyncast<ReferenceType const*>(rhs);
-            return rhsRefType &&
-                   lhsRefType->referred().mutability() ==
-                       rhsRefType->referred().mutability() &&
-                   impl(lhsRefType->referred().get(),
-                        rhsRefType->referred().get(), interface);
-        }
         return false;
     }
 };

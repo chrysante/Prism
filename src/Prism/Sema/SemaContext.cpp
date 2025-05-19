@@ -54,7 +54,6 @@ struct std::hash<GenInstKeyImpl<ArgsContainer>> {
 
 struct SemaContext::Impl {
     std::vector<Symbol*> builtins;
-    utl::hashmap<uintptr_t, ReferenceType*> refTypes;
     utl::hashmap<Trait*, DynTraitType*> dynTraitTypes;
     utl::hashmap<GenInstKey, Symbol*> genInstSymbols;
     std::vector<csp::unique_ptr<Symbol>> symbolBag;
@@ -85,11 +84,6 @@ static T getOrMake(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {
     auto result = ctor();
     map.insert({ key, result });
     return result;
-}
-
-ReferenceType* SemaContext::getRefType(QualType referred) {
-    return getOrMake(impl->refTypes, std::bit_cast<uintptr_t>(referred),
-                     [&] { return make<ReferenceType>(referred); });
 }
 
 DynTraitType* SemaContext::getDynTraitType(Trait* trait) {

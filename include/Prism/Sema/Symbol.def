@@ -29,7 +29,6 @@ SEMA_SYMBOL(IntType, ArithmeticType, Concrete)
 SEMA_SYMBOL(FloatType, ArithmeticType, Concrete)
 SEMA_SYMBOL(PointerType, ValueType, Abstract)
 SEMA_SYMBOL(RawPointerType, ValueType, Abstract)
-SEMA_SYMBOL(ReferenceType, Type, Concrete)
 SEMA_SYMBOL(VoidType, Type, Concrete)
 
 SEMA_SYMBOL(Trait, Symbol, Concrete)
