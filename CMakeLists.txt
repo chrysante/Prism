@@ -76,7 +76,7 @@ CPMAddPackage("gh:chrysante/graphgen#main")
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 CPMAddPackage("gh:Neargye/magic_enum@0.9.7")
 CPMAddPackage("gh:catchorg/Catch2@3.7.1")
-CPMAddPackage("gh:CLIUtils/CLI11@2.4.2")
+CPMAddPackage("gh:CLIUtils/CLI11@2.5.0")
 
 set(PRISM_HEADER_FILES
     include/Prism/Common/Allocator.h
@@ -190,6 +190,10 @@ set(PRISM_SOURCE_FILES
     src/Prism/Source/Token.cpp
 )
 
+set(PRISMC_SOURCE_FILES
+    src/Prism/Compiler/Main.cpp
+)
+
 set(PRISM_TEST_FILES 
     test/Prism/Common/Allocator.t.cpp 
     
@@ -206,47 +210,49 @@ set(PRISM_TEST_FILES
     test/Prism/TestUtils/TestCompiler.cpp
 )
 
-add_library(Prism SHARED)
-enable_sanitizers(Prism)
-enable_warnings(Prism)
+# Core library
 
-add_code_generator(Prism
+add_library(prism SHARED)
+enable_sanitizers(prism)
+enable_warnings(prism)
+
+add_code_generator(prism
                    src/Prism/Facet/Facets.yaml 
                    src/Prism/Facet/FacetClassDef.jinja 
                    include/Prism/Facet/Facets.inl
                    src/Prism/Facet/FacetFilters.py)
 
-add_code_generator(Prism
+add_code_generator(prism
                    src/Prism/Facet/Facets.yaml 
                    src/Prism/Facet/FacetFwd.jinja 
                    include/Prism/Facet/FacetFwd.h
                    src/Prism/Facet/FacetFilters.py)
 
-add_code_generator(Prism
+add_code_generator(prism
                    src/Prism/Facet/Facets.yaml 
                    src/Prism/Facet/FacetMemberNames.jinja 
                    src/Prism/Facet/FacetMemberNames.inl
                    src/Prism/Facet/FacetFilters.py)
 
-add_code_generator(Prism
+add_code_generator(prism
                    src/Prism/Sema/Symbols.yaml
                    src/Prism/Sema/SymbolFwd.jinja
                    include/Prism/Sema/SymbolFwd.inl
                    src/Prism/Sema/SemaFilters.py)
 
-add_code_generator(Prism
+add_code_generator(prism
                    src/Prism/Sema/SemaDiagnostics.yaml
                    src/Prism/Sema/SemaDiagnosticsDecl.jinja
                    include/Prism/Sema/SemaDiagnostics.inl
                    src/Prism/Sema/SemaFilters.py)
 
-add_code_generator(Prism
+add_code_generator(prism
                   src/Prism/Sema/SemaDiagnostics.yaml
                   src/Prism/Sema/SemaDiagnosticsDef.jinja
                   src/Prism/Sema/SemaDiagnosticsDef.inl
                   src/Prism/Sema/SemaFilters.py)
 
-target_sources(Prism 
+target_sources(prism 
   PRIVATE 
     ${PRISM_HEADER_FILES}
     ${PRISM_SOURCE_FILES}
@@ -255,7 +261,7 @@ target_sources(Prism
 source_group(TREE ${CMAKE_SOURCE_DIR}/src/Prism FILES ${PRISM_SOURCE_FILES})
 source_group(TREE ${CMAKE_SOURCE_DIR}/include/Prism FILES ${PRISM_HEADER_FILES})
 
-target_link_libraries(Prism 
+target_link_libraries(prism 
   PUBLIC
     range-v3 
     csp 
@@ -267,33 +273,59 @@ target_link_libraries(Prism
     graphgen
 )
 
-target_include_directories(Prism PUBLIC include PRIVATE src)
+target_include_directories(prism PUBLIC include PRIVATE src)
 
-add_executable(PrismTest)
-enable_sanitizers(PrismTest)
-enable_warnings(PrismTest)
+# Compiler
 
-target_sources(PrismTest
+add_executable(prismc)
+enable_sanitizers(prismc)
+enable_warnings(prismc)
+
+target_sources(prismc
+  PRIVATE  
+    ${PRISMC_SOURCE_FILES}
+)
+
+source_group(TREE ${CMAKE_SOURCE_DIR}/src/Prism FILES ${PRISMC_SOURCE_FILES})
+
+target_link_libraries(prismc
+  PRIVATE
+    prism
+    termfmt
+    CLI11
+)
+
+target_include_directories(prismc PRIVATE src)
+
+# Tests
+
+add_executable(prism-test)
+enable_sanitizers(prism-test)
+enable_warnings(prism-test)
+
+target_sources(prism-test
   PRIVATE  
     ${PRISM_TEST_FILES}
-) 
+)
 
 source_group(TREE ${CMAKE_SOURCE_DIR}/test/Prism FILES ${PRISM_TEST_FILES})
 
-target_link_libraries(PrismTest
+target_link_libraries(prism-test
   PRIVATE
     Catch2::Catch2WithMain
-    Prism
+    prism
     termfmt
 )
 
-target_include_directories(PrismTest PRIVATE test)
+target_include_directories(prism-test PRIVATE test)
 
-add_executable(Playground)
-enable_sanitizers(Playground)
-enable_warnings(Playground)
+# Playground
 
-target_sources(Playground
+add_executable(playground)
+enable_sanitizers(playground)
+enable_warnings(playground)
+
+target_sources(playground
   PRIVATE  
     src/Playground/Main.cpp
     src/Playground/ParserPlayground.cpp
@@ -302,9 +334,9 @@ target_sources(Playground
     examples/Playground.prism
 )
 
-target_link_libraries(Playground
+target_link_libraries(playground
   PRIVATE
-    Prism
+    prism
     termfmt
     CLI11
 )
