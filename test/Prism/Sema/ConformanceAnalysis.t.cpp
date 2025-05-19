@@ -57,9 +57,8 @@ impl ConvertibleTo(i32) for S {
     auto* implScope = impl->traitImpl().associatedScope();
     auto* convert = tester.eval<Function>(implScope, "convert");
     CHECK(convert->parentScope() == implScope);
-    auto* thisType = dyncast<ReferenceType const*>(convert->paramAt(0)->type());
-    REQUIRE(thisType);
-    CHECK(thisType->referred().get() == S);
+    auto* thisType = convert->paramAt(0)->type().get();
+    CHECK(thisType == S);
 }
 
 TEST_CASE("Generic trait implementation", "[sema]") {

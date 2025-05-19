@@ -15,9 +15,6 @@ symbols:
   - name: SourceFile
     base: Symbol
 
-  - name: FuncParam
-    base: Symbol
-
   - name: Function
     base: Symbol
 

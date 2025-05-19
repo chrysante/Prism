@@ -16,17 +16,18 @@ class FuncSig {
 public:
     FuncSig() = default;
 
-    explicit FuncSig(Type const* ret, utl::small_vector<Type const*> params):
-        _ret(ret), _params(std::move(params)) {}
+    explicit FuncSig(Type const* retType,
+                     utl::small_vector<ValueType const*> argTypes):
+        _ret(retType), _args(std::move(argTypes)) {}
 
     static FuncSig Compute(Type const* ret,
-                           std::span<FuncParam const* const> params);
+                           std::span<FuncArg const* const> params);
 
     /// \Returns the return type
     Type const* retType() const { return _ret; }
 
     /// \Returns a view over the parameter types
-    std::span<Type const* const> paramTypes() const { return _params; }
+    std::span<ValueType const* const> paramTypes() const { return _args; }
 
     /// \Returns a hash value based on the address identities of the return and
     /// parameter types
@@ -104,27 +105,28 @@ public:
     };
 
 private:
-    static size_t hashImpl(Type const* ret, std::span<Type const* const> params,
+    static size_t hashImpl(Type const* ret,
+                           std::span<ValueType const* const> args,
                            auto&& proj) {
         size_t seed = 0;
         utl::hash_combine_seed(seed, std::invoke(proj, ret));
-        for (auto* type: params)
+        for (auto* type: args)
             utl::hash_combine_seed(seed, std::invoke(proj, type));
         return seed;
     }
 
     static bool cmpImpl(Type const* lhsRet,
-                        std::span<Type const* const> lhsParams,
+                        std::span<ValueType const* const> lhsArgs,
                         Type const* rhsRet,
-                        std::span<Type const* const> rhsParams, auto&& cmp,
+                        std::span<ValueType const* const> rhsArgs, auto&& cmp,
                         auto&& proj) {
         return std::invoke(cmp, std::invoke(proj, lhsRet),
                            std::invoke(proj, rhsRet)) &&
-               ranges::equal(lhsParams, rhsParams, cmp, proj, proj);
+               ranges::equal(lhsArgs, rhsArgs, cmp, proj, proj);
     }
 
     Type const* _ret = nullptr;
-    utl::small_vector<Type const*> _params;
+    utl::small_vector<ValueType const*> _args;
 };
 
 } // namespace prism

@@ -236,14 +236,14 @@ struct GlobalNameResolver: InstantiationBase {
     void doResolve(TraitDef& trait);
     void doResolve(GenTrait& trait);
     void resolveInterface(TraitInterface& interface);
-    FuncParam* analyzeParam(Symbol* parentSymbol, ParamDeclFacet const* facet,
-                            Scope* scope, size_t index);
-    FuncParam* doAnalyzeParam(Symbol* parentSymbol,
-                              NamedParamDeclFacet const& param, Scope* scope,
-                              size_t index);
-    FuncParam* doAnalyzeParam(Symbol* parentSymbol,
-                              ThisParamDeclFacet const& param, Scope* scope,
-                              size_t index);
+    FuncArg* analyzeParam(Symbol* parentSymbol, ParamDeclFacet const* facet,
+                          Scope* scope, size_t index);
+    FuncArg* doAnalyzeParam(Symbol* parentSymbol,
+                            NamedParamDeclFacet const& param, Scope* scope,
+                            size_t index);
+    FuncArg* doAnalyzeParam(Symbol* parentSymbol,
+                            ThisParamDeclFacet const& param, Scope* scope,
+                            size_t index);
     void doResolve(Function& func);
     void doResolve(GenFuncImpl& genfunc);
     void resolveInterface(Symbol* parentSymbol, FuncInterface& interface,
@@ -447,49 +447,46 @@ void GlobalNameResolver::resolveInterface(TraitInterface& interface) {
     resolveChildren(trait);
 }
 
-FuncParam* GlobalNameResolver::analyzeParam(Symbol* parentSymbol,
-                                            ParamDeclFacet const* facet,
-                                            Scope* scope, size_t index) {
+FuncArg* GlobalNameResolver::analyzeParam(Symbol* parentSymbol,
+                                          ParamDeclFacet const* facet,
+                                          Scope* scope, size_t index) {
     if (!facet) return nullptr;
     return visit(*facet,
                  FN1(&, doAnalyzeParam(parentSymbol, _1, scope, index)));
 }
 
-FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
-                                              NamedParamDeclFacet const& param,
-                                              Scope* scope,
-                                              size_t /* index */) {
-    auto* type = analyzeFacet<Type>(scope, param.typespec());
-    auto name = sourceContext->getTokenStr(param.name());
-    return ctx.make<FuncParam>(std::string(name), &param, type,
-                               FuncParam::Options{ .hasMut = false,
-                                                   .isThis = false });
-}
-
-static std::tuple<bool, bool, Mutability> getDynRefMut(
-    ThisParamDeclFacet const& param) {
-    bool dyn = param.dynQualifierFacet() != nullptr;
-    if (param.passingConventionFacet()) {
-        auto kind = param.passingConvention().kind;
-        return { dyn, /* ref: */ kind != TokenKind::Sink,
-                 /* mut: */ kind != TokenKind::Inout ? Mutability::Const :
-                                                       Mutability::Mut };
+static PassingConvention getPassingConv(TerminalFacet const* pcFacet) {
+    if (!pcFacet) return PassingConvention::In;
+    switch (pcFacet->token().kind) {
+    case TokenKind::In:
+        return PassingConvention::In;
+    case TokenKind::Inout:
+        return PassingConvention::Inout;
+    case TokenKind::Sink:
+        return PassingConvention::Sink;
+    default:
+        PRISM_UNREACHABLE();
     }
-    return { dyn, true, Mutability::Const };
 }
 
-FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
-                                              ThisParamDeclFacet const& param,
-                                              Scope*, size_t index) {
-    if (index != 0) DE.emit<ThisParamBadPosition>(sourceContext, &param);
-    auto [dyn, ref, mut] = getDynRefMut(param);
-    if (!parentSymbol) PRISM_UNIMPLEMENTED();
+FuncArg* GlobalNameResolver::doAnalyzeParam(Symbol* /* parentSymbol */,
+                                            NamedParamDeclFacet const& param,
+                                            Scope* scope, size_t /* index */) {
+    auto pc = getPassingConv(param.passingConventionFacet());
+    auto* type = analyzeFacet<ValueType>(scope, param.typespec());
+    auto name = sourceContext->getTokenStr(param.name());
+    return ctx.make<FuncArg>(std::string(name), &param, scope, type, pc,
+                             /* isThis: */ false);
+}
+
+static ValueType const* getThisType(SemaContext& ctx, DiagnosticEmitter& DE,
+                                    Symbol* parentSymbol,
+                                    ThisParamDeclFacet const* paramFct) {
     // clang-format off
-    auto* thisType = visit<ValueType const*>(*parentSymbol, csp::overload{
+    return visit<ValueType const*>(*parentSymbol, csp::overload{
         [&](CompositeType& type) { return &type; },
         [&](GenCompositeType& genType) {
-            return instantiateGenericNoFail(ctx, genType,
-                                            genType.genParams());
+            return instantiateGenericNoFail(ctx, genType, genType.genParams());
         },
         [&](Trait& trait) { return ctx.getDynTraitType(&trait); },
         [&](GenTrait& genTrait) {
@@ -500,23 +497,22 @@ FuncParam* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
         [&](TraitImpl& impl) { return impl.conformingType(); },
         [&](GenTraitImpl& impl) { return impl.conformingType(); },
         [&](Symbol const&) {
-            DE.emit<ThisParamFreeFunction>(ctx.getSourceContext(&param),
-                                           &param);
+            DE.emit<ThisParamFreeFunction>(ctx.getSourceContext(paramFct),
+                                           paramFct);
             return nullptr;
         }
     }); // clang-format on
-    if (ref) {
-        auto* type = ctx.getRefType({ thisType, mut });
-        return ctx.make<FuncParam>("this", &param, type,
-                                   FuncParam::Options{ .hasMut = false,
-                                                       .isThis = true });
-    }
-    else {
-        return ctx.make<FuncParam>("this", &param, thisType,
-                                   FuncParam::Options{
-                                       .hasMut = mut == Mutability::Mut,
-                                       .isThis = true });
-    }
+}
+
+FuncArg* GlobalNameResolver::doAnalyzeParam(Symbol* parentSymbol,
+                                            ThisParamDeclFacet const& param,
+                                            Scope* scope, size_t index) {
+    if (index != 0) DE.emit<ThisParamBadPosition>(sourceContext, &param);
+    if (!parentSymbol) PRISM_UNIMPLEMENTED();
+    auto* thisType = getThisType(ctx, DE, parentSymbol, &param);
+    auto pc = getPassingConv(param.passingConventionFacet());
+    return ctx.make<FuncArg>("this", &param, scope, thisType, pc,
+                             /* isThis: */ true);
 }
 
 void GlobalNameResolver::doResolve(Function& func) {
@@ -541,11 +537,10 @@ void GlobalNameResolver::resolveInterface(Symbol* parentSymbol,
                                           FuncDeclBaseFacet const& funcFacet,
                                           Scope* scope) {
     if (auto* paramDecls = funcFacet.params())
-        interface._params =
-            paramDecls->elems() | enumerate |
-            transform(FN1(&, analyzeParam(parentSymbol, _1.second, scope,
-                                          _1.first))) |
-            ToSmallVector<>;
+        interface._args = paramDecls->elems() | enumerate |
+                          transform(FN1(&, analyzeParam(parentSymbol, _1.second,
+                                                        scope, _1.first))) |
+                          ToSmallVector<>;
     auto* retType = [&]() -> Type const* {
         if (auto* retFacet = funcFacet.retType())
             return analyzeFacet<Type>(scope, retFacet);

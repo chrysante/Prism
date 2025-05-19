@@ -883,60 +883,13 @@ private:
     ValueCat _valueCat;
 };
 
-/// Function parameter declaration. This differs from `FuncArg`, because this is
-/// not a value and has no scope. It's type is not a `QualType` but a `Type
-/// const*`
-class FuncParam: public Symbol {
-public:
-    struct Options {
-        bool hasMut;
-        bool isThis;
-    };
-
-    explicit FuncParam(std::string name, Facet const* facet, Type const* type,
-                       Options options):
-        Symbol(SymbolType::FuncParam, std::move(name), facet,
-               /* scope: */ nullptr),
-        _type(type),
-        _hasMut(options.hasMut),
-        _isThis(options.isThis) {}
-
-    ///
-    Type const* type() const { return _type; }
-
-    /// \Warning This only applies of `type()` is a value type
-    bool hasMut() const { return _hasMut; }
-
-    /// \Returns true if this parameter is a `this`-parameter
-    bool isThis() const { return _isThis; }
-
-    /// \Returns the constructor options used to construct this object
-    Options options() const { return { _hasMut, _isThis }; }
-
-    /// \Returns the corresponding argument value if the parameter belongs to a
-    /// function implementation
-    FuncArg* argument() { return _arg; }
-
-    /// \overload
-    FuncArg const* argument() const { return _arg; }
-
-    ///
-    void setArgument(FuncArg* arg) { _arg = arg; }
-
-private:
-    Type const* _type = nullptr;
-    FuncArg* _arg = nullptr;
-    bool _hasMut = false;
-    bool _isThis = false;
-};
-
 ///
 class FuncInterface {
 public:
     explicit FuncInterface(Symbol* function): _func(*function) {}
 
     explicit FuncInterface(Symbol* function,
-                           utl::small_vector<FuncParam*>&& params,
+                           utl::small_vector<FuncArg*>&& arguments,
                            Type const* retType);
 
     /// \Returns the owning symbol, a `Function` or `GenFunction`
@@ -951,17 +904,18 @@ public:
     /// \overload
     FuncInterface const& interface() const { return *this; }
 
+    // FIXME: rename to arguments
     /// \Returns the parameters of this function
-    std::span<FuncParam* const> params() { return _params; }
+    std::span<FuncArg* const> params() { return _args; }
 
     /// \overload
-    std::span<FuncParam const* const> params() const { return _params; }
+    std::span<FuncArg const* const> params() const { return _args; }
 
     /// \Returns the parameter at \p index
-    FuncParam* paramAt(size_t index) { return params()[index]; }
+    FuncArg* paramAt(size_t index) { return params()[index]; }
 
     /// \overload
-    FuncParam const* paramAt(size_t index) const { return params()[index]; }
+    FuncArg const* paramAt(size_t index) const { return params()[index]; }
 
     /// \Returns the return type of this function
     Type const* retType() const { return signature().retType(); }
@@ -974,7 +928,7 @@ private:
     friend struct GlobalNameResolver;
 
     Symbol& _func;
-    utl::small_vector<FuncParam*> _params;
+    utl::small_vector<FuncArg*> _args;
     FuncSig _sig;
 };
 
@@ -982,7 +936,7 @@ private:
 class Function: public Symbol, public FuncInterface {
 public:
     explicit Function(std::string name, Facet const* facet, Scope* parent,
-                      utl::small_vector<FuncParam*>&& params,
+                      utl::small_vector<FuncArg*>&& arguments,
                       Type const* retType);
 
     explicit Function(std::string name, Facet const* facet, Scope* parent);
@@ -997,7 +951,7 @@ public:
 
     explicit FunctionImpl(SemaContext& ctx, std::string name,
                           Facet const* facet, Scope* parent,
-                          utl::small_vector<FuncParam*>&& params = {},
+                          utl::small_vector<FuncArg*>&& arguments = {},
                           Type const* retType = nullptr);
 
     FACET_TYPE(FuncDefFacet)
@@ -1009,7 +963,7 @@ public:
     explicit GenFuncImpl(SemaContext& ctx, std::string name, Facet const* facet,
                          Scope* parent, Scope* scope = nullptr,
                          utl::small_vector<Symbol*>&& genParams = {},
-                         utl::small_vector<FuncParam*>&& params = {},
+                         utl::small_vector<FuncArg*>&& arguments = {},
                          Type const* retType = nullptr);
 
     FACET_TYPE(FuncDeclBaseFacet)
@@ -1018,11 +972,20 @@ public:
 class FuncArg: public Value {
 public:
     explicit FuncArg(std::string name, Facet const* facet, Scope* parent,
-                     QualType type, ValueCat valueCat):
-        Value(SymbolType::FuncArg, std::move(name), facet, parent, type,
-              valueCat) {}
+                     ValueType const* type, PassingConvention passingConv,
+                     bool isThis);
 
     FACET_TYPE(ParamDeclFacet)
+
+    ///
+    PassingConvention passingConvention() const { return _pc; }
+
+    /// \Returns true if this argument is declared as `this`
+    bool isThis() const { return _isThis; }
+
+private:
+    PassingConvention _pc;
+    bool _isThis;
 };
 
 class LiteralValue: public Value {

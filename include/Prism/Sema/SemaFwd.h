@@ -35,6 +35,10 @@ enum class BindMode { Static, Dyn };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(BindMode)
 
+enum class PassingConvention { In, Inout, Sink };
+
+PRISM_DEFINE_ENUM_FUNCTIONS(PassingConvention)
+
 enum class ArithmeticOperation { Add, Sub, Div, Mul, Rem };
 
 PRISM_DEFINE_ENUM_FUNCTIONS(ArithmeticOperation)

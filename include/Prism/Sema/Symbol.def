@@ -10,7 +10,6 @@ SEMA_SYMBOL(Target, Module, Concrete)
 SEMA_SYMBOL(Library, Module, Concrete)
 SEMA_SYMBOL(SourceFile, Symbol, Concrete)
 
-SEMA_SYMBOL(FuncParam, Symbol, Concrete)
 SEMA_SYMBOL(Function, Symbol, Concrete)
 SEMA_SYMBOL(FunctionImpl, Function, Concrete)
 

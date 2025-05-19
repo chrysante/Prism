@@ -50,7 +50,7 @@ struct MapContext {
     T* mapSymbol(Symbol* sym);
     Symbol* doMapSymbol(Symbol& sym) { return &sym; }
     Symbol* doMapSymbol(Function& func);
-    Symbol* doMapSymbol(FuncParam& param);
+    Symbol* doMapSymbol(FuncArg& argument);
     Symbol* doMapSymbol(GenStructTypeInst& inst);
     Symbol* doMapSymbol(GenTraitInst& inst);
     Symbol* selectGenArg(Symbol* arg);
@@ -76,8 +76,7 @@ T* MapContext::selectGenArg(Symbol* arg) {
 }
 
 Symbol* MapContext::doMapSymbol(Function& func) {
-    auto newParams = func.params() |
-                     transform(FN1(&, mapSymbol<FuncParam>(_1))) |
+    auto newParams = func.params() | transform(FN1(&, mapSymbol<FuncArg>(_1))) |
                      ToSmallVector<>;
     auto newRet = selectGenArg<Type>(const_cast<Type*>(func.retType()));
     if (ranges::equal(newParams, func.params()) && newRet == func.retType())
@@ -86,11 +85,14 @@ Symbol* MapContext::doMapSymbol(Function& func) {
                               std::move(newParams), newRet);
 }
 
-Symbol* MapContext::doMapSymbol(FuncParam& param) {
-    auto* newType = selectGenArg<Type>(const_cast<Type*>(param.type()));
-    if (newType == param.type()) return &param;
-    return ctx.make<FuncParam>(param.name(), param.facet(), newType,
-                               param.options());
+Symbol* MapContext::doMapSymbol(FuncArg& argument) {
+    auto* newType =
+        selectGenArg<ValueType>(const_cast<ValueType*>(argument.type().get()));
+    if (newType == argument.type().get()) return &argument;
+    // FIXME: Scope should not be null
+    return ctx.make<FuncArg>(argument.name(), argument.facet(),
+                             /* scope */ nullptr, newType,
+                             argument.passingConvention(), argument.isThis());
 }
 
 Symbol* MapContext::doMapSymbol(GenStructTypeInst& inst) {

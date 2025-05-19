@@ -65,7 +65,8 @@ public:
     utl::small_vector<Symbol const*> symbolsByApproxName(
         std::string_view name) const;
 
-    /// \Returns the function named \p name with exact signature \p funcSig or null if none is found
+    /// \Returns the function named \p name with exact signature \p funcSig or
+    /// null if none is found
     Function* functionByNameAndSig(std::string_view name,
                                    FuncSig const& funcSig) {
         return const_cast<Function*>(

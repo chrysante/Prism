@@ -207,10 +207,10 @@ static void fmtDeclImpl(GenFuncImpl const& func, std::ostream& str,
     fmtFuncDeclImpl(func, func.interface(), str, options);
 }
 
-static void fmtDeclImpl(FuncParam const& param, std::ostream& str,
+static void fmtDeclImpl(FuncArg const& arg, std::ostream& str,
                         FmtDeclOptions options) {
-    str << fmtName(param) << ": "
-        << fmtName(param.type(), asSecondaryName(options));
+    str << fmtName(arg) << ": "
+        << fmtName(arg.type().get(), asSecondaryName(options));
 }
 
 static void fmtDeclImpl(GenericTypeParam const& param, std::ostream& str,
@@ -427,8 +427,8 @@ struct SymbolPrinter {
             << fmtName(param.traitBound());
     }
 
-    void printImpl(FuncParam const& param) {
-        str << fmtName(param) << ": " << fmtName(param.type());
+    void printImpl(FuncArg const& arg) {
+        str << fmtName(arg) << ": " << fmtName(arg.type().get());
     }
 
     void printImpl(Function const& func) {
