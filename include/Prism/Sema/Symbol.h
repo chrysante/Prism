@@ -124,41 +124,6 @@ private:
     SourceContext const& sourceCtx;
 };
 
-/// Types, traits and functions have a generic context if they are generic
-class GenericContext {
-public:
-    explicit GenericContext(utl::small_vector<Symbol*> params):
-        _params(std::move(params)) {}
-
-    ///
-    std::span<Symbol* const> params() { return _params; }
-
-    /// \overload
-    std::span<Symbol const* const> params() const { return _params; }
-
-private:
-    utl::small_vector<Symbol*> _params;
-};
-
-namespace detail {
-
-class GenContextBase {
-public:
-    /// \Returns the generic context if it exists
-    GenericContext const* genericContext() const {
-        if (_ctx) return &*_ctx;
-        return nullptr;
-    }
-
-protected:
-    void setGenCtx(std::optional<GenericContext> ctx) { _ctx = std::move(ctx); }
-
-private:
-    std::optional<GenericContext> _ctx;
-};
-
-} // namespace detail
-
 /// Base class of generic versions of composite types, traits, trait impls and
 /// functions
 class GenericSymbol: public Symbol, public detail::AssocScope {
