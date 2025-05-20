@@ -99,6 +99,17 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
         }
         return;
     }
+    if (auto* type = dyncast<FunctionType const*>(symbol)) {
+        str << Keyword("fn") << " " << "(";
+        for (bool first = true; auto* arg: type->params()) {
+            if (!first) str << ", ";
+            first = false;
+            fmtName(arg, str, options);
+        }
+        str << ") -> ";
+        fmtName(type->retType(), str, options);
+        return;
+    }
     if (auto* type = dyncast<GenStructTypeInst const*>(symbol)) {
         fmtName(type->genTemplate(), str, options);
         fmtGenArgs(type->genArguments(), str);
@@ -107,6 +118,14 @@ static void fmtName(Symbol const* symbol, std::ostream& str,
     if (auto* trait = dyncast<GenTraitInst const*>(symbol)) {
         fmtName(trait->genTemplate(), str, options);
         fmtGenArgs(trait->genArguments(), str);
+        return;
+    }
+    if (auto* impl = dyncast<TraitImpl const*>(symbol)) {
+        str << "(" << Keyword("impl") << " ";
+        fmtName(impl->trait(), str, options);
+        str << " " << Keyword("for") << " ";
+        fmtName(impl->conformingType(), str, options);
+        str << ")";
         return;
     }
     if (auto* dynType = dyncast<DynType const*>(symbol)) {

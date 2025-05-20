@@ -934,6 +934,12 @@ protected:
     using Value::Value;
 };
 
+/// The single global value of type `void`. Accessible via the `SemaContext`.
+class VoidValue: public LiteralValue {
+public:
+    explicit VoidValue(SemaContext& ctx);
+};
+
 class IntLiteral: public LiteralValue {
 public:
     explicit IntLiteral(Facet const* facet, APInt value, IntType const* type);

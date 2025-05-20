@@ -87,8 +87,10 @@ diags:
       - name: expectedSymbolType
         type: SymbolType
     header: >
-      str << "Expected " << prettyName(expectedSymbolType) << ", have "
-          << formatName(providedSymbol);
+      str << "Expected " << prettyName(expectedSymbolType) << ", have ";
+      if (providedSymbol) 
+          str << prettyName(get_rtti(*providedSymbol)) << " ";
+      str << formatName(providedSymbol);
 
   - name: InvalidNumOfGenArgs
     base: SemaDiagnostic

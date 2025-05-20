@@ -2,6 +2,7 @@
 
 #include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
+#include <utl/scope_guard.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Functional.h"
@@ -30,15 +31,51 @@ struct AnaContext: AnalysisBase {
 
     Symbol* analyze(Facet const* facet);
 
+    template <std::derived_from<Symbol> S>
+    S* analyzeAs(Facet const* facet) {
+        auto* symbol = analyze(facet);
+        return verifySymbolType<S>(symbol, facet);
+    }
+
+    template <std::derived_from<Symbol> S = Symbol, typename F = Facet>
+    utl::small_vector<S*> analyzeList(std::span<F const* const> facets) {
+        utl::small_vector<S*> result;
+        for (auto* facet: facets)
+            result.push_back(analyzeAs<S>(facet));
+        return result;
+    }
+
+    template <std::derived_from<Symbol> S>
+    S* verifySymbolType(Symbol* symbol, Facet const* facet) {
+        return detail::verifySymbolType<S>(*this, facet, symbol);
+    }
+
     Symbol* doAnalyze(Facet const&) { PRISM_UNREACHABLE(); }
     Symbol* analyzeID(TerminalFacet const& id);
     IntLiteral* analyzeIntLiteral(TerminalFacet const& term, int base);
     Symbol* doAnalyze(TerminalFacet const& term);
+    Symbol* doAnalyze(BinaryFacet const& binary);
+    Symbol* doAnalyzeScopeRes(BinaryFacet const& binary);
+    Symbol* doAnalyze(FnTypeFacet const& facet);
+    Symbol* doAnalyze(NamedParamDeclFacet const& declFacet);
     Symbol* doAnalyze(PrefixFacet const& prefix);
     Symbol* doAnalyze(CallFacet const& call);
+
+    decltype(auto) withScope(Scope* tempScope, std::invocable auto&& f) {
+        PRISM_ASSERT(tempScope, "must not be null");
+        auto stashed = std::exchange(scope, tempScope);
+        utl::scope_guard pop = [&] { scope = stashed; };
+        return std::invoke(f);
+    }
 };
 
 } // namespace
+
+template <ranges::range R>
+    requires std::is_pointer_v<ranges::range_value_t<R>>
+static bool isNull(R&& ptrRange) {
+    return ranges::any_of(ptrRange, FN1(, _1 == nullptr));
+}
 
 void detail::pushBadSymRef(AnalysisBase const& context, Facet const* facet,
                            Symbol* symbol, SymbolType expected) {
@@ -72,6 +109,44 @@ Symbol* AnaContext::doAnalyze(TerminalFacet const& term) {
     default:
         PRISM_UNREACHABLE();
     }
+}
+
+Symbol* AnaContext::doAnalyze(BinaryFacet const& binary) {
+    if (binary.operationFacet() && binary.operation().kind == TokenKind::Period)
+        return doAnalyzeScopeRes(binary);
+    auto* LHS = analyze(binary.LHS());
+    auto* RHS = analyze(binary.RHS());
+    if (!binary.operationFacet() || !LHS || !RHS) return nullptr;
+    Token op = binary.operation();
+    switch (op.kind) {
+    default:
+        PRISM_UNREACHABLE();
+    }
+}
+
+Symbol* AnaContext::doAnalyzeScopeRes(BinaryFacet const& binary) {
+    PRISM_EXPECT(binary.operationFacet() &&
+                 binary.operation().kind == TokenKind::Period);
+    auto* LHS = analyze(binary.LHS());
+    if (!LHS) return nullptr;
+    if (!LHS->associatedScope()) PRISM_UNIMPLEMENTED(); // TODO: push error
+    return withScope(LHS->associatedScope(),
+                     [&] { return analyze(binary.RHS()); });
+}
+
+Symbol* AnaContext::doAnalyze(FnTypeFacet const& facet) {
+    auto* retType = analyzeAs<Type>(facet.retType());
+    if (!facet.paramList()) return nullptr;
+    auto argTypes = analyzeList<Type const>(facet.paramList()->elems());
+    if (!retType || isNull(argTypes)) return nullptr;
+    return ctx.make<FunctionType>(&facet, nullptr, retType,
+                                  std::move(argTypes));
+}
+
+Symbol* AnaContext::doAnalyze(NamedParamDeclFacet const& declFacet) {
+    if (isa<FnTypeFacet>(declFacet.parent()->parent()))
+        return analyzeAs<Type>(declFacet.typespec());
+    PRISM_UNIMPLEMENTED();
 }
 
 template <typename T, typename... Args>

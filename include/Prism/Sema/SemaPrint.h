@@ -29,8 +29,8 @@ void printScopeHierarchy(Scope const* scope);
 
 /// Options for declaration formatting
 struct FmtDeclOptions {
-    bool primaryQualified = false;
-    bool secondaryQualified = false;
+    bool primaryQualified = true;
+    bool secondaryQualified = true;
 };
 
 /// \Returns a stream manipulator writing the declaration of \p symbol

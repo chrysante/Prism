@@ -64,6 +64,9 @@ void FuncAnaCtx::analyze(StmtFacet const* facet) {
 void FuncAnaCtx::doAnalyze(ExprStmtFacet const&) {}
 
 void FuncAnaCtx::doAnalyze(ReturnStmtFacet const& facet) {
-    auto* value = analyzeFacetAs<Value>(*this, currScope, facet.expr());
+    auto* value = [&]() -> Value* {
+        if (!facet.expr()) return ctx.getVoidValue();
+        return analyzeFacetAs<Value>(*this, currScope, facet.expr());
+    }();
     ctx.make<RetInst>(currScope, &facet, value);
 }

@@ -53,6 +53,7 @@ struct std::hash<GenInstKeyImpl<ArgsContainer>> {
 };
 
 struct SemaContext::Impl {
+    VoidValue* voidValue;
     std::vector<Symbol*> builtins;
     utl::hashmap<Trait*, DynTraitType*> dynTraitTypes;
     utl::hashmap<GenInstKey, Symbol*> genInstSymbols;
@@ -76,6 +77,14 @@ Symbol* SemaContext::getBuiltin(BuiltinSymbol builtin) const {
         return cast<SymType*>(getBuiltin(BuiltinSymbol::Name));                \
     }
 #include <Prism/Sema/Builtins.def>
+
+VoidValue* SemaContext::getVoidValue() const {
+    if (!impl->voidValue) {
+        auto* mut_this = const_cast<SemaContext*>(this);
+        mut_this->impl->voidValue = mut_this->make<VoidValue>();
+    }
+    return impl->voidValue;
+}
 
 template <typename KeyType, typename T>
 static T getOrMake(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {

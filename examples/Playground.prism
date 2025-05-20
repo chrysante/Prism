@@ -1,10 +1,8 @@
 
-trait T {
-    fn bar(this) -> void;
-}
 
-impl T for i32 {
-    fn foo(this) -> void {}
-    fn bar(this) -> void {}
-}
+struct S {}
 
+
+impl core.function(fn (i32, i32) -> i32) for S {}
+
+impl core.function(fn (i32, i32) -> i32) for S {}

@@ -143,6 +143,10 @@ FuncArg::FuncArg(std::string name, Facet const* facet, Scope* parent,
     _pc(passingConv),
     _isThis(isThis) {}
 
+VoidValue::VoidValue(SemaContext& ctx):
+    LiteralValue(SymbolType::VoidValue, "__void_value__", nullptr, nullptr,
+                 QualType::Const(ctx.getVoid()), ValueCat::RValue) {}
+
 static std::string valueAsStrImpl(APInt const& value, IntType const* type,
                                   int base = 10) {
     if (type && type->isSigned())

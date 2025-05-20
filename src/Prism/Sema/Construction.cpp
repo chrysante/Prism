@@ -41,10 +41,18 @@ static void declareBuiltins(SemaContext& ctx, Scope* globalScope) {
                               /* facet: */ nullptr, globalScope);
 }
 
+static GenTrait* makeCoreFunctionTrait(SemaContext& ctx, Scope* coreScope) {
+    auto* funcTraitScope = ctx.makeScope(coreScope);
+    auto* typeParam = ctx.make<GenericTypeParam>("Sig", nullptr, funcTraitScope,
+                                                 ctx.getType());
+    return ctx.make<GenTrait>("function", nullptr, coreScope, funcTraitScope,
+                              utl::small_vector<Symbol*>{ typeParam });
+}
+
 static void makeCoreLibrary(SemaContext& ctx, Scope* globalScope) {
     auto& core = *ctx.make<Library>("core", globalScope);
     auto* coreScope = core.associatedScope();
-    (void)coreScope;
+    makeCoreFunctionTrait(ctx, coreScope);
 }
 
 namespace {

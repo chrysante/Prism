@@ -149,6 +149,9 @@ symbols:
     base: Value
     abstract: true
 
+  - name: VoidValue
+    base: LiteralValue
+
   - name: IntLiteral
     base: LiteralValue
 
