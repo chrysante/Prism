@@ -12,7 +12,9 @@
 #include "Prism/Diagnostic/Diagnostic.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Invocation/Invocation.h"
+#if 0
 #include "Prism/Sema/SemaFwd.h"
+#endif
 
 namespace prism {
 
@@ -101,25 +103,27 @@ public:
 
     Invocation& invocation() { return InvHolder::inv; }
 
+#if 0
     ///
     Symbol* eval(std::string_view exprSource);
-
+    
     ///
     Symbol* eval(Scope* scope, std::string_view exprSource);
-
+    
     /// \overload
     template <std::derived_from<Symbol> S>
     S* eval(std::string_view exprSource) {
         auto* sym = eval(exprSource);
         return cast<S*>(sym);
     }
-
+    
     /// \overload
     template <std::derived_from<Symbol> S>
     S* eval(Scope* scope, std::string_view exprSource) {
         auto* sym = eval(scope, exprSource);
         return cast<S*>(sym);
     }
+#endif
 };
 
 struct InvTesterOptions {

@@ -15,11 +15,6 @@ class Obligation;
 class InterfaceLike;
 class Scope;
 
-struct SourceFilePair {
-    SourceFileFacet const* facet;
-    SourceContext const* context;
-};
-
 enum class ValueCat { LValue, RValue };
 
 static constexpr ValueCat LValue = ValueCat::LValue;

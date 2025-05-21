@@ -1,0 +1,6 @@
+#ifndef PRISM_SEMA2_CONSTRUCTION_H
+#define PRISM_SEMA2_CONSTRUCTION_H
+
+namespace prism {}
+
+#endif // PRISM_SEMA2_CONSTRUCTION_H

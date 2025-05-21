@@ -31,6 +31,10 @@ struct ToSmallVectorImpl {
 template <typename T = void, size_t N = size_t(-1), typename A = void>
 inline constexpr detail::ToSmallVectorImpl<T, N, A> ToSmallVector{};
 
+template <typename R, typename T>
+concept RangeOf =
+    ranges::range<R> && std::convertible_to<T, ranges::range_value_t<R>>;
+
 } // namespace prism
 
 #endif // PRISM_COMMON_RANGES_H

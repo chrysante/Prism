@@ -6,9 +6,11 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Diagnostic/DiagnosticFormat.h"
 #include "Prism/Parser/Parser.h"
+#if 0
 #include "Prism/Sema/AnalysisBase.h"
 #include "Prism/Sema/ExprAnalysis.h"
 #include "Prism/Sema/Symbol.h"
+#endif
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -41,6 +43,7 @@ InvocationTester prism::makeInvTester(std::string source,
     return t;
 }
 
+#if 0
 static MonotonicBufferResource gAlloc;
 
 [[noreturn]]
@@ -75,3 +78,4 @@ Symbol* InvocationTester::eval(Scope* scope, std::string_view exprSource) {
     if (!symbol || DE->hasErrors()) throwJitError(exprSource, *DE);
     return symbol;
 }
+#endif

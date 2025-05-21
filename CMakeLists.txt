@@ -34,33 +34,33 @@ function(create_empty_file filename)
     file(TOUCH ${filename})
 endfunction()
 
-function(auto_source_group base_dir file)
+function(auto_source_group base_dir file file_abs)
     # Match first two segments: e.g., "foo/bar/" from "foo/bar/baz.cpp"
     string(REGEX MATCH "^([^/]+/[^/]+/)" first_segment "${file}")
     if(first_segment)
-        source_group(TREE "${base_dir}/${first_segment}" FILES "${file}")
+        source_group(TREE "${base_dir}/${first_segment}" FILES "${file_abs}")
     endif()
 endfunction()
 
 function(add_code_generator target definitions template output filters)
     string(REGEX MATCH "^[^/]+/" output_root "${output}")
-    set(output ${CMAKE_BINARY_DIR}/${output})
-    create_empty_file(${output})
-    target_sources(${target} PRIVATE ${definitions} ${template} ${filters} ${output})
-    auto_source_group(${CMAKE_SOURCE_DIR} "${definitions}")
-    auto_source_group(${CMAKE_SOURCE_DIR} "${template}")
-    auto_source_group(${CMAKE_SOURCE_DIR} "${filters}")
-    auto_source_group(${CMAKE_BINARY_DIR} "${output}")
+    set(output_abs ${CMAKE_BINARY_DIR}/${output})
+    create_empty_file(${output_abs})
+    target_sources(${target} PRIVATE ${definitions} ${template} ${filters} ${output_abs})
+    auto_source_group(${CMAKE_SOURCE_DIR} "${definitions}" "${definitions}")
+    auto_source_group(${CMAKE_SOURCE_DIR} "${template}" "${template}")
+    auto_source_group(${CMAKE_SOURCE_DIR} "${filters}" "${filters}")
+    auto_source_group(${CMAKE_BINARY_DIR} "${output}" "${output_abs}")
 
     string(CONCAT command_source
       "${CMAKE_SOURCE_DIR}/generator/source_generator.sh "
       "--definitions ${CMAKE_SOURCE_DIR}/${definitions} "
       "--template ${CMAKE_SOURCE_DIR}/${template} "
-      "--output ${output} "
+      "--output ${output_abs} "
       "--filters ${CMAKE_SOURCE_DIR}/${filters}")
 
     add_custom_command(
-        OUTPUT ${output}
+        OUTPUT ${output_abs}
         COMMAND ${CMAKE_COMMAND} -E env sh -c ${command_source}
         DEPENDS ${definitions} ${template} ${filters}
         VERBATIM)
@@ -69,7 +69,7 @@ function(add_code_generator target definitions template output filters)
 endfunction()
 
 CPMAddPackage("gh:chrysante/csp#main")
-CPMAddPackage("gh:chrysante/utility#fe7bbd3ee1f8da53e31e4f6dffedd6cdd46f11d2")
+CPMAddPackage("gh:chrysante/utility#42cdd3d0bb9d477206a778cd239473ab31de6b26")
 CPMAddPackage("gh:chrysante/APMath#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
 CPMAddPackage("gh:chrysante/graphgen#main")
@@ -108,6 +108,16 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxError.h
     include/Prism/Parser/SyntaxError.def
 
+    include/Prism/Sema2/Analysis.h
+    include/Prism/Sema2/Construction.h
+    include/Prism/Sema2/Scope.h
+    include/Prism/Sema2/SemaContext.h
+    include/Prism/Sema2/SemaFwd.h
+    include/Prism/Sema2/SubContext.h
+    include/Prism/Sema2/Symbol.h
+    include/Prism/Sema2/SymRef.h
+    include/Prism/Sema2/TypeLayout.h
+#[[
     include/Prism/Sema/Analysis.h
     include/Prism/Sema/AnalysisBase.h
     include/Prism/Sema/Builtins.def
@@ -128,7 +138,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema/SemaFwd.h
     include/Prism/Sema/TypeLayout.h
     include/Prism/Sema/QualType.h
-
+]]
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -164,6 +174,16 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/ParserBase.cpp
     src/Prism/Parser/SyntaxError.cpp
 
+    src/Prism/Sema2/Analysis.cpp
+    src/Prism/Sema2/Construction.cpp
+    src/Prism/Sema2/Scope.cpp
+    src/Prism/Sema2/SemaContext.cpp
+    src/Prism/Sema2/SemaFwd.cpp
+    src/Prism/Sema2/SubContext.cpp
+    src/Prism/Sema2/Symbol.cpp
+    src/Prism/Sema2/SymRef.cpp
+    src/Prism/Sema2/TypeLayout.cpp
+#[[
     src/Prism/Sema/Analysis.cpp
     src/Prism/Sema/AnalysisBase.cpp
     src/Prism/Sema/ConformanceAnalysis.cpp
@@ -183,7 +203,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema/SemaFwd.cpp
     src/Prism/Sema/TypeLayout.cpp
     src/Prism/Sema/QualType.cpp
-
+]]
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp
     src/Prism/Source/Token.cpp
@@ -201,10 +221,10 @@ set(PRISM_TEST_FILES
     test/Prism/Parser/Parser.t.cpp 
     test/Prism/Parser/ParserTestUtils.h
     test/Prism/Parser/ParserTestUtils.cpp
-    
+#[[
     test/Prism/Sema/ConformanceAnalysis.t.cpp
     test/Prism/Sema/SemaDiagnostics.t.cpp
-    
+]]
     test/Prism/TestUtils/TestCompiler.h
     test/Prism/TestUtils/TestCompiler.cpp
 )
@@ -234,22 +254,10 @@ add_code_generator(prism
                    src/Prism/Facet/FacetFilters.py)
 
 add_code_generator(prism
-                   src/Prism/Sema/Symbols.yaml
-                   src/Prism/Sema/SymbolFwd.jinja
-                   include/Prism/Sema/SymbolFwd.inl
-                   src/Prism/Sema/SemaFilters.py)
-
-add_code_generator(prism
-                   src/Prism/Sema/SemaDiagnostics.yaml
-                   src/Prism/Sema/SemaDiagnosticsDecl.jinja
-                   include/Prism/Sema/SemaDiagnostics.inl
-                   src/Prism/Sema/SemaFilters.py)
-
-add_code_generator(prism
-                  src/Prism/Sema/SemaDiagnostics.yaml
-                  src/Prism/Sema/SemaDiagnosticsDef.jinja
-                  src/Prism/Sema/SemaDiagnosticsDef.inl
-                  src/Prism/Sema/SemaFilters.py)
+                   src/Prism/Sema2/Symbols.yaml
+                   src/Prism/Sema2/SymbolFwd.jinja
+                   include/Prism/Sema2/SymbolFwd.inl
+                   src/Prism/Sema2/SemaFilters.py)
 
 target_sources(prism 
   PRIVATE 

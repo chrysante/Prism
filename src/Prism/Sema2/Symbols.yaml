@@ -1,0 +1,51 @@
+symbols:
+  - name: Symbol
+    abstract: true
+    
+  - name: Module
+    base: Symbol
+
+  - name: SourceFile
+    base: Symbol
+
+# Declarations
+
+  - name: SymbolDecl
+    base: Symbol
+    abstract: true
+
+  - name: StructDef
+    base: SymbolDecl
+    
+  - name: TraitDef
+    base: SymbolDecl
+
+# Types
+
+  - name: Type
+    base: Symbol
+    abstract: true
+
+  - name: StructType
+    base: Type
+
+  - name: GenTypeParam
+    base: Type
+
+# Traits
+ 
+  - name: Trait
+    base: Symbol
+    abstract: true
+ 
+  - name: TraitInst
+    base: Trait
+ 
+# Values
+
+  - name: Value
+    base: Symbol
+    abstract: true
+
+  - name: GenValueParam
+    base: Value

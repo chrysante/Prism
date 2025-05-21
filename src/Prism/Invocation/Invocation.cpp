@@ -10,14 +10,21 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Parser/Parser.h"
+#if 0
 #include "Prism/Sema/Analysis.h"
 #include "Prism/Sema/SemaContext.h"
+#endif
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
 using detail::InvImpl;
 
 namespace {
+
+struct SourceFilePair {
+    SourceFileFacet const* facet;
+    SourceContext const* context;
+};
 
 class Bag {
 public:
@@ -53,8 +60,8 @@ struct detail::InvImpl {
     std::unique_ptr<DiagnosticEmitter> DE;
     std::vector<SourceContext> sources;
     utl::hashmap<std::filesystem::path, SourceFileFacet const*> parseTrees;
-    SemaContext semaContext;
-    Target* target = nullptr;
+    // SemaContext semaContext;
+    // Target* target = nullptr;
 };
 
 Invocation::Invocation(): impl(std::make_unique<InvImpl>()) {}
@@ -103,16 +110,20 @@ void Invocation::runUntil(InvocationStage stage) {
     }
     if (stage < InvocationStage::Sema) return;
     // For now we return before sema if we have parsing errors
+#if 0
     if (!impl->DE->empty()) return;
     impl->target = analyzeModule(impl->resource, impl->semaContext, *impl->DE,
                                  sourceFilePairs);
+#endif
 }
 
 DiagnosticEmitter const& Invocation::getDiagnosticEmitter() const {
     return *impl->DE;
 }
 
+#if 0
 SemaContext& Invocation::getSemaContext() { return impl->semaContext; }
+#endif
 
 SourceFileFacet const* Invocation::getParseTree(
     std::filesystem::path const& filepath) const {
@@ -120,4 +131,6 @@ SourceFileFacet const* Invocation::getParseTree(
     return itr != impl->parseTrees.end() ? itr->second : nullptr;
 }
 
+#if 0
 Target* Invocation::getTarget() const { return impl->target; }
+#endif

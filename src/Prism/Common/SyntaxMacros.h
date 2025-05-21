@@ -2,6 +2,7 @@
 #define PRISM_COMMON_SYNTAXMACROS_H
 
 #include <concepts>
+#include <utility>
 
 #define EVAL internal::DoToken{}->*[&]
 
@@ -17,6 +18,8 @@ decltype(auto) operator->*(DoToken, F&& f) {
 }
 
 } // namespace internal
+
+#define PRISM_FWD(...) ::std::forward<decltype(__VA_ARGS__)>(__VA_ARGS__)
 
 #define FN(Name)                                                               \
     [this]<typename... Args>(Args&&... args) -> decltype(auto) {               \
