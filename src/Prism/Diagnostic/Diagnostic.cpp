@@ -178,6 +178,7 @@ void Diagnostic::formatImpl(TreeFormatter& treeFmt,
     if (range) {
         treeFmt.writeDetails(children().empty(), [&] {
             printSourceRange(*ctx, range->slim(), str);
+            str << "\n";
         });
     }
     treeFmt.writeChildren(children(), [&](Diagnostic const* child) {
