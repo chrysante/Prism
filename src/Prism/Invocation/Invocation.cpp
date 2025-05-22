@@ -10,21 +10,15 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Parser/Parser.h"
-#if 0
-#include "Prism/Sema/Analysis.h"
-#include "Prism/Sema/SemaContext.h"
-#endif
+#include "Prism/Sema2/Analysis.h"
+#include "Prism/Sema2/Construction.h"
+#include "Prism/Sema2/SemaContext.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
 using detail::InvImpl;
 
 namespace {
-
-struct SourceFilePair {
-    SourceFileFacet const* facet;
-    SourceContext const* context;
-};
 
 class Bag {
 public:
@@ -59,9 +53,9 @@ struct detail::InvImpl {
     MonotonicBufferResource resource;
     std::unique_ptr<DiagnosticEmitter> DE;
     std::vector<SourceContext> sources;
-    utl::hashmap<std::filesystem::path, SourceFileFacet const*> parseTrees;
-    // SemaContext semaContext;
-    // Target* target = nullptr;
+    utl::hashmap<std::filesystem::path, SourceFileFacet const*> parse_trees;
+    SemaContext sema_context;
+    Module* target = nullptr;
 };
 
 Invocation::Invocation(): impl(std::make_unique<InvImpl>()) {}
@@ -79,58 +73,52 @@ static void throwFileError(std::filesystem::path const& path, int err) {
     throw std::runtime_error(std::move(sstr).str());
 }
 
-void Invocation::addSourceFile(std::filesystem::path path) {
+void Invocation::add_source_file(std::filesystem::path path) {
     std::fstream file(path);
     if (!file) throwFileError(path, errno);
     std::stringstream sstr;
     sstr << file.rdbuf();
-    addSourceFile(std::move(path), std::move(sstr).str());
+    add_source_file(std::move(path), std::move(sstr).str());
 }
 
-void Invocation::addSourceFile(std::filesystem::path path,
-                               std::string sourceStr) {
+void Invocation::add_source_file(std::filesystem::path path,
+                                 std::string sourceStr) {
     std::string_view source = impl->retain(std::move(sourceStr));
     impl->sources.emplace_back(std::move(path), source);
 }
 
-void Invocation::run() { runUntil(InvocationStage::Sema); }
+void Invocation::run() { run_until(InvocationStage::Sema); }
 
 static bool operator<(InvocationStage a, InvocationStage b) {
     return (int)a < (int)b;
 }
 
-void Invocation::runUntil(InvocationStage stage) {
-    std::vector<SourceFilePair> sourceFilePairs;
-    sourceFilePairs.reserve(impl->sources.size());
+void Invocation::run_until(InvocationStage stage) {
+    std::vector<SourceFilePair> source_file_pairs;
+    source_file_pairs.reserve(impl->sources.size());
     for (auto& sourceContext: impl->sources) {
         auto* parseTree =
             parseSourceFile(impl->resource, sourceContext, *impl->DE);
-        impl->parseTrees.insert({ sourceContext.filepath(), parseTree });
-        sourceFilePairs.push_back({ parseTree, &sourceContext });
+        impl->parse_trees.insert({ sourceContext.filepath(), parseTree });
+        source_file_pairs.push_back({ parseTree, &sourceContext });
     }
     if (stage < InvocationStage::Sema) return;
     // For now we return before sema if we have parsing errors
-#if 0
     if (!impl->DE->empty()) return;
-    impl->target = analyzeModule(impl->resource, impl->semaContext, *impl->DE,
-                                 sourceFilePairs);
-#endif
+    impl->target =
+        construct_sema_ir(impl->sema_context, *impl->DE, source_file_pairs);
 }
 
-DiagnosticEmitter const& Invocation::getDiagnosticEmitter() const {
+DiagnosticEmitter const& Invocation::get_diagnostic_emitter() const {
     return *impl->DE;
 }
 
-#if 0
-SemaContext& Invocation::getSemaContext() { return impl->semaContext; }
-#endif
+SemaContext& Invocation::get_sema_context() { return impl->sema_context; }
 
-SourceFileFacet const* Invocation::getParseTree(
+SourceFileFacet const* Invocation::get_parse_tree(
     std::filesystem::path const& filepath) const {
-    auto itr = impl->parseTrees.find(filepath);
-    return itr != impl->parseTrees.end() ? itr->second : nullptr;
+    auto itr = impl->parse_trees.find(filepath);
+    return itr != impl->parse_trees.end() ? itr->second : nullptr;
 }
 
-#if 0
-Target* Invocation::getTarget() const { return impl->target; }
-#endif
+Module* Invocation::get_module() const { return impl->target; }

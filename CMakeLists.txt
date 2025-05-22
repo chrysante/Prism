@@ -109,10 +109,14 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxError.def
 
     include/Prism/Sema2/Analysis.h
+    include/Prism/Sema2/AnalysisContext.h
     include/Prism/Sema2/Construction.h
+    include/Prism/Sema2/ExprAnalysis.h
+    include/Prism/Sema2/NameLookup.h
     include/Prism/Sema2/Scope.h
     include/Prism/Sema2/SemaContext.h
     include/Prism/Sema2/SemaFwd.h
+    include/Prism/Sema2/SemaPrint.h
     include/Prism/Sema2/SubContext.h
     include/Prism/Sema2/Symbol.h
     include/Prism/Sema2/SymRef.h
@@ -175,10 +179,14 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/SyntaxError.cpp
 
     src/Prism/Sema2/Analysis.cpp
+    src/Prism/Sema2/AnalysisContext.cpp
     src/Prism/Sema2/Construction.cpp
+    src/Prism/Sema2/ExprAnalysis.cpp
+    src/Prism/Sema2/NameLookup.cpp
     src/Prism/Sema2/Scope.cpp
     src/Prism/Sema2/SemaContext.cpp
     src/Prism/Sema2/SemaFwd.cpp
+    src/Prism/Sema2/SemaPrint.cpp
     src/Prism/Sema2/SubContext.cpp
     src/Prism/Sema2/Symbol.cpp
     src/Prism/Sema2/SymRef.cpp

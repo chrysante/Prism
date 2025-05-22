@@ -10,15 +10,15 @@ symbols:
 
 # Declarations
 
-  - name: SymbolDecl
+  - name: DeclSymbol
     base: Symbol
     abstract: true
 
   - name: StructDef
-    base: SymbolDecl
+    base: DeclSymbol
     
   - name: TraitDef
-    base: SymbolDecl
+    base: DeclSymbol
 
 # Types
 

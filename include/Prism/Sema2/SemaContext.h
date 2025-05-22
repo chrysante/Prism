@@ -17,7 +17,7 @@ class SourceContext;
 class Facet;
 class SourceFileFacet;
 
-///
+/// Context class that owns and uniques most symbols
 class SemaContext {
 public:
     SemaContext();
@@ -30,8 +30,8 @@ public:
     Sym* make(Args&&... args) {
         auto owner = csp::make_unique<Sym>(std::forward<Args>(args)...);
         if constexpr (std::is_same_v<Sym, SourceFile>)
-            map_source_to_context(owner->facet(), &owner->sourceContext());
-        return cast<Sym*>(addSymbol(std::move(owner)));
+            map_source_to_context(owner->facet(), &owner->source_context());
+        return cast<Sym*>(add_symbol(std::move(owner)));
     }
 
     template <std::derived_from<Symbol> Sym, typename... Args>

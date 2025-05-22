@@ -8,7 +8,7 @@
 namespace prism {
 
 class SourceFileFacet;
-class Target;
+class Module;
 class DiagnosticEmitter;
 class SemaContext;
 
@@ -30,11 +30,11 @@ public:
 
     /// Opens the file at \p path and adds it to the list of compiled files.
     /// \Throws if the file cannot be opened
-    void addSourceFile(std::filesystem::path path);
+    void add_source_file(std::filesystem::path path);
 
     /// Adds the string \p source as a source file and pretends its location is
     /// \p path
-    void addSourceFile(std::filesystem::path path, std::string source);
+    void add_source_file(std::filesystem::path path, std::string source);
 
     /// MARK: - Execution
 
@@ -42,22 +42,22 @@ public:
     void run();
 
     /// Executes the compiler until including \p stage
-    void runUntil(InvocationStage stage);
+    void run_until(InvocationStage stage);
 
     /// MARK: - Retrieval
 
     ///
-    DiagnosticEmitter const& getDiagnosticEmitter() const;
+    DiagnosticEmitter const& get_diagnostic_emitter() const;
 
     ///
-    SemaContext& getSemaContext();
+    SemaContext& get_sema_context();
 
     /// \Returns the parse tree of the source file \p filepath
-    SourceFileFacet const* getParseTree(
+    SourceFileFacet const* get_parse_tree(
         std::filesystem::path const& filepath) const;
 
     /// \Returns the semantically analyzed sema target
-    Target* getTarget() const;
+    Module* get_module() const;
 
 private:
     std::unique_ptr<detail::InvImpl> impl;

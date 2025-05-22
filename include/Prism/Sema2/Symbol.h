@@ -1,7 +1,6 @@
 #ifndef PRISM_SEMA2_SYMBOL_H
 #define PRISM_SEMA2_SYMBOL_H
 
-#include <array>
 #include <string>
 
 #include <range/v3/view.hpp>
@@ -9,7 +8,6 @@
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Ranges.h>
-#include <Prism/Common/SyntaxMacros.h>
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema2/SemaFwd.h>
 #include <Prism/Sema2/SymRef.h>
@@ -81,12 +79,7 @@ protected:
     enum Flag : uint32_t { ExcludeFromNameLookup };
 
     Symbol(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
-           std::string name, ScopeArg scope_arg):
-        _sym_type(sym_type),
-        _name(std::move(name)),
-        _facet(facet),
-        _parent(parent_scope),
-        _assoc_scope(scope_arg.eval(this)) {}
+           std::string name, ScopeArg scope_arg);
 
     void set_name(std::string name) { _name = std::move(name); }
 
@@ -108,19 +101,17 @@ private:
 /// Translation unit
 class Module final: public Symbol {
 public:
-    explicit Module(ScopeArg scope_arg):
-        Symbol(SymbolType::Module, nullptr, nullptr, "MODULE", scope_arg) {}
+    explicit Module(SemaContext& ctx):
+        Symbol(SymbolType::Module, nullptr, nullptr, "__MODULE__",
+               ScopeArg::make(ctx)) {}
 };
 
 /// Multiple source files can make up a compilation unit
 class SourceFile: public Symbol {
 public:
     explicit SourceFile(Facet const* facet, Scope* parent_scope,
-                        std::string name, ScopeArg scope_arg,
-                        SourceContext const& source_context):
-        Symbol(SymbolType::SourceFile, facet, parent_scope, std::move(name),
-               scope_arg),
-        _source_context(source_context) {}
+                        ScopeArg scope_arg,
+                        SourceContext const& source_context);
 
     FACET_TYPE(SourceFileFacet)
 
@@ -133,7 +124,7 @@ private:
 // MARK: Decls
 
 /// Base class of all declarations
-class SymbolDecl: public Symbol {
+class DeclSymbol: public Symbol {
 public:
     /// The generic parameter of this declaration. For non-generic declarations
     /// this is empty.
@@ -145,29 +136,38 @@ public:
     bool is_generic() const { return !generic_params().empty(); }
 
 protected:
-    SymbolDecl(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
+    DeclSymbol(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
                std::string name, ScopeArg scope_arg,
                RangeOf<GenericParam> auto&& gen_params):
         Symbol(sym_type, facet, parent_scope, std::move(name), scope_arg),
         _generic_params(ranges::begin(gen_params), ranges::end(gen_params)) {}
 
 private:
+    friend struct NameResolution;
+
     utl::small_vector<GenericParam, 3> _generic_params;
 };
 
 /// User definition of a struct type
-class StructDef final: public SymbolDecl {
+class StructDef final: public DeclSymbol {
 public:
     /// Constructor for generic definitions
+    template <RangeOf<GenericParam> GenParams>
     explicit StructDef(Facet const* facet, Scope* parent_scope,
                        std::string name, ScopeArg scope_arg,
-                       RangeOf<GenericParam> auto&& gen_params):
-        SymbolDecl(SymbolType::StructDef, facet, parent_scope, std::move(name),
-                   scope_arg, PRISM_FWD(gen_params)) {}
+                       GenParams&& gen_params = {}):
+        DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
+                   scope_arg, std::forward<GenParams>(gen_params)) {
+        if (generic_params().size() == 0)
+            _canonical_type = make_canonical_type();
+    }
 
-    /// Constructor for non-generic definitions
     explicit StructDef(Facet const* facet, Scope* parent_scope,
-                       std::string name, ScopeArg scope_arg);
+                       std::string name, ScopeArg scope_arg,
+                       size_t num_generic_params):
+        StructDef(facet, parent_scope, std::move(name), scope_arg,
+                  ranges::views::repeat_n(GenericParam{},
+                                          (ssize_t)num_generic_params)) {}
 
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -176,22 +176,29 @@ public:
     StructType* canonical_type() const { return _canonical_type.get(); }
 
 private:
+    std::unique_ptr<StructType> make_canonical_type();
+
     std::unique_ptr<StructType> _canonical_type;
 };
 
 /// User definition of a trait
-class TraitDef final: public SymbolDecl {
+class TraitDef final: public DeclSymbol {
 public:
     /// Constructor for generic definitions
+    template <
+        RangeOf<GenericParam> GenParams = ranges::empty_view<GenericParam>>
     explicit TraitDef(Facet const* facet, Scope* parent_scope, std::string name,
-                      ScopeArg scope_arg,
-                      RangeOf<GenericParam> auto&& gen_params):
-        SymbolDecl(SymbolType::TraitDef, facet, parent_scope, std::move(name),
-                   scope_arg, PRISM_FWD(gen_params)) {}
+                      ScopeArg scope_arg, GenParams&& gen_params = {}):
+        DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
+                   scope_arg, std::forward<GenParams>(gen_params)) {
+        if (generic_params().empty()) _canonical_trait = make_canonical_trait();
+    }
 
-    /// Constructor for non-generic definitions
     explicit TraitDef(Facet const* facet, Scope* parent_scope, std::string name,
-                      ScopeArg scope_arg);
+                      ScopeArg scope_arg, size_t num_generic_params):
+        TraitDef(facet, parent_scope, std::move(name), scope_arg,
+                 ranges::views::repeat_n(GenericParam{},
+                                         (ssize_t)num_generic_params)) {}
 
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -200,6 +207,8 @@ public:
     TraitInst* canonical_trait() const { return _canonical_trait.get(); }
 
 private:
+    std::unique_ptr<TraitInst> make_canonical_trait();
+
     std::unique_ptr<TraitInst> _canonical_trait;
 };
 
@@ -224,7 +233,7 @@ private:
 /// Instantiation of a possibly generic struct type
 class StructType final: public Type {
 public:
-    template <RangeOf<SymRef<>> GenArgs = std::array<SymRef<>, 0>>
+    template <RangeOf<SymRef<>> GenArgs = ranges::empty_view<SymRef<>>>
     explicit StructType(Facet const* facet, StructDef* definition,
                         GenArgs&& generic_args = {}):
         Type(SymbolType::StructType, facet, definition->parent_scope(),
@@ -285,7 +294,7 @@ protected:
 /// Instantiation of a trait definition
 class TraitInst final: public Trait {
 public:
-    template <RangeOf<SymRef<>> GenArgs = std::array<SymRef<>, 0>>
+    template <RangeOf<SymRef<>> GenArgs = ranges::empty_view<SymRef<>>>
     explicit TraitInst(Facet const* facet, TraitDef* definition,
                        GenArgs&& generic_args = {}):
         Trait(SymbolType::TraitInst, facet, definition->parent_scope(), {},

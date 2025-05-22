@@ -27,7 +27,7 @@ public:
 
     template <std::derived_from<Diagnostic> D>
     D const* findDiagOnLine(int line) const {
-        return findImpl<D>(inv.getDiagnosticEmitter().getAll(),
+        return findImpl<D>(inv.get_diagnostic_emitter().getAll(),
                            onLineFn<D>(line));
     }
 
@@ -38,7 +38,7 @@ public:
 
     template <std::derived_from<Diagnostic> D>
     D const* findDiag() const {
-        return findImpl<D>(inv.getDiagnosticEmitter().getAll(), Isa<D>);
+        return findImpl<D>(inv.get_diagnostic_emitter().getAll(), Isa<D>);
     }
 
     template <std::derived_from<Diagnostic> D>
@@ -47,7 +47,7 @@ public:
     }
 
     bool noDiagOnLine(int line) const {
-        return findImpl<Diagnostic>(inv.getDiagnosticEmitter().getAll(),
+        return findImpl<Diagnostic>(inv.get_diagnostic_emitter().getAll(),
                                     onLineFn<Diagnostic>(line)) == nullptr;
     }
 

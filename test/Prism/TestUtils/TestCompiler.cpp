@@ -7,7 +7,7 @@
 #include "Prism/Diagnostic/DiagnosticFormat.h"
 #include "Prism/Parser/Parser.h"
 #if 0
-#include "Prism/Sema/AnalysisBase.h"
+#include "Prism/Sema/AnalysisContext.h"
 #include "Prism/Sema/ExprAnalysis.h"
 #include "Prism/Sema/Symbol.h"
 #endif
@@ -17,8 +17,8 @@ using namespace prism;
 
 static void doInvoke(Invocation& inv, std::string source,
                      InvocationStage stage) {
-    inv.addSourceFile("test/file.prism", std::move(source));
-    inv.runUntil(stage);
+    inv.add_source_file("test/file.prism", std::move(source));
+    inv.run_until(stage);
 }
 
 DiagnosticChecker<Invocation> prism::makeDiagChecker(std::string source,
@@ -33,7 +33,7 @@ InvocationTester prism::makeInvTester(std::string source,
                                       InvocationStage stage) {
     InvocationTester t;
     doInvoke(t.invocation(), std::move(source), stage);
-    auto& DE = t.invocation().getDiagnosticEmitter();
+    auto& DE = t.invocation().get_diagnostic_emitter();
     if (options.expectNoErrors && DE.hasErrors()) {
         std::stringstream sstr;
         sstr << "Failed to compile: ";
@@ -74,7 +74,7 @@ Symbol* InvocationTester::eval(Scope* scope, std::string_view exprSource) {
     if (DE->hasErrors()) throwJitError(exprSource, *DE);
     if (!facet) throw std::runtime_error("No facet");
     auto* symbol =
-        analyzeFacet({ invocation().getSemaContext(), *DE, ctx }, scope, facet);
+        analyzeFacet({ invocation().get_sema_context(), *DE, ctx }, scope, facet);
     if (!symbol || DE->hasErrors()) throwJitError(exprSource, *DE);
     return symbol;
 }

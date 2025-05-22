@@ -11,8 +11,8 @@
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Diagnostic/DiagnosticFormat.h>
 #include <Prism/Invocation/Invocation.h>
-#include <Prism/Sema/SemaPrint.h>
-#include <Prism/Sema/Symbol.h>
+#include <Prism/Sema2/SemaPrint.h>
+#include <Prism/Sema2/Symbol.h>
 #include <Prism/Source/SourceContext.h>
 
 using namespace prism;
@@ -54,21 +54,21 @@ static void header(std::ostream& str, std::string_view title) {
     size_t leftSpace = remainingSpace / 7;
     size_t rightSpace = remainingSpace - leftSpace;
     using namespace tfmt::modifiers;
-    auto mod = BrightBlue | Bold;
-    str << tfmt::format(mod, "╔", repeat(numCols - 2, "═"), "╗") << "\n";
-    str << tfmt::format(mod, "║", repeat(leftSpace, " "),
+    auto mod = BrightGrey | Bold;
+    str << tfmt::format(mod, "=", repeat(numCols - 2, "="), "=") << "\n";
+    str << tfmt::format(mod, "=", repeat(leftSpace, " "),
                         tfmt::format(Reset | Bold, title),
-                        repeat(rightSpace, " "), "║")
+                        repeat(rightSpace, " "), "=")
         << "\n";
-    str << tfmt::format(mod, "╚", repeat(numCols - 2, "═"), "╝") << "\n";
+    str << tfmt::format(mod, "=", repeat(numCols - 2, "="), "=") << "\n";
 }
 
 static int semaPlaygroundMain(Options options) {
     std::filesystem::path filepath = "examples/Playground.prism";
     std::fstream file(filepath);
     Invocation inv;
-    inv.addSourceFile(filepath);
-    inv.runUntil(InvocationStage::Sema);
+    inv.add_source_file(filepath);
+    inv.run_until(InvocationStage::Sema);
     if (options.printFacets) {
         header(std::cout, "Parse Tree");
         std::cerr << tfmt::format(tfmt::Red | tfmt::Bold,
@@ -76,20 +76,16 @@ static int semaPlaygroundMain(Options options) {
                   << "\n";
 #if 0
         TreeFormatter fmt(std::cout, { .lines = TreeStyle::Rounded });
-        auto* parseTree = inv.getParseTree(filepath);
+        auto* parseTree = inv.get_parse_tree(filepath);
         print(parseTree, fmt, { &sourceContext });
 #endif
     }
-    auto* target = inv.getTarget();
-    if (target) {
+    auto* mod = inv.get_module();
+    if (mod) {
         header(std::cout, "Sema IR");
-        print(*target, std::cout,
-              { .structureMemoryLayout = true,
-                .traitObligations = options.printConformances });
-        if (options.printScopes)
-            printScopeHierarchy(target->associatedScope(), std::cout);
+        print(*mod, std::cout);
     }
-    auto& DE = inv.getDiagnosticEmitter();
+    auto& DE = inv.get_diagnostic_emitter();
     if (!DE.empty()) {
         print(DE);
         return 1;

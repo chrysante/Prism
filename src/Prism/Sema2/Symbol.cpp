@@ -3,9 +3,11 @@
 #include <sstream>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
+#include "Prism/Source/SourceContext.h"
 
 using namespace prism;
 
@@ -33,18 +35,28 @@ static void print_separated(std::ostream& str, auto const& separator, Rng&& rng,
     }
 }
 
-StructDef::StructDef(Facet const* fct, Scope* parent_scope, std::string name,
-                     ScopeArg scope_arg):
-    StructDef(fct, parent_scope, std::move(name), scope_arg,
-              std::array<GenericParam, 0>{}) {
-    _canonical_type = std::make_unique<StructType>(facet()->name(), this);
+Symbol::Symbol(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
+               std::string name, ScopeArg scope_arg):
+    _sym_type(sym_type),
+    _name(std::move(name)),
+    _facet(facet),
+    _parent(parent_scope),
+    _assoc_scope(scope_arg.eval(this)) {
+    if (parent_scope) parent_scope->add_symbol(*this);
 }
 
-TraitDef::TraitDef(Facet const* fct, Scope* parent_scope, std::string name,
-                   ScopeArg scope_arg):
-    TraitDef(fct, parent_scope, std::move(name), scope_arg,
-             std::array<GenericParam, 0>{}) {
-    _canonical_trait = std::make_unique<TraitInst>(facet()->name(), this);
+SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
+                       ScopeArg scope_arg, SourceContext const& source_context):
+    Symbol(SymbolType::SourceFile, facet, parent_scope,
+           source_context.filepath().string(), scope_arg),
+    _source_context(source_context) {}
+
+std::unique_ptr<StructType> StructDef::make_canonical_type() {
+    return std::make_unique<StructType>(facet()->name(), this);
+}
+
+std::unique_ptr<TraitInst> TraitDef::make_canonical_trait() {
+    return std::make_unique<TraitInst>(facet()->name(), this);
 }
 
 std::string StructType::make_name() const {
