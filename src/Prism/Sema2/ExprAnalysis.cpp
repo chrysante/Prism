@@ -87,7 +87,12 @@ void detail::push_bad_sym_ref(AnalysisContext const& context,
 
 Symbol* prism::analyze_facet(AnalysisContext const& context, Scope* scope,
                              Facet const* facet) {
-    auto* sym = AnaContext{ context, scope }.analyze(facet);
+    return AnaContext{ context, scope }.analyze(facet);
+}
+
+Symbol* AnaContext::analyze(Facet const* facet) {
+    if (!facet) return nullptr;
+    auto* sym = visit(*facet, FN1(&, do_analyze(_1)));
     if (auto* struct_def = dyncast<StructDef*>(sym))
         if (auto* canonical = struct_def->canonical_type()) return canonical;
     if (auto* trait_def = dyncast<TraitDef*>(sym))
@@ -95,19 +100,10 @@ Symbol* prism::analyze_facet(AnalysisContext const& context, Scope* scope,
     return sym;
 }
 
-Symbol* AnaContext::analyze(Facet const* facet) {
-    if (!facet) return nullptr;
-    return visit(*facet, FN1(&, do_analyze(_1)));
-}
-
 Symbol* AnaContext::do_analyze(TerminalFacet const& term) {
     switch (term.token().kind) {
-#if 0
-#define SEMA_BUILTIN(Name, Spelling, SymType, ...)                             \
-    case TokenKind::Name:                                                      \
-        return ctx.get##Name();
-#include "Prism/Sema/Builtins.def"
-#endif
+    case TokenKind::Type:
+        return ctx.get_type_trait();
     case TokenKind::Identifier:
         return analyze_identifier(term);
 #if 0
@@ -210,17 +206,13 @@ Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
 }
 
 Symbol* AnaContext::do_analyze(CallFacet const& call) {
-    PRISM_UNIMPLEMENTED();
-#if 0
     auto* callee = analyze(call.callee());
     auto args = call.arguments()->elems() | transform(FN1(&, analyze(_1))) |
-    ToSmallVector<>;
+                ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
-    if (auto* gensym = dyncast<GenericSymbol*>(callee)) {
-        if (options.instantiateGenericsLazily)
-            return instantiateGenericLazy(ctx, *gensym, args);
-        return instantiateGeneric(ctx, DE, *gensym, &call, args);
-    }
+    if (auto* struct_def = dyncast<StructDef*>(callee))
+        return ctx.get_struct_specialization(struct_def, args);
+    if (auto* trait_def = dyncast<TraitDef*>(callee))
+        return ctx.get_trait_specialization(trait_def, args);
     PRISM_UNIMPLEMENTED();
-#endif
 }

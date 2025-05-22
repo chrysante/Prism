@@ -27,7 +27,7 @@ Scope* ScopeArg::eval(Symbol* def_symbol) const {
 template <ranges::range Rng, typename Proj = ranges::identity>
 static void print_separated(std::ostream& str, auto const& separator, Rng&& rng,
                             Proj&& proj = {}) {
-    bool first = false;
+    bool first = true;
     for (auto& elem: rng) {
         if (!first) str << separator;
         first = false;
@@ -41,9 +41,7 @@ Symbol::Symbol(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
     _name(std::move(name)),
     _facet(facet),
     _parent(parent_scope),
-    _assoc_scope(scope_arg.eval(this)) {
-    if (parent_scope) parent_scope->add_symbol(*this);
-}
+    _assoc_scope(scope_arg.eval(this)) {}
 
 SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
                        ScopeArg scope_arg, SourceContext const& source_context):
@@ -59,11 +57,16 @@ std::unique_ptr<TraitInst> TraitDef::make_canonical_trait() {
     return std::make_unique<TraitInst>(facet()->name(), this);
 }
 
+static std::string_view name_proj(Symbol const* symbol) {
+    using namespace std::string_view_literals;
+    return symbol ? symbol->name() : "NULL"sv;
+}
+
 std::string StructType::make_name() const {
     if (generic_args().empty()) return definition()->name();
     std::stringstream sstr;
     sstr << definition()->name() << "(";
-    print_separated(sstr, ", ", generic_args(), FN1(, "<>"));
+    print_separated(sstr, ", ", generic_args(), name_proj);
     sstr << ")";
     return std::move(sstr).str();
 }
@@ -78,7 +81,7 @@ std::string TraitInst::make_name() const {
     if (generic_args().empty()) return definition()->name();
     std::stringstream sstr;
     sstr << definition()->name() << "(";
-    print_separated(sstr, ", ", generic_args(), FN1(, "<>"));
+    print_separated(sstr, ", ", generic_args(), name_proj);
     sstr << ")";
     return std::move(sstr).str();
 }

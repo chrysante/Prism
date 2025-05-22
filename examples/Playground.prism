@@ -1,7 +1,17 @@
+//
+//trait [T: type] MyTrait {
+// //   fn foo(this, arg: )
+//}
+//
+//struct Int32 {}
+//
+//struct [T: MyTrait(Int32)] Generic {
+//
+//}
 
-trait MyTrait {}
 
-struct [T: MyTrait] Generic {}
+
+trait [T: Recursive(T)] Recursive {}
 
 //impl core.function(fn (i32, i32) -> i32) for S {}
 //

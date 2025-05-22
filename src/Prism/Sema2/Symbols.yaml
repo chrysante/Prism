@@ -38,6 +38,9 @@ symbols:
     base: Symbol
     abstract: true
  
+  - name: BuiltinTrait
+    base: Trait
+ 
   - name: TraitInst
     base: Trait
  

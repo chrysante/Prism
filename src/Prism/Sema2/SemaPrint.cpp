@@ -28,20 +28,23 @@ constexpr utl::streammanip SymTypeStyle = [](std::ostream& str,
 };
 
 constexpr utl::streammanip NameStyle = [](std::ostream& str,
-                                          Symbol const& symbol) {
+                                          Symbol const* symbol) {
+    if (!symbol) {
+        str << "NULL";
+        return;
+    }
     tfmt::FormatGuard guard(Italic, str);
     str << "\"";
-    auto* s = &symbol;
-    utl::stack<Symbol const*> stack = { s };
+    utl::stack<Symbol const*> stack = { symbol };
     while (true) {
-        auto* scope = s->scope();
+        auto* scope = symbol->scope();
         if (!scope) break;
         do
             scope = scope->parent_scope();
         while (scope && !scope->defining_symbol());
-        s = scope ? scope->defining_symbol() : nullptr;
-        if (!s || isa<SourceFile>(s) || isa<Module>(s)) break;
-        stack.push(s);
+        symbol = scope ? scope->defining_symbol() : nullptr;
+        if (!symbol || isa<SourceFile>(symbol) || isa<Module>(symbol)) break;
+        stack.push(symbol);
     }
     str << stack.pop()->name();
     while (!stack.empty())
@@ -58,7 +61,7 @@ struct Print2Ctx {
             str << "NULL\n";
             return;
         }
-        str << SymTypeStyle(*symbol) << " " << NameStyle(*symbol) << " ";
+        str << SymTypeStyle(*symbol) << " " << NameStyle(symbol) << " ";
         visit(*symbol, FN1(&, writeHeader(_1)));
         str << "\n";
         auto* scope = symbol->scope();
@@ -72,6 +75,14 @@ struct Print2Ctx {
 
     void writeHeader(Type const& type) {
         str << Secondary("[", type.layout(), "]");
+    }
+
+    void writeHeader(GenTypeParam const& param) {
+        str << ": " << NameStyle(param.trait_bound());
+    }
+
+    void writeHeader(GenValueParam const& param) {
+        str << ": " << NameStyle(param.type());
     }
 
     void writeDetails(Symbol const&) {}

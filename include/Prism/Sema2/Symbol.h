@@ -233,7 +233,7 @@ private:
 /// Instantiation of a possibly generic struct type
 class StructType final: public Type {
 public:
-    template <RangeOf<SymRef<>> GenArgs = ranges::empty_view<SymRef<>>>
+    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
     explicit StructType(Facet const* facet, StructDef* definition,
                         GenArgs&& generic_args = {}):
         Type(SymbolType::StructType, facet, definition->parent_scope(),
@@ -255,14 +255,14 @@ public:
 
     /// The generic arguments of this instantiation. Empty for non-generic
     /// structs
-    std::span<SymRef<> const> generic_args() const { return _generic_args; }
+    std::span<Symbol* const> generic_args() const { return _generic_args; }
 
 private:
     std::string make_name() const;
     void verify() const;
 
     StructDef* _definition;
-    utl::small_vector<SymRef<>, 3> _generic_args;
+    utl::small_vector<Symbol*, 3> _generic_args;
 };
 
 /// Generic type parameter
@@ -291,10 +291,19 @@ protected:
         Symbol(sym_type, facet, parent_scope, std::move(name), scope_arg) {}
 };
 
+///
+class BuiltinTrait final: public Trait {
+public:
+    explicit BuiltinTrait(Scope* parent_scope, std::string name,
+                          ScopeArg scope_arg):
+        Trait(SymbolType::BuiltinTrait, /* facet: */ nullptr, parent_scope,
+              std::move(name), scope_arg) {}
+};
+
 /// Instantiation of a trait definition
 class TraitInst final: public Trait {
 public:
-    template <RangeOf<SymRef<>> GenArgs = ranges::empty_view<SymRef<>>>
+    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
     explicit TraitInst(Facet const* facet, TraitDef* definition,
                        GenArgs&& generic_args = {}):
         Trait(SymbolType::TraitInst, facet, definition->parent_scope(), {},
@@ -314,14 +323,14 @@ public:
 
     /// The generic arguments of this instantiation. Empty for non-generic
     /// structs
-    std::span<SymRef<> const> generic_args() const { return _generic_args; }
+    std::span<Symbol* const> generic_args() const { return _generic_args; }
 
 private:
     std::string make_name() const;
     void verify() const;
 
     TraitDef* _definition;
-    utl::small_vector<SymRef<>, 3> _generic_args;
+    utl::small_vector<Symbol*, 3> _generic_args;
 };
 
 // MARK: Values
@@ -330,23 +339,23 @@ private:
 class Value: public Symbol {
 public:
     /// The type of this value
-    SymRef<Type const> type() const { return _type; }
+    Type const* type() const { return _type; }
 
 protected:
     Value(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
-          std::string name, ScopeArg scope_arg, SymRef<Type const> type):
+          std::string name, ScopeArg scope_arg, Type const* type):
         Symbol(sym_type, facet, parent_scope, std::move(name), scope_arg),
         _type(type) {}
 
 private:
-    SymRef<Type const> _type;
+    Type const* _type;
 };
 
 /// Non-type generic parameter
 class GenValueParam final: public Value {
 public:
     explicit GenValueParam(Facet const* facet, Scope* parent_scope,
-                           std::string name, SymRef<Type const> type):
+                           std::string name, Type const* type):
         Value(SymbolType::GenValueParam, facet, parent_scope, std::move(name),
               ScopeArg::None, type) {}
 };

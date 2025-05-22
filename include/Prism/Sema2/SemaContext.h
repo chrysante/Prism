@@ -25,15 +25,22 @@ public:
     SemaContext& operator=(SemaContext const&) = delete;
     ~SemaContext();
 
+    /// Construct a new module. Must only be called once on the context.
+    Module* make_module();
+
+    /// Construct a symbol of type \p Sym
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, Args...>
     Sym* make(Args&&... args) {
         auto owner = csp::make_unique<Sym>(std::forward<Args>(args)...);
+        if (auto* parent_scope = owner->parent_scope())
+            parent_scope->add_symbol(*owner);
         if constexpr (std::is_same_v<Sym, SourceFile>)
             map_source_to_context(owner->facet(), &owner->source_context());
         return cast<Sym*>(add_symbol(std::move(owner)));
     }
 
+    /// \overload
     template <std::derived_from<Symbol> Sym, typename... Args>
         requires std::constructible_from<Sym, SemaContext&, Args...>
     Sym* make(Args&&... args) {
@@ -45,6 +52,20 @@ public:
 
     /// \Returns the source context of \p facet
     SourceContext const* get_source_context(Facet const* facet) const;
+
+    /// \Returns the uniqued instantiation of the generic struct \p definition
+    /// with arguments \p generic_args
+    StructType* get_struct_specialization(
+        StructDef* definition, std::span<Symbol* const> generic_args);
+
+    /// See `get_struct_specialization()`
+    TraitInst* get_trait_specialization(TraitDef* definition,
+                                        std::span<Symbol* const> generic_args);
+
+    /// # Builtins
+
+    /// \Returns the `type` trait, i.e., the trait matching all types
+    BuiltinTrait* get_type_trait() const;
 
 private:
     Symbol* add_symbol(csp::unique_ptr<Symbol> symbol);

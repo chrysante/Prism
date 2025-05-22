@@ -61,7 +61,7 @@ public:
         std::string_view name) const;
 
 private:
-    friend class Symbol;
+    friend class SemaContext;
     friend class ScopeArg;
 
     void add_symbol(Symbol& symbol);

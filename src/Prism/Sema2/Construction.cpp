@@ -24,8 +24,9 @@ static std::string get_name(Facet const* name_facet,
 }
 
 // Declares all globally visible symbols in the given sources files to a module
-static Module* construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
-                                 std::span<SourceFilePair const> sources);
+static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
+                              Module& mod,
+                              std::span<SourceFilePair const> sources);
 
 namespace {
 
@@ -71,14 +72,13 @@ struct GlobalConstruction {
 
 } // namespace
 
-static Module* construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
-                                 std::span<SourceFilePair const> sources) {
-    auto* mod = ctx.make<Module>();
+static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
+                              Module& mod,
+                              std::span<SourceFilePair const> sources) {
     for (auto [facet, source_context]: sources) {
         GlobalConstruction global_construction{ ctx, DE, *source_context };
-        global_construction.construct(facet, mod->scope());
+        global_construction.construct(facet, mod.scope());
     }
-    return mod;
 }
 
 // Performs a DFS over the module containing global declarations to resolve name
@@ -159,7 +159,8 @@ static void resolve_global_names(SemaContext& ctx, DiagnosticEmitter& DE,
 
 Module* prism::construct_sema_ir(SemaContext& ctx, DiagnosticEmitter& DE,
                                  std::span<SourceFilePair const> sources) {
-    auto* mod = construct_globals(ctx, DE, sources);
+    auto* mod = ctx.make_module();
+    construct_globals(ctx, DE, *mod, sources);
     resolve_global_names(ctx, DE, *mod);
     return mod;
 }
