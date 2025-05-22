@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
 
@@ -32,16 +33,18 @@ static void print_separated(std::ostream& str, auto const& separator, Rng&& rng,
     }
 }
 
-StructDef::StructDef(Scope* parent_scope, std::string name, ScopeArg scope_arg):
-    StructDef(parent_scope, std::move(name), scope_arg,
+StructDef::StructDef(Facet const* fct, Scope* parent_scope, std::string name,
+                     ScopeArg scope_arg):
+    StructDef(fct, parent_scope, std::move(name), scope_arg,
               std::array<GenericParam, 0>{}) {
-    _canonical_type = std::make_unique<StructType>(this);
+    _canonical_type = std::make_unique<StructType>(facet()->name(), this);
 }
 
-TraitDef::TraitDef(Scope* parent_scope, std::string name, ScopeArg scope_arg):
-    TraitDef(parent_scope, std::move(name), scope_arg,
+TraitDef::TraitDef(Facet const* fct, Scope* parent_scope, std::string name,
+                   ScopeArg scope_arg):
+    TraitDef(fct, parent_scope, std::move(name), scope_arg,
              std::array<GenericParam, 0>{}) {
-    _canonical_trait = std::make_unique<TraitInst>(this);
+    _canonical_trait = std::make_unique<TraitInst>(facet()->name(), this);
 }
 
 std::string StructType::make_name() const {
