@@ -173,12 +173,12 @@ public:
 
     /// The canonical instantiation of this struct, i.e., the defined type. This
     /// is only non-null if this declaration is not generic.
-    StructType* canonical_type() const { return _canonical_type.get(); }
+    StructInst* canonical_type() const { return _canonical_type.get(); }
 
 private:
-    std::unique_ptr<StructType> make_canonical_type();
+    std::unique_ptr<StructInst> make_canonical_type();
 
-    std::unique_ptr<StructType> _canonical_type;
+    std::unique_ptr<StructInst> _canonical_type;
 };
 
 /// User definition of a trait
@@ -231,12 +231,12 @@ private:
 };
 
 /// Instantiation of a possibly generic struct type
-class StructType final: public Type {
+class StructInst final: public Type {
 public:
     template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
-    explicit StructType(Facet const* facet, StructDef* definition,
+    explicit StructInst(Facet const* facet, StructDef* definition,
                         GenArgs&& generic_args = {}):
-        Type(SymbolType::StructType, facet, definition->parent_scope(),
+        Type(SymbolType::StructInst, facet, definition->parent_scope(),
              definition->name(), ScopeArg::None,
              // FIXME: compute correct layout here if possible
              TypeLayout::Incomplete),

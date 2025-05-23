@@ -26,7 +26,7 @@ symbols:
     base: Symbol
     abstract: true
 
-  - name: StructType
+  - name: StructInst
     base: Type
 
   - name: GenTypeParam

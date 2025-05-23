@@ -55,7 +55,7 @@ public:
 
     /// \Returns the uniqued instantiation of the generic struct \p definition
     /// with arguments \p generic_args
-    StructType* get_struct_specialization(
+    StructInst* get_struct_specialization(
         StructDef* definition, std::span<Symbol* const> generic_args);
 
     /// See `get_struct_specialization()`

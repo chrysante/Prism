@@ -65,7 +65,7 @@ struct SemaContext::Impl {
     std::vector<std::unique_ptr<Scope>> scope_bag;
     utl::hashmap<SourceFileFacet const*, SourceContext const*>
         source_context_map;
-    utl::hashmap<StructSpecKey, StructType*> struct_specializations;
+    utl::hashmap<StructSpecKey, StructInst*> struct_specializations;
     utl::hashmap<TraitSpecKey, TraitInst*> trait_specializations;
     Builtins builtins;
 };
@@ -111,11 +111,11 @@ static T get_or_make(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {
     return result;
 }
 
-StructType* SemaContext::get_struct_specialization(
+StructInst* SemaContext::get_struct_specialization(
     StructDef* definition, std::span<Symbol* const> generic_args) {
     return get_or_make(impl->struct_specializations,
                        StructSpecKeyView{ definition, generic_args }, [&] {
-        return make<StructType>(/* facet: */ nullptr, definition, generic_args);
+        return make<StructInst>(/* facet: */ nullptr, definition, generic_args);
     });
 }
 

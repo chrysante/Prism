@@ -49,8 +49,8 @@ SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
            source_context.filepath().string(), scope_arg),
     _source_context(source_context) {}
 
-std::unique_ptr<StructType> StructDef::make_canonical_type() {
-    return std::make_unique<StructType>(facet()->name(), this);
+std::unique_ptr<StructInst> StructDef::make_canonical_type() {
+    return std::make_unique<StructInst>(facet()->name(), this);
 }
 
 std::unique_ptr<TraitInst> TraitDef::make_canonical_trait() {
@@ -62,7 +62,7 @@ static std::string_view name_proj(Symbol const* symbol) {
     return symbol ? symbol->name() : "NULL"sv;
 }
 
-std::string StructType::make_name() const {
+std::string StructInst::make_name() const {
     if (generic_args().empty()) return definition()->name();
     std::stringstream sstr;
     sstr << definition()->name() << "(";
@@ -71,7 +71,7 @@ std::string StructType::make_name() const {
     return std::move(sstr).str();
 }
 
-void StructType::verify() const {
+void StructInst::verify() const {
     PRISM_ASSERT(definition());
     PRISM_ASSERT(generic_args().size() ==
                  definition()->generic_params().size());
