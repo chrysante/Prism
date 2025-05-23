@@ -94,9 +94,9 @@ Symbol* AnaContext::analyze(Facet const* facet) {
     if (!facet) return nullptr;
     auto* sym = visit(*facet, FN1(&, do_analyze(_1)));
     if (auto* struct_def = dyncast<StructDef*>(sym))
-        if (auto* canonical = struct_def->canonical_type()) return canonical;
+        if (auto* canonical = struct_def->canonical()) return canonical;
     if (auto* trait_def = dyncast<TraitDef*>(sym))
-        if (auto* canonical = trait_def->canonical_trait()) return canonical;
+        if (auto* canonical = trait_def->canonical()) return canonical;
     return sym;
 }
 

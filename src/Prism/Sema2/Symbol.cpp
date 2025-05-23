@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include <utl/streammanip.hpp>
+
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
@@ -49,12 +51,34 @@ SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
            source_context.filepath().string(), scope_arg),
     _source_context(source_context) {}
 
-std::unique_ptr<StructInst> StructDef::make_canonical_type() {
-    return std::make_unique<StructInst>(facet()->name(), this);
+StructDef::StructDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
+                     std::string name, ScopeArg scope_arg,
+                     size_t num_generic_params):
+    DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
+               scope_arg, num_generic_params) {
+    if (num_generic_params == 0)
+        set_canonical(ctx.get_struct_specialization(this, {}));
 }
 
-std::unique_ptr<TraitInst> TraitDef::make_canonical_trait() {
-    return std::make_unique<TraitInst>(facet()->name(), this);
+TraitDef::TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
+                   std::string name, ScopeArg scope_arg,
+                   size_t num_generic_params):
+    DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
+               scope_arg, num_generic_params) {
+    if (num_generic_params == 0)
+        set_canonical(ctx.get_trait_specialization(this, {}));
+}
+
+FunctionDef::FunctionDef(SemaContext& ctx, Facet const* facet,
+                         Scope* parent_scope, std::string name,
+                         ScopeArg scope_arg, size_t num_generic_params,
+                         size_t num_arguments):
+    DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
+               scope_arg, num_generic_params),
+    _args(num_arguments) {
+#if 0
+    if (num_generic_params==0) set_canonical(ctx.make<FunctionInst>( !!! ));
+#endif
 }
 
 static std::string_view name_proj(Symbol const* symbol) {
@@ -75,6 +99,26 @@ void StructInst::verify() const {
     PRISM_ASSERT(definition());
     PRISM_ASSERT(generic_args().size() ==
                  definition()->generic_params().size());
+}
+
+static constexpr utl::streammanip Typename = [](std::ostream& str,
+                                                Type const* type) {
+    if (type)
+        str << type->name();
+    else
+        str << "NULL";
+};
+
+std::string FunctionType::make_name(FuncSig const& sig) {
+    std::stringstream sstr;
+    sstr << "fn (";
+    print_separated(sstr, ", ", sig.arguments(), [](FuncArgSpec arg) {
+        return utl::streammanip([=](std::ostream& str) {
+            str << arg.passing_convention() << " " << Typename(arg.type());
+        });
+    });
+    sstr << ") -> " << Typename(sig.return_type());
+    return std::move(sstr).str();
 }
 
 std::string TraitInst::make_name() const {

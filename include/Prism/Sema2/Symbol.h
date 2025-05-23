@@ -9,6 +9,7 @@
 
 #include <Prism/Common/Ranges.h>
 #include <Prism/Facet/FacetFwd.h>
+#include <Prism/Sema2/FuncSig.h>
 #include <Prism/Sema2/SemaFwd.h>
 #include <Prism/Sema2/SymRef.h>
 #include <Prism/Sema2/TypeLayout.h>
@@ -135,16 +136,23 @@ public:
     /// True if this declaration has generic parameters
     bool is_generic() const { return !generic_params().empty(); }
 
+    /// The canonical instantiation of this definition, i.e., the defined
+    /// type/trait/function. This is only non-null if this declaration is not
+    /// generic.
+    Symbol* canonical() const { return _canonical; }
+
 protected:
     DeclSymbol(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
-               std::string name, ScopeArg scope_arg,
-               RangeOf<GenericParam> auto&& gen_params):
+               std::string name, ScopeArg scope_arg, size_t num_generic_params):
         Symbol(sym_type, facet, parent_scope, std::move(name), scope_arg),
-        _generic_params(ranges::begin(gen_params), ranges::end(gen_params)) {}
+        _generic_params(num_generic_params) {}
+
+    void set_canonical(Symbol* canonical) { _canonical = canonical; }
 
 private:
     friend struct NameResolution;
 
+    Symbol* _canonical = nullptr;
     utl::small_vector<GenericParam, 3> _generic_params;
 };
 
@@ -152,64 +160,61 @@ private:
 class StructDef final: public DeclSymbol {
 public:
     /// Constructor for generic definitions
-    template <RangeOf<GenericParam> GenParams>
-    explicit StructDef(Facet const* facet, Scope* parent_scope,
-                       std::string name, ScopeArg scope_arg,
-                       GenParams&& gen_params = {}):
-        DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
-                   scope_arg, std::forward<GenParams>(gen_params)) {
-        if (generic_params().size() == 0)
-            _canonical_type = make_canonical_type();
-    }
-
-    explicit StructDef(Facet const* facet, Scope* parent_scope,
-                       std::string name, ScopeArg scope_arg,
-                       size_t num_generic_params):
-        StructDef(facet, parent_scope, std::move(name), scope_arg,
-                  ranges::views::repeat_n(GenericParam{},
-                                          (ssize_t)num_generic_params)) {}
+    explicit StructDef(SemaContext& ctx, Facet const* facet,
+                       Scope* parent_scope, std::string name,
+                       ScopeArg scope_arg, size_t num_generic_params);
 
     FACET_TYPE(CompTypeDeclFacet)
 
     /// The canonical instantiation of this struct, i.e., the defined type. This
     /// is only non-null if this declaration is not generic.
-    StructInst* canonical_type() const { return _canonical_type.get(); }
-
-private:
-    std::unique_ptr<StructInst> make_canonical_type();
-
-    std::unique_ptr<StructInst> _canonical_type;
+    template <typename SI = StructInst>
+    SI* canonical() const {
+        return cast<SI*>(DeclSymbol::canonical());
+    }
 };
 
 /// User definition of a trait
 class TraitDef final: public DeclSymbol {
 public:
     /// Constructor for generic definitions
-    template <
-        RangeOf<GenericParam> GenParams = ranges::empty_view<GenericParam>>
-    explicit TraitDef(Facet const* facet, Scope* parent_scope, std::string name,
-                      ScopeArg scope_arg, GenParams&& gen_params = {}):
-        DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
-                   scope_arg, std::forward<GenParams>(gen_params)) {
-        if (generic_params().empty()) _canonical_trait = make_canonical_trait();
-    }
-
-    explicit TraitDef(Facet const* facet, Scope* parent_scope, std::string name,
-                      ScopeArg scope_arg, size_t num_generic_params):
-        TraitDef(facet, parent_scope, std::move(name), scope_arg,
-                 ranges::views::repeat_n(GenericParam{},
-                                         (ssize_t)num_generic_params)) {}
+    explicit TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
+                      std::string name, ScopeArg scope_arg,
+                      size_t num_generic_params);
 
     FACET_TYPE(CompTypeDeclFacet)
 
-    /// The canonical instantiation of this struct, i.e., the defined type. This
+    /// The canonical instantiation of this trait, i.e., the defined trait. This
     /// is only non-null if this declaration is not generic.
-    TraitInst* canonical_trait() const { return _canonical_trait.get(); }
+    template <typename TI = TraitInst>
+    TI* canonical() const {
+        return cast<TI*>(DeclSymbol::canonical());
+    }
+};
+
+/// User definition of a function
+class FunctionDef final: public DeclSymbol {
+public:
+    explicit FunctionDef(SemaContext& ctx, Facet const* facet,
+                         Scope* parent_scope, std::string name,
+                         ScopeArg scope_arg, size_t num_generic_params,
+                         size_t num_arguments);
+
+    FACET_TYPE(FuncDeclBaseFacet)
+
+    /// A view over the arguments of this function
+    std::span<FunctionArgument* const> arguments() { return _args; }
+
+    /// \overload
+    std::span<FunctionArgument const* const> arguments() const { return _args; }
+
+    /// The canonical instantiation of this function, i.e., the defined function. This
+    /// is only non-null if this declaration is not generic.
+    template <typename FI = FunctionInst>
+    FI* canonical() const { return cast<FI*>(DeclSymbol::canonical()); }
 
 private:
-    std::unique_ptr<TraitInst> make_canonical_trait();
-
-    std::unique_ptr<TraitInst> _canonical_trait;
+    utl::small_vector<FunctionArgument*> _args;
 };
 
 // MARK: Types
@@ -236,8 +241,8 @@ public:
     template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
     explicit StructInst(Facet const* facet, StructDef* definition,
                         GenArgs&& generic_args = {}):
-        Type(SymbolType::StructInst, facet, definition->parent_scope(),
-             definition->name(), ScopeArg::None,
+        Type(SymbolType::StructInst, facet, definition->parent_scope(), {},
+             ScopeArg::None,
              // FIXME: compute correct layout here if possible
              TypeLayout::Incomplete),
         _definition(definition),
@@ -281,6 +286,25 @@ private:
     Trait const* _trait_bound;
 };
 
+///
+class FunctionType final: public Type {
+public:
+    explicit FunctionType(Scope* parent_scope, FuncSig signature):
+        Type(SymbolType::FunctionType, /* facet: */ nullptr, parent_scope,
+             make_name(signature), ScopeArg::None, TypeLayout::Incomplete),
+        _sig(std::move(signature)) {
+        set_flag(ExcludeFromNameLookup, true);
+    }
+
+    ///
+    FuncSig const& signature() const { return _sig; }
+
+private:
+    static std::string make_name(FuncSig const& signature);
+
+    FuncSig _sig;
+};
+
 // MARK: Traits
 
 /// Base class of all traits
@@ -322,7 +346,7 @@ public:
     TraitDef const* definition() const { return _definition; }
 
     /// The generic arguments of this instantiation. Empty for non-generic
-    /// structs
+    /// traits
     std::span<Symbol* const> generic_args() const { return _generic_args; }
 
 private:
@@ -335,20 +359,37 @@ private:
 
 // MARK: Values
 
+#define VALUE_TYPE(Type)                                                       \
+    template <typename T = Type>                                               \
+    T const* type() const {                                                    \
+        return cast<T const*>(Value::type());                                  \
+    }
+
 /// Base class of all values
 class Value: public Symbol {
 public:
     /// The type of this value
     Type const* type() const { return _type; }
 
+    ///
+    Mutability mutability() const { return _mut; }
+
+    ///
+    ValueCat value_category() const { return _value_cat; }
+
 protected:
     Value(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
-          std::string name, ScopeArg scope_arg, Type const* type):
+          std::string name, ScopeArg scope_arg, Type const* type,
+          Mutability mutability, ValueCat value_category):
         Symbol(sym_type, facet, parent_scope, std::move(name), scope_arg),
-        _type(type) {}
+        _type(type),
+        _mut(mutability),
+        _value_cat(value_category) {}
 
 private:
     Type const* _type;
+    Mutability _mut;
+    ValueCat _value_cat;
 };
 
 /// Non-type generic parameter
@@ -357,8 +398,77 @@ public:
     explicit GenValueParam(Facet const* facet, Scope* parent_scope,
                            std::string name, Type const* type):
         Value(SymbolType::GenValueParam, facet, parent_scope, std::move(name),
-              ScopeArg::None, type) {}
+              ScopeArg::None, type, Mutability::Const, ValueCat::LValue) {}
 };
+
+///
+class FunctionArgument final: public Value {
+public:
+    explicit FunctionArgument(Facet const* facet, Scope* parent_scope,
+                              std::string name, PassingConvention pc,
+                              Type const* type):
+        Value(SymbolType::FunctionArgument, facet, parent_scope,
+              std::move(name), ScopeArg::None, type,
+              pc == PassingConvention::In ? Mutability::Const : Mutability::Mut,
+              ValueCat::LValue),
+        _pc(pc) {}
+
+    ///
+    PassingConvention passing_convention() const { return _pc; }
+
+private:
+    PassingConvention _pc;
+};
+
+// MARK: Functions
+
+/// Base class of all functions
+class Function: public Value {
+public:
+    VALUE_TYPE(FunctionType)
+
+    FuncSig const& signature() const { return type()->signature(); }
+
+protected:
+    Function(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
+             std::string name, FunctionType const* type):
+        Value(sym_type, facet, parent_scope, std::move(name), ScopeArg::None,
+              type, Mutability::Const, ValueCat::LValue) {}
+};
+
+///
+class FunctionInst final: public Function {
+public:
+    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
+    explicit FunctionInst(Facet const* facet, FunctionDef* definition,
+                          GenArgs&& generic_args = {}):
+        Function(SymbolType::FunctionInst, facet, definition->parent_scope(),
+                 definition->name(), nullptr),
+        _definition(definition),
+        _generic_args(ranges::begin(generic_args), ranges::end(generic_args)) {
+        set_flag(ExcludeFromNameLookup, true);
+#if 0
+        set_name(make_name());
+        verify();
+#endif
+    }
+
+    /// The function definition
+    FunctionDef* definition() { return _definition; }
+
+    /// \overload
+    FunctionDef const* definition() const { return _definition; }
+
+    /// The generic arguments of this instantiation. Empty for non-generic
+    /// functions
+    std::span<Symbol* const> generic_args() const { return _generic_args; }
+
+private:
+    FunctionDef* _definition;
+    utl::small_vector<Symbol*, 3> _generic_args;
+};
+
+#undef VALUE_TYPE
 
 } // namespace prism
 

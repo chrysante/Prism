@@ -20,6 +20,9 @@ symbols:
   - name: TraitDef
     base: DeclSymbol
 
+  - name: FunctionDef
+    base: DeclSymbol
+
 # Types
 
   - name: Type
@@ -30,6 +33,9 @@ symbols:
     base: Type
 
   - name: GenTypeParam
+    base: Type
+
+  - name: FunctionType
     base: Type
 
 # Traits
@@ -43,7 +49,7 @@ symbols:
  
   - name: TraitInst
     base: Trait
- 
+    
 # Values
 
   - name: Value
@@ -52,3 +58,15 @@ symbols:
 
   - name: GenValueParam
     base: Value
+
+  - name: FunctionArgument
+    base: Value
+
+# Functions
+
+  - name: Function
+    base: Value
+    abstract: true
+
+  - name: FunctionInst
+    base: Function
