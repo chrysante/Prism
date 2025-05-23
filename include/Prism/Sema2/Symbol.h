@@ -208,12 +208,20 @@ public:
     /// \overload
     std::span<FunctionArgument const* const> arguments() const { return _args; }
 
-    /// The canonical instantiation of this function, i.e., the defined function. This
-    /// is only non-null if this declaration is not generic.
+    ///
+    Type const* return_type() const { return _return_type; }
+
+    /// The canonical instantiation of this function, i.e., the defined
+    /// function. This is only non-null if this declaration is not generic.
     template <typename FI = FunctionInst>
-    FI* canonical() const { return cast<FI*>(DeclSymbol::canonical()); }
+    FI* canonical() const {
+        return cast<FI*>(DeclSymbol::canonical());
+    }
 
 private:
+    friend struct NameResolution;
+
+    Type const* _return_type = nullptr;
     utl::small_vector<FunctionArgument*> _args;
 };
 
@@ -436,21 +444,20 @@ protected:
               type, Mutability::Const, ValueCat::LValue) {}
 };
 
-///
+/// Instantiation of a `FunctionDef`
 class FunctionInst final: public Function {
 public:
     template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
     explicit FunctionInst(Facet const* facet, FunctionDef* definition,
+                          FunctionType const* type,
                           GenArgs&& generic_args = {}):
         Function(SymbolType::FunctionInst, facet, definition->parent_scope(),
-                 definition->name(), nullptr),
+                 definition->name(), type),
         _definition(definition),
         _generic_args(ranges::begin(generic_args), ranges::end(generic_args)) {
         set_flag(ExcludeFromNameLookup, true);
-#if 0
         set_name(make_name());
         verify();
-#endif
     }
 
     /// The function definition
@@ -464,6 +471,9 @@ public:
     std::span<Symbol* const> generic_args() const { return _generic_args; }
 
 private:
+    std::string make_name() const;
+    void verify() const;
+
     FunctionDef* _definition;
     utl::small_vector<Symbol*, 3> _generic_args;
 };

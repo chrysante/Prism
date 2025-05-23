@@ -28,6 +28,10 @@ static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
                               Module& mod,
                               std::span<SourceFilePair const> sources);
 
+static size_t get_num_gen_params(GenParamListFacet const* gen_params) {
+    return gen_params ? gen_params->elems().size() : 0;
+}
+
 namespace {
 
 struct GlobalConstruction {
@@ -51,22 +55,27 @@ struct GlobalConstruction {
 
     void do_construct(CompTypeDeclFacet const& facet, Scope* parent_scope) {
         std::string name = get_name(facet.name(), source_context);
-        size_t num_generic_params = [&]() -> size_t {
-            if (auto* params = facet.genParams()) return params->elems().size();
-            return 0;
-        }();
+        size_t num_gen_params = get_num_gen_params(facet.genParams());
         switch (facet.declarator().kind) {
         case TokenKind::Struct:
             ctx.make<StructDef>(&facet, parent_scope, std::move(name),
-                                ScopeArg::make(ctx), num_generic_params);
+                                ScopeArg::make(ctx), num_gen_params);
             break;
         case TokenKind::Trait:
             ctx.make<TraitDef>(&facet, parent_scope, std::move(name),
-                               ScopeArg::make(ctx), num_generic_params);
+                               ScopeArg::make(ctx), num_gen_params);
             break;
         default:
             PRISM_UNREACHABLE();
         }
+    }
+
+    void do_construct(FuncDeclBaseFacet const& facet, Scope* parent_scope) {
+        std::string name = get_name(facet.name(), source_context);
+        size_t num_gen_params = get_num_gen_params(facet.genParams());
+        size_t num_args = facet.params() ? facet.params()->elems().size() : 0;
+        ctx.make<FunctionDef>(&facet, parent_scope, std::move(name),
+                              ScopeArg::make(ctx), num_gen_params, num_args);
     }
 };
 
@@ -146,7 +155,69 @@ struct NameResolution: AnalysisContext {
             trait_def._generic_params = std::move(gen_params);
     }
 
+    FunctionArgument* resolve_func_arg(ParamDeclFacet const* facet,
+                                       FunctionDef& func_def) {
+        if (!facet) return nullptr;
+        return visit(*facet, FN1(&, do_resolve_func_arg(_1, func_def)));
+    }
+
+    FunctionArgument* do_resolve_func_arg(ThisParamDeclFacet const& facet,
+                                          FunctionDef& func_def) {
+        PRISM_UNIMPLEMENTED();
+    }
+
+    FunctionArgument* do_resolve_func_arg(NamedParamDeclFacet const& facet,
+                                          FunctionDef& func_def) {
+        std::string name = get_name(facet.nameFacet(), *source_context);
+        PassingConvention passing_conv = [&] {
+            if (!facet.passingConventionFacet()) return PassingConvention::In;
+            switch (facet.passingConvention().kind) {
+            case TokenKind::In:
+                return PassingConvention::In;
+            case TokenKind::Inout:
+                return PassingConvention::Inout;
+            case TokenKind::Sink:
+                return PassingConvention::Sink;
+            default:
+                PRISM_UNREACHABLE();
+            }
+        }();
+        Type const* type =
+            analyze_facet_as<Type>(*this, func_def.scope(), facet.typespec());
+        return ctx.make<FunctionArgument>(&facet, func_def.scope(),
+                                          std::move(name), passing_conv, type);
+    }
+
+    utl::small_vector<FunctionArgument*> resolve_func_args(
+        FunctionDef& func_def) {
+        auto* params_facet = func_def.facet()->params();
+        if (!params_facet) return {};
+        return params_facet->elems() |
+               transform(FN1(&, resolve_func_arg(_1, func_def))) |
+               ToSmallVector<>;
+    }
+
+    Type const* resolve_return_type(FunctionDef& func_def) {
+        if (!func_def.facet()->retType())
+            PRISM_UNIMPLEMENTED(); // return ctx.get_void_type();
+        return analyze_facet_as<Type>(*this, func_def.scope(),
+                                      func_def.facet()->retType());
+    }
+
+    void do_resolve(FunctionDef& func_def) {
+        auto gen_params = resolve_gen_params(func_def);
+        PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
+        if (!gen_params.empty())
+            func_def._generic_params = std::move(gen_params);
+        func_def._args = resolve_func_args(func_def);
+        func_def._return_type = resolve_return_type(func_def);
+        if (gen_params.empty())
+            func_def.set_canonical(
+                ctx.get_function_instantiation(&func_def, {}));
+    }
+
     void do_resolve(Type const&) {}
+
     void do_resolve(Trait const&) {}
 };
 

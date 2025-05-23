@@ -9,9 +9,9 @@ struct [T: MyTrait(Int32)] Generic {
 
 }
 
+fn [SomeType: type] foo(arg: SomeType) -> SomeType {}
 
-
-
+fn foo(arg: Int32) -> Int32 {}
 
 //impl core.function(fn (i32, i32) -> i32) for S {}
 //

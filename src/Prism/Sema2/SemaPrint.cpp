@@ -81,8 +81,8 @@ struct Print2Ctx {
         str << ": " << NameStyle(param.trait_bound());
     }
 
-    void writeHeader(GenValueParam const& param) {
-        str << ": " << NameStyle(param.type());
+    void writeHeader(Value const& value) {
+        str << ": " << NameStyle(value.type());
     }
 
     void writeDetails(Symbol const&) {}

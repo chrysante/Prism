@@ -57,7 +57,7 @@ StructDef::StructDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
     DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
                scope_arg, num_generic_params) {
     if (num_generic_params == 0)
-        set_canonical(ctx.get_struct_specialization(this, {}));
+        set_canonical(ctx.get_struct_instantiation(this, {}));
 }
 
 TraitDef::TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
@@ -66,14 +66,14 @@ TraitDef::TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
     DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
                scope_arg, num_generic_params) {
     if (num_generic_params == 0)
-        set_canonical(ctx.get_trait_specialization(this, {}));
+        set_canonical(ctx.get_trait_instantiation(this, {}));
 }
 
 FunctionDef::FunctionDef(SemaContext& ctx, Facet const* facet,
                          Scope* parent_scope, std::string name,
                          ScopeArg scope_arg, size_t num_generic_params,
                          size_t num_arguments):
-    DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
+    DeclSymbol(SymbolType::FunctionDef, facet, parent_scope, std::move(name),
                scope_arg, num_generic_params),
     _args(num_arguments) {
 #if 0
@@ -131,6 +131,21 @@ std::string TraitInst::make_name() const {
 }
 
 void TraitInst::verify() const {
+    PRISM_ASSERT(definition());
+    PRISM_ASSERT(generic_args().size() ==
+                 definition()->generic_params().size());
+}
+
+std::string FunctionInst::make_name() const {
+    if (generic_args().empty()) return definition()->name();
+    std::stringstream sstr;
+    sstr << definition()->name() << "[";
+    print_separated(sstr, ", ", generic_args(), name_proj);
+    sstr << "](...)";
+    return std::move(sstr).str();
+}
+
+void FunctionInst::verify() const {
     PRISM_ASSERT(definition());
     PRISM_ASSERT(generic_args().size() ==
                  definition()->generic_params().size());

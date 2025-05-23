@@ -16,6 +16,7 @@ namespace prism {
 class SourceContext;
 class Facet;
 class SourceFileFacet;
+class FuncSig;
 
 /// Context class that owns and uniques most symbols
 class SemaContext {
@@ -55,12 +56,19 @@ public:
 
     /// \Returns the uniqued instantiation of the generic struct \p definition
     /// with arguments \p generic_args
-    StructInst* get_struct_specialization(
-        StructDef* definition, std::span<Symbol* const> generic_args);
+    StructInst* get_struct_instantiation(StructDef* definition,
+                                         std::span<Symbol* const> generic_args);
 
-    /// See `get_struct_specialization()`
-    TraitInst* get_trait_specialization(TraitDef* definition,
-                                        std::span<Symbol* const> generic_args);
+    /// See `get_struct_instantiation()`
+    TraitInst* get_trait_instantiation(TraitDef* definition,
+                                       std::span<Symbol* const> generic_args);
+
+    /// See `get_struct_instantiation()`
+    FunctionInst* get_function_instantiation(
+        FunctionDef* definition, std::span<Symbol* const> generic_args);
+
+    /// The function type instance with \p signature
+    FunctionType const* get_function_type(FuncSig const& signature);
 
     /// # Builtins
 
@@ -75,7 +83,7 @@ private:
 
     struct Impl;
 
-    utl::local_pimpl<Impl, 296> impl;
+    utl::local_pimpl<Impl, 512> impl;
 };
 
 } // namespace prism

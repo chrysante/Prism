@@ -211,8 +211,8 @@ Symbol* AnaContext::do_analyze(CallFacet const& call) {
                 ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
     if (auto* struct_def = dyncast<StructDef*>(callee))
-        return ctx.get_struct_specialization(struct_def, args);
+        return ctx.get_struct_instantiation(struct_def, args);
     if (auto* trait_def = dyncast<TraitDef*>(callee))
-        return ctx.get_trait_specialization(trait_def, args);
+        return ctx.get_trait_instantiation(trait_def, args);
     PRISM_UNIMPLEMENTED();
 }
