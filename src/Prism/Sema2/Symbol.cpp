@@ -149,6 +149,12 @@ void Value::unregister_user(User* user) {
     if (--itr->second == 0) _users.erase(itr);
 }
 
+IntLiteral::IntLiteral(Facet const* facet, APInt value, Type const* type):
+    Constant(SymbolType::IntLiteral, facet, /* parent_scope: */ nullptr,
+             /* name: */ {}, ScopeArg::None, type, Mutability::Const,
+             ValueCat::RValue),
+    _value(std::move(value)) {}
+
 User::~User() {
     for (auto* op: _operands)
         if (op) op->unregister_user(this);

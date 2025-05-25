@@ -24,6 +24,7 @@ using ranges::views::zip;
 namespace {
 
 struct AnaContext: AnalysisContext {
+    InstructionEmitter& inst_emitter;
     Scope* scope;
 
     Symbol* analyze(Facet const* facet);
@@ -49,9 +50,7 @@ struct AnaContext: AnalysisContext {
 
     Symbol* do_analyze(Facet const&) { PRISM_UNREACHABLE(); }
     Symbol* analyze_identifier(TerminalFacet const& id);
-#if 0
     IntLiteral* analyze_int_literal(TerminalFacet const& term, int base);
-#endif
     Symbol* do_analyze(TerminalFacet const& term);
     Symbol* do_analyze(BinaryFacet const& binary);
     Symbol* do_analyze_scope_resolution(BinaryFacet const& binary);
@@ -85,18 +84,17 @@ void detail::push_bad_sym_ref(AnalysisContext const& context,
 #endif
 }
 
-Symbol* prism::analyze_facet(AnalysisContext const& context, Scope* scope,
+Symbol* prism::analyze_facet(AnalysisContext const& context,
+                             InstructionEmitter& inst_emitter, Scope* scope,
                              Facet const* facet) {
-    return AnaContext{ context, scope }.analyze(facet);
+    return AnaContext{ context, inst_emitter, scope }.analyze(facet);
 }
 
 Symbol* AnaContext::analyze(Facet const* facet) {
     if (!facet) return nullptr;
     auto* sym = visit(*facet, FN1(&, do_analyze(_1)));
-    if (auto* struct_def = dyncast<StructDef*>(sym))
-        if (auto* canonical = struct_def->canonical()) return canonical;
-    if (auto* trait_def = dyncast<TraitDef*>(sym))
-        if (auto* canonical = trait_def->canonical()) return canonical;
+    if (auto* decl = dyncast<DeclSymbol*>(sym))
+        if (auto* canonical = decl->canonical()) return canonical;
     return sym;
 }
 
@@ -132,14 +130,12 @@ Symbol* AnaContext::do_analyze(TerminalFacet const& term) {
         return ctx.get_f64_type();
     case TokenKind::Identifier:
         return analyze_identifier(term);
-#if 0
     case TokenKind::IntLiteralBin:
         return analyze_int_literal(term, 2);
     case TokenKind::IntLiteralDec:
         return analyze_int_literal(term, 10);
     case TokenKind::IntLiteralHex:
         return analyze_int_literal(term, 16);
-#endif
     default:
         PRISM_UNREACHABLE();
     }
@@ -215,15 +211,13 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
     }); // clang-format on
 }
 
-#if 0
-IntLiteral* AnaContext::analyze_int_literal(TerminalFacet const& term, int base) {
-    PRISM_UNIMPLEMENTED();
-    auto str = sourceContext->getTokenStr(term.token());
-    auto value = APInt::parse(str, base, 32);
-    if (!value) PRISM_UNIMPLEMENTED();
-    return ctx.make<IntLiteral>(&term, *std::move(value), ctx.getInt32());
+IntLiteral* AnaContext::analyze_int_literal(TerminalFacet const& term,
+                                            int base) {
+    auto str = source_context->getTokenStr(term.token());
+    auto value = APInt::parse(str, base, 32); // 32 for now
+    if (!value) PRISM_UNIMPLEMENTED();        // TODO: Emit error
+    return ctx.get_int_literal(&term, *std::move(value), /* is_signed: */ true);
 }
-#endif
 
 Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
     auto* operand = analyze(prefix.operand());
@@ -231,14 +225,36 @@ Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
     PRISM_UNIMPLEMENTED();
 }
 
-Symbol* AnaContext::do_analyze(CallFacet const& call) {
-    auto* callee = analyze(call.callee());
-    auto args = call.arguments()->elems() | transform(FN1(&, analyze(_1))) |
-                ToSmallVector<>;
+Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
+    auto* callee = analyze(call_facet.callee());
+    auto args = call_facet.arguments()->elems() |
+                transform(FN1(&, analyze(_1))) | ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
     if (auto* struct_def = dyncast<StructDef*>(callee))
         return ctx.get_struct_instantiation(struct_def, args);
     if (auto* trait_def = dyncast<TraitDef*>(callee))
         return ctx.get_trait_instantiation(trait_def, args);
+    if (auto* function = dyncast<Function*>(callee)) {
+        if (function->arguments().size() != args.size()) PRISM_UNIMPLEMENTED();
+        if (!ranges::all_of(args, isa<Value>)) PRISM_UNIMPLEMENTED();
+        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
+        for (auto [arg_spec, arg]: zip(function->arguments(), value_args)) {
+            if (arg_spec.type() != arg->type()) PRISM_UNIMPLEMENTED();
+            switch (arg_spec.passing_convention()) {
+            case PassingConvention::In:
+                break;
+            case PassingConvention::Inout:
+                if (arg->is_const()) PRISM_UNIMPLEMENTED();
+                break;
+            case PassingConvention::Sink:
+                break;
+            }
+        }
+        auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
+                                             /* name: */ std::string{},
+                                             function, value_args);
+        inst_emitter.emit_instruction(call_inst);
+        return call_inst;
+    }
     PRISM_UNIMPLEMENTED();
 }

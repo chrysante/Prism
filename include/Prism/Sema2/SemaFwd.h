@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include <APMath/APInt.h>
 #include <utl/ptr_union.hpp>
 
 #include <Prism/Common/EnumUtil.h>
@@ -15,6 +16,8 @@ class SemaContext;
 
 class GenValueParam;
 using GenericParam = utl::ptr_union<GenTypeParam*, GenValueParam*>;
+
+using APMath::APInt;
 
 ///
 enum class PassingConvention : uint8_t { In, Inout, Sink };

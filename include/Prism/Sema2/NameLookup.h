@@ -12,9 +12,7 @@
 namespace prism {
 
 class Scope;
-
-// FIXME: Delete this
-class Function;
+class NameLookupResult;
 
 /// Argument structure for `unqualified_lookup()`
 struct NameLookupOptions {
@@ -24,8 +22,8 @@ struct NameLookupOptions {
 };
 
 /// Performs unqualified name lookup in \p scope
-class NameLookupResult unqualified_lookup(Scope* scope, std::string_view name,
-                                          NameLookupOptions options = {});
+NameLookupResult unqualified_lookup(Scope* scope, std::string_view name,
+                                    NameLookupOptions options = {});
 
 namespace detail {
 
@@ -37,10 +35,13 @@ struct SimilarName {
 
 /// Result structure for unqualified name
 class NameLookupResult {
-    using OverloadSet = utl::small_vector<Function*>;
-    using AmbiSet = utl::small_vector<Symbol*>;
-
 public:
+    struct OverloadSet: utl::small_vector<Symbol*> {
+        using small_vector::small_vector;
+    };
+    struct AmbiSet: utl::small_vector<Symbol*> {
+        using small_vector::small_vector;
+    };
     using None = std::monostate;
     using Similar = detail::SimilarName;
 
@@ -64,7 +65,7 @@ public:
 
     bool is_overload_set() const { return is<OverloadSet>(); }
 
-    std::span<Function* const> overload_set() const {
+    std::span<Symbol* const> overload_set() const {
         if (is_overload_set()) return get<OverloadSet>();
         return {};
     }
@@ -86,12 +87,13 @@ public:
         return !is_none() && !is_similar() && !is_ambiguous();
     }
 
-    template <typename Vis, typename R = std::common_reference_t<
-                                std::invoke_result_t<Vis, None>,
-                                std::invoke_result_t<Vis, Symbol*>,
-                                std::invoke_result_t<Vis, OverloadSet>,
-                                std::invoke_result_t<Vis, AmbiSet>,
-                                std::invoke_result_t<Vis, Similar>>>
+    template <typename Vis>
+    using VisitReturnType = std::common_reference_t<
+        std::invoke_result_t<Vis, None>, std::invoke_result_t<Vis, Symbol*>,
+        std::invoke_result_t<Vis, OverloadSet>,
+        std::invoke_result_t<Vis, AmbiSet>, std::invoke_result_t<Vis, Similar>>;
+
+    template <typename Vis, typename R = VisitReturnType<Vis>>
     R visit(Vis&& vis) const {
         return std::visit(vis, data);
     }

@@ -68,11 +68,20 @@ symbols:
 
   - name: FunctionArgument
     base: Value
+    
+# Constants
+    
+  - name: Constant
+    base: Value
+    abstract: true
+
+  - name: IntLiteral
+    base: Constant
 
 # Functions
 
   - name: Function
-    base: Value
+    base: Constant
     abstract: true
 
   - name: FunctionInst

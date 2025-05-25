@@ -12,6 +12,7 @@ namespace prism {
 class Facet;
 class AnalysisContext;
 class Scope;
+class InstructionEmitter;
 
 namespace detail {
 
@@ -26,19 +27,29 @@ S* verify_symbol_type(AnalysisContext const&, Facet const*, Symbol*);
 /// Resulting diagnostics are emitted to the diagnostic emitter of \p context
 ///
 /// \param context The analysis context
+/// \param inst_emitter Interface used to emit instructions
 /// \param scope The lexical scope in which this facet appears
 /// \param facet The parse tree node to analyze
-Symbol* analyze_facet(AnalysisContext const& context, Scope* scope,
+Symbol* analyze_facet(AnalysisContext const& context,
+                      InstructionEmitter& inst_emitter, Scope* scope,
                       Facet const* facet);
 
 /// Analyzes the parse tree facet by calling `analyzeFacet()` and verifies that
 /// is has symbol type \p S
 template <std::derived_from<Symbol> S>
-S* analyze_facet_as(AnalysisContext const& context, Scope* scope,
+S* analyze_facet_as(AnalysisContext const& context,
+                    InstructionEmitter& inst_emitter, Scope* scope,
                     Facet const* facet) {
-    auto* symbol = analyze_facet(context, scope, facet);
+    auto* symbol = analyze_facet(context, inst_emitter, scope, facet);
     return detail::verify_symbol_type<S>(context, facet, symbol);
 }
+
+/// Interface used by `analyze_facet()` to emit instructions
+class InstructionEmitter {
+public:
+    virtual ~InstructionEmitter() = default;
+    virtual void emit_instruction(Instruction* inst) = 0;
+};
 
 namespace detail {
 

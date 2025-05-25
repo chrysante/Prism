@@ -91,6 +91,7 @@ struct SemaContext::Impl {
     utl::hashmap<TraitInstKey, TraitInst*> trait_instantiations;
     utl::hashmap<FuncInstKey, FunctionInst*> function_instantiations;
     utl::hashmap<FuncSig, FunctionType*> function_types;
+    utl::hashmap<Facet const*, IntLiteral*> int_literals;
     Builtins builtins;
 };
 
@@ -206,6 +207,32 @@ FunctionInst* SemaContext::get_function_instantiation(
 FunctionType const* SemaContext::get_function_type(FuncSig const& signature) {
     return get_or_make(impl->function_types, signature, [&] {
         return make<FunctionType>(impl->mod->scope(), signature);
+    });
+}
+
+static BuiltinType const* get_int_literal_type(SemaContext const& ctx,
+                                               size_t bitwidth,
+                                               bool is_signed) {
+    switch (bitwidth) {
+    case 8:
+        return is_signed ? ctx.get_i8_type() : ctx.get_u8_type();
+    case 16:
+        return is_signed ? ctx.get_i16_type() : ctx.get_u16_type();
+    case 32:
+        return is_signed ? ctx.get_i32_type() : ctx.get_u32_type();
+    case 64:
+        return is_signed ? ctx.get_i64_type() : ctx.get_u64_type();
+    default:
+        PRISM_UNREACHABLE();
+    }
+}
+
+IntLiteral* SemaContext::get_int_literal(Facet const* facet, APInt value,
+                                         bool is_signed) {
+    return get_or_make(impl->int_literals, facet, [&] {
+        size_t bitwidth = value.bitwidth();
+        auto* type = get_int_literal_type(*this, bitwidth, is_signed);
+        return make<IntLiteral>(facet, std::move(value), type);
     });
 }
 

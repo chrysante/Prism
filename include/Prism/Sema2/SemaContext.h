@@ -70,6 +70,11 @@ public:
     /// The function type instance with \p signature
     FunctionType const* get_function_type(FuncSig const& signature);
 
+    /// The integer literal with value \p value
+    /// Uniqued for each facet
+    IntLiteral* get_int_literal(Facet const* facet, APInt value,
+                                bool is_signed);
+
     /// # Builtins
 
     /// \Returns the `type` trait, i.e., the trait matching all types

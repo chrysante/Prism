@@ -10,9 +10,13 @@
 #include "Prism/Sema2/Symbol.h"
 
 using namespace prism;
+
 using ranges::views::filter;
 using ranges::views::join;
 using ranges::views::transform;
+
+using OverloadSet = NameLookupResult::OverloadSet;
+using AmbiSet = NameLookupResult::AmbiSet;
 
 static NameLookupResult lookup_similar(Scope* scope, std::string_view name) {
     while (scope) {
@@ -31,6 +35,10 @@ static NameLookupResult lookup_similar(Scope* scope, std::string_view name) {
     return {};
 }
 
+static bool is_function_like(Symbol* sym) {
+    return isa<Function>(sym) || isa<FunctionDef>(sym);
+}
+
 namespace {
 
 struct LookupContext {
@@ -45,10 +53,8 @@ struct LookupContext {
             symbols.insert(symbols.end(), scope_symbols.begin(),
                            scope_symbols.end());
             if (symbols.size() == 1) return symbols.front();
-#if 0
-            if (!symbols.empty() && ranges::none_of(symbols, isa<Function>))
-                return symbols;
-#endif
+            if (!symbols.empty() && ranges::none_of(symbols, is_function_like))
+                return AmbiSet{ std::move(symbols) };
             current_scope = current_scope->parent_scope();
         }
         if (symbols.empty()) {
@@ -58,23 +64,20 @@ struct LookupContext {
                 return {};
         }
         // Overload set
-#if 0
-        if (ranges::all_of(symbols, isa<Function>))
-            return symbols | transform(cast<Function*>) |
-                   ranges::to<utl::small_vector<Function*>>;
-#endif
+        if (ranges::all_of(symbols, is_function_like))
+            return symbols | ranges::to<OverloadSet>;
         // Ambiguous
-        return symbols;
+        return AmbiSet{ std::move(symbols) };
     }
 
     utl::small_vector<Symbol*> search_scope(Scope* scope) {
         auto scope_symbols = scope->symbols_by_name(name) | ToSmallVector<>;
-#if 0
-        if (scope_symbols.empty()) return searchBases(scope);
+#if 0 // Search base classes
+        if (scope_symbols.empty()) return search_bases(scope);
         if (ranges::any_of(scope_symbols, isa<Function>)) {
-            auto baseSymbols = searchBases(scope);
-            scope_symbols.insert(scope_symbols.end(), baseSymbols.begin(),
-                                baseSymbols.end());
+            auto base_symbols = search_bases(scope);
+            scope_symbols.insert(scope_symbols.end(), base_symbols.begin(),
+                                 base_symbols.end());
             return scope_symbols;
         }
 #endif
@@ -82,7 +85,7 @@ struct LookupContext {
     }
 
 #if 0
-    utl::small_vector<Symbol*> searchBases(Scope* scope) {
+    utl::small_vector<Symbol*> search_bases(Scope* scope) {
         auto* sym = scope->defining_symbol();
         if (!sym) return {};
         utl::small_vector<Symbol*> bases;

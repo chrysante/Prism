@@ -393,6 +393,12 @@ public:
     ///
     Mutability mutability() const { return _mut; }
 
+    /// Shorthand for `mutability() == Mutability::Mut`
+    bool is_mutable() const { return mutability() == Mutability::Mut; }
+
+    /// Shorthand for `mutability() == Mutability::Const`
+    bool is_const() const { return mutability() == Mutability::Const; }
+
     ///
     ValueCat value_category() const { return _value_cat; }
 
@@ -511,10 +517,29 @@ private:
     PassingConvention _pc;
 };
 
+// MARK: Constants
+
+/// Base class of constant values
+class Constant: public Value {
+protected:
+    using Value::Value;
+};
+
+///
+class IntLiteral: public Constant {
+public:
+    explicit IntLiteral(Facet const* facet, APInt value, Type const* type);
+
+    APInt const& value() const { return _value; }
+
+private:
+    APInt _value;
+};
+
 // MARK: Functions
 
 /// Base class of all functions
-class Function: public Value {
+class Function: public Constant {
 public:
     VALUE_TYPE(FunctionType)
 
@@ -532,8 +557,8 @@ public:
 protected:
     Function(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
              std::string name, FunctionType const* type):
-        Value(sym_type, facet, parent_scope, std::move(name), ScopeArg::None,
-              type, Mutability::Const, ValueCat::LValue) {}
+        Constant(sym_type, facet, parent_scope, std::move(name), ScopeArg::None,
+                 type, Mutability::Const, ValueCat::LValue) {}
 };
 
 /// Instantiation of a `FunctionDef`

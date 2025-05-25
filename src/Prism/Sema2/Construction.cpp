@@ -106,7 +106,22 @@ static void resolve_global_names(SemaContext& ctx, DiagnosticEmitter& DE,
 
 namespace prism {
 
+struct TrappingInstEmitter final: InstructionEmitter {
+    void emit_instruction(Instruction*) override { PRISM_UNREACHABLE(); }
+};
+
 struct NameResolution: AnalysisContext {
+    Symbol* analyze_facet(Scope* scope, Facet const* facet) {
+        TrappingInstEmitter inst_emitter;
+        return prism::analyze_facet(*this, inst_emitter, scope, facet);
+    }
+
+    template <std::derived_from<Symbol> S>
+    S* analyze_facet_as(Scope* scope, Facet const* facet) {
+        TrappingInstEmitter inst_emitter;
+        return prism::analyze_facet_as<S>(*this, inst_emitter, scope, facet);
+    }
+
     void resolve(Symbol& symbol) { visit(symbol, FN1(&, do_resolve(_1))); }
 
     void do_resolve(Symbol&) { PRISM_UNREACHABLE(); }
@@ -128,7 +143,7 @@ struct NameResolution: AnalysisContext {
                                    DeclSymbol& decl) {
         std::string name = get_name(facet.nameFacet(), *source_context);
         auto* req_symbol =
-            analyze_facet(*this, decl.parent_scope(), facet.requirements());
+            analyze_facet(decl.parent_scope(), facet.requirements());
         if (auto* trait = dyncast<Trait*>(req_symbol))
             return ctx.make<GenTypeParam>(&facet, decl.scope(), std::move(name),
                                           trait);
@@ -191,7 +206,7 @@ struct NameResolution: AnalysisContext {
             }
         }();
         Type const* type =
-            analyze_facet_as<Type>(*this, func_def.scope(), facet.typespec());
+            analyze_facet_as<Type>(func_def.scope(), facet.typespec());
         return ctx.make<FunctionArgument>(&facet, func_def.scope(),
                                           std::move(name), passing_conv, type);
     }
@@ -207,7 +222,7 @@ struct NameResolution: AnalysisContext {
 
     Type const* resolve_return_type(FunctionDef& func_def) {
         if (!func_def.facet()->retType()) return ctx.get_void_type();
-        return analyze_facet_as<Type>(*this, func_def.scope(),
+        return analyze_facet_as<Type>(func_def.scope(),
                                       func_def.facet()->retType());
     }
 
