@@ -243,6 +243,15 @@ private:
     TypeLayout _layout;
 };
 
+/// Class of all builtin types like `void`, `bool`, `byte`, `iN`, `uN`, `fN`
+class BuiltinType final: public Type {
+public:
+    explicit BuiltinType(Scope* parent_scope, std::string name,
+                         ScopeArg scope_arg, TypeLayout layout):
+        Type(SymbolType::BuiltinType, /* facet: */ nullptr, parent_scope,
+             std::move(name), scope_arg, layout) {}
+};
+
 /// Instantiation of a possibly generic struct type
 class StructInst final: public Type {
 public:

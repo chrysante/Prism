@@ -29,6 +29,9 @@ symbols:
     base: Symbol
     abstract: true
 
+  - name: BuiltinType
+    base: Type
+
   - name: StructInst
     base: Type
 

@@ -20,6 +20,19 @@ namespace {
 
 struct Builtins {
     BuiltinTrait* type_trait = nullptr;
+    BuiltinType* void_type = nullptr;
+    BuiltinType* bool_type = nullptr;
+    BuiltinType* byte_type = nullptr;
+    BuiltinType* i8_type = nullptr;
+    BuiltinType* i16_type = nullptr;
+    BuiltinType* i32_type = nullptr;
+    BuiltinType* i64_type = nullptr;
+    BuiltinType* u8_type = nullptr;
+    BuiltinType* u16_type = nullptr;
+    BuiltinType* u32_type = nullptr;
+    BuiltinType* u64_type = nullptr;
+    BuiltinType* f32_type = nullptr;
+    BuiltinType* f64_type = nullptr;
 };
 
 template <typename Def, typename ArgsContainer>
@@ -85,11 +98,43 @@ SemaContext::SemaContext() = default;
 
 SemaContext::~SemaContext() = default;
 
+static Builtins make_builtins(SemaContext& ctx, Scope* parent_scope) {
+    return {
+        .type_trait =
+            ctx.make<BuiltinTrait>(parent_scope, "type", ScopeArg::make(ctx)),
+        .void_type = ctx.make<BuiltinType>(parent_scope, "void",
+                                           ScopeArg::make(ctx), TypeLayout(0)),
+        .bool_type = ctx.make<BuiltinType>(parent_scope, "bool",
+                                           ScopeArg::make(ctx), TypeLayout(1)),
+        .byte_type = ctx.make<BuiltinType>(parent_scope, "byte",
+                                           ScopeArg::make(ctx), TypeLayout(1)),
+        .i8_type = ctx.make<BuiltinType>(parent_scope, "i8",
+                                         ScopeArg::make(ctx), TypeLayout(1)),
+        .i16_type = ctx.make<BuiltinType>(parent_scope, "i16",
+                                          ScopeArg::make(ctx), TypeLayout(2)),
+        .i32_type = ctx.make<BuiltinType>(parent_scope, "i32",
+                                          ScopeArg::make(ctx), TypeLayout(4)),
+        .i64_type = ctx.make<BuiltinType>(parent_scope, "i64",
+                                          ScopeArg::make(ctx), TypeLayout(8)),
+        .u8_type = ctx.make<BuiltinType>(parent_scope, "u8",
+                                         ScopeArg::make(ctx), TypeLayout(1)),
+        .u16_type = ctx.make<BuiltinType>(parent_scope, "u16",
+                                          ScopeArg::make(ctx), TypeLayout(2)),
+        .u32_type = ctx.make<BuiltinType>(parent_scope, "u32",
+                                          ScopeArg::make(ctx), TypeLayout(4)),
+        .u64_type = ctx.make<BuiltinType>(parent_scope, "u64",
+                                          ScopeArg::make(ctx), TypeLayout(8)),
+        .f32_type = ctx.make<BuiltinType>(parent_scope, "f32",
+                                          ScopeArg::make(ctx), TypeLayout(4)),
+        .f64_type = ctx.make<BuiltinType>(parent_scope, "f64",
+                                          ScopeArg::make(ctx), TypeLayout(8))
+    };
+}
+
 Module* SemaContext::make_module() {
     PRISM_ASSERT(impl->mod == nullptr, "make_module() has been called before");
     auto* mod = impl->mod = make<Module>();
-    impl->builtins.type_trait =
-        make<BuiltinTrait>(mod->scope(), "type", ScopeArg::make(*this));
+    impl->builtins = make_builtins(*this, mod->scope());
     return mod;
 }
 
@@ -166,6 +211,41 @@ FunctionType const* SemaContext::get_function_type(FuncSig const& signature) {
 
 BuiltinTrait* SemaContext::get_type_trait() const {
     return impl->builtins.type_trait;
+}
+BuiltinType* SemaContext::get_void_type() const {
+    return impl->builtins.void_type;
+}
+BuiltinType* SemaContext::get_bool_type() const {
+    return impl->builtins.bool_type;
+}
+BuiltinType* SemaContext::get_byte_type() const {
+    return impl->builtins.byte_type;
+}
+BuiltinType* SemaContext::get_i8_type() const { return impl->builtins.i8_type; }
+BuiltinType* SemaContext::get_i16_type() const {
+    return impl->builtins.i16_type;
+}
+BuiltinType* SemaContext::get_i32_type() const {
+    return impl->builtins.i32_type;
+}
+BuiltinType* SemaContext::get_i64_type() const {
+    return impl->builtins.i64_type;
+}
+BuiltinType* SemaContext::get_u8_type() const { return impl->builtins.u8_type; }
+BuiltinType* SemaContext::get_u16_type() const {
+    return impl->builtins.u16_type;
+}
+BuiltinType* SemaContext::get_u32_type() const {
+    return impl->builtins.u32_type;
+}
+BuiltinType* SemaContext::get_u64_type() const {
+    return impl->builtins.u64_type;
+}
+BuiltinType* SemaContext::get_f32_type() const {
+    return impl->builtins.f32_type;
+}
+BuiltinType* SemaContext::get_f64_type() const {
+    return impl->builtins.f64_type;
 }
 
 Symbol* SemaContext::add_symbol(csp::unique_ptr<Symbol> sym) {

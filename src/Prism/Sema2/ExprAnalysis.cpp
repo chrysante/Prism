@@ -104,6 +104,32 @@ Symbol* AnaContext::do_analyze(TerminalFacet const& term) {
     switch (term.token().kind) {
     case TokenKind::Type:
         return ctx.get_type_trait();
+    case TokenKind::Void:
+        return ctx.get_void_type();
+    case TokenKind::Byte:
+        return ctx.get_byte_type();
+    case TokenKind::Bool:
+        return ctx.get_bool_type();
+    case TokenKind::Int8:
+        return ctx.get_i8_type();
+    case TokenKind::Int16:
+        return ctx.get_i16_type();
+    case TokenKind::Int32:
+        return ctx.get_i32_type();
+    case TokenKind::Int64:
+        return ctx.get_i64_type();
+    case TokenKind::UInt8:
+        return ctx.get_u8_type();
+    case TokenKind::UInt16:
+        return ctx.get_u16_type();
+    case TokenKind::UInt32:
+        return ctx.get_u32_type();
+    case TokenKind::UInt64:
+        return ctx.get_u64_type();
+    case TokenKind::Float32:
+        return ctx.get_f32_type();
+    case TokenKind::Float64:
+        return ctx.get_f64_type();
     case TokenKind::Identifier:
         return analyze_identifier(term);
 #if 0

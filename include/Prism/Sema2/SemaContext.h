@@ -75,6 +75,22 @@ public:
     /// \Returns the `type` trait, i.e., the trait matching all types
     BuiltinTrait* get_type_trait() const;
 
+    /// Builtin types @{
+    BuiltinType* get_void_type() const;
+    BuiltinType* get_bool_type() const;
+    BuiltinType* get_byte_type() const;
+    BuiltinType* get_i8_type() const;
+    BuiltinType* get_i16_type() const;
+    BuiltinType* get_i32_type() const;
+    BuiltinType* get_i64_type() const;
+    BuiltinType* get_u8_type() const;
+    BuiltinType* get_u16_type() const;
+    BuiltinType* get_u32_type() const;
+    BuiltinType* get_u64_type() const;
+    BuiltinType* get_f32_type() const;
+    BuiltinType* get_f64_type() const;
+    /// @}
+
 private:
     Symbol* add_symbol(csp::unique_ptr<Symbol> symbol);
 
