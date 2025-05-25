@@ -4,6 +4,7 @@
 #include <string>
 
 #include <range/v3/view.hpp>
+#include <utl/hashtable.hpp>
 #include <utl/ptr_union.hpp>
 #include <utl/vector.hpp>
 
@@ -384,6 +385,8 @@ private:
 /// Base class of all values
 class Value: public Symbol {
 public:
+    ~Value();
+
     /// The type of this value
     Type const* type() const { return _type; }
 
@@ -392,6 +395,9 @@ public:
 
     ///
     ValueCat value_category() const { return _value_cat; }
+
+    /// A view over the users of this value
+    auto users() { return _users | ranges::views::keys; }
 
 protected:
     Value(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
@@ -403,9 +409,78 @@ protected:
         _value_cat(value_category) {}
 
 private:
+    friend class User;
+
+    // To be called by User @{
+    void register_user(User* user);
+    void unregister_user(User* user);
+    // @}
+
     Type const* _type;
     Mutability _mut;
     ValueCat _value_cat;
+    utl::hashmap<User*, unsigned> _users;
+};
+
+/// Value that uses other values as operands
+class User: public Value {
+public:
+    ~User();
+
+    /// The operands used by this user
+    std::span<Value const* const> operands() const { return _operands; }
+
+    /// \overload
+    std::span<Value* const> operands() { return _operands; }
+
+    /// The operand at \p index
+    Value* operand_at(size_t index) { return _operands[index]; }
+
+    /// \overload
+    Value const* operand_at(size_t index) const { return _operands[index]; }
+
+    /// Sets the operand at \p index to \p operand
+    void set_operand(size_t index, Value* operand);
+
+protected:
+    User(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
+         std::string name, ScopeArg scope_arg, Type const* type,
+         Mutability mutability, ValueCat value_category, auto&&... operands):
+        Value(sym_type, facet, parent_scope, std::move(name), scope_arg, type,
+              mutability, value_category) {
+        _operands.reserve(sizeof...(operands));
+        (insert_operand(_operands, operands), ...);
+        register_operands();
+    }
+
+    template <std::derived_from<Value> V>
+    V* operand_as(size_t index) {
+        return cast<V*>(operand_at(index));
+    }
+
+    template <std::derived_from<Value> V>
+    V const* operand_as(size_t index) const {
+        return cast<V const*>(operand_at(index));
+    }
+
+private:
+    friend class Value;
+
+    void on_value_destruction(Value* operand);
+
+    // Constructor helpers @{
+    void insert_operand(utl::vector<Value*>& operands,
+                        std::ranges::range auto&& ops_in) {
+        for (auto& op: ops_in)
+            insert_operand(operands, op);
+    }
+    void insert_operand(utl::vector<Value*>& operands, auto* op) {
+        operands.push_back(op);
+    }
+    void register_operands();
+    // @}
+
+    utl::small_vector<Value*, 2> _operands;
 };
 
 /// Non-type generic parameter
@@ -443,7 +518,16 @@ class Function: public Value {
 public:
     VALUE_TYPE(FunctionType)
 
+    /// The signature of this function
     FuncSig const& signature() const { return type()->signature(); }
+
+    /// View over the arguments
+    std::span<FuncArgSpec const> arguments() const {
+        return signature().arguments();
+    }
+
+    /// The return type
+    Type const* return_type() const { return signature().return_type(); }
 
 protected:
     Function(SymbolType sym_type, Facet const* facet, Scope* parent_scope,
@@ -484,6 +568,38 @@ private:
 
     FunctionDef* _definition;
     utl::small_vector<Symbol*, 3> _generic_args;
+};
+
+// MARK: Instructions
+
+/// Base class of all instructions
+class Instruction: public User {
+protected:
+    using User::User;
+};
+
+/// Resolved function call
+class CallInst final: public Instruction {
+public:
+    explicit CallInst(Facet const* facet, Scope* parent_scope, std::string name,
+                      Function* callee, std::span<Value* const> arguments):
+        Instruction(SymbolType::CallInst, facet, parent_scope, std::move(name),
+                    ScopeArg::None, callee->return_type(), Mutability::Const,
+                    ValueCat::RValue, callee, arguments) {}
+
+    /// The called function
+    Function* callee() { return operand_as<Function>(0); }
+
+    /// \overload
+    Function const* callee() const { return operand_as<Function>(0); }
+
+    /// View over the call arguments
+    std::span<Value* const> arguments() { return operands().subspan(1); }
+
+    /// \overload
+    std::span<Value const* const> arguments() const {
+        return operands().subspan(1);
+    }
 };
 
 #undef VALUE_TYPE

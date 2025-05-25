@@ -59,6 +59,10 @@ symbols:
     base: Symbol
     abstract: true
 
+  - name: User
+    base: Value
+    abstract: true
+
   - name: GenValueParam
     base: Value
 
@@ -73,3 +77,12 @@ symbols:
 
   - name: FunctionInst
     base: Function
+
+# Instructions
+
+  - name: Instruction
+    base: User
+    abstract: true
+    
+  - name: CallInst
+    base: Instruction

@@ -136,6 +136,42 @@ void TraitInst::verify() const {
                  definition()->generic_params().size());
 }
 
+Value::~Value() {
+    for (auto [user, count]: _users)
+        user->on_value_destruction(this);
+}
+
+void Value::register_user(User* user) { ++_users[user]; }
+
+void Value::unregister_user(User* user) {
+    auto itr = _users.find(user);
+    PRISM_ASSERT(itr != _users.end(), "'user' was not a user of this value");
+    if (--itr->second == 0) _users.erase(itr);
+}
+
+User::~User() {
+    for (auto* op: _operands)
+        if (op) op->unregister_user(this);
+}
+
+void User::set_operand(size_t index, Value* operand) {
+    auto& slot = _operands[index];
+    if (slot == operand) return;
+    if (slot) slot->unregister_user(this);
+    operand->register_user(this);
+    slot = operand;
+}
+
+void User::register_operands() {
+    for (auto* op: _operands)
+        if (op) op->register_user(this);
+}
+
+void User::on_value_destruction(Value* operand) {
+    for (auto& op: _operands)
+        if (op == operand) op = nullptr;
+}
+
 std::string FunctionInst::make_name() const {
     if (generic_args().empty()) return definition()->name();
     std::stringstream sstr;
