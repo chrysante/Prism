@@ -213,10 +213,7 @@ FuncDefFacet const* Parser::parseFuncDef() {
                                   retType, body);
 }
 
-Facet const* Parser::parseFuncBody() {
-    if (auto semicolon = match(Semicolon)) return toTerminal(*semicolon);
-    return parseCompoundFacet();
-}
+Facet const* Parser::parseFuncBody() { return parseCompoundFacet(); }
 
 CompTypeDeclFacet const* Parser::parseCompTypeDecl() {
     auto [declarator, genParams, name, colon, baselist, openbrace, body,

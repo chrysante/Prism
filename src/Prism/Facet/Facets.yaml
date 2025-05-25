@@ -109,7 +109,7 @@ facets:
     base: FuncDeclBaseFacet
     members:
       - name: body
-        type: Facet
+        type: CompoundFacet
 
   - name: PropertyImplListFacet
     base: NonTerminalFacet

@@ -112,6 +112,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/AnalysisContext.h
     include/Prism/Sema2/Construction.h
     include/Prism/Sema2/ExprAnalysis.h
+    include/Prism/Sema2/FunctionAnalysis.h
     include/Prism/Sema2/FuncSig.h
     include/Prism/Sema2/NameLookup.h
     include/Prism/Sema2/Scope.h
@@ -182,6 +183,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/AnalysisContext.cpp
     src/Prism/Sema2/Construction.cpp
     src/Prism/Sema2/ExprAnalysis.cpp
+    src/Prism/Sema2/FunctionAnalysis.cpp
     src/Prism/Sema2/FuncSig.cpp
     src/Prism/Sema2/NameLookup.cpp
     src/Prism/Sema2/Scope.cpp

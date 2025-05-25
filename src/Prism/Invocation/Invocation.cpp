@@ -11,7 +11,6 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Parser/Parser.h"
 #include "Prism/Sema2/Analysis.h"
-#include "Prism/Sema2/Construction.h"
 #include "Prism/Sema2/SemaContext.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -106,7 +105,7 @@ void Invocation::run_until(InvocationStage stage) {
     // For now we return before sema if we have parsing errors
     if (!impl->DE->empty()) return;
     impl->target =
-        construct_sema_ir(impl->sema_context, *impl->DE, source_file_pairs);
+        analyze_module(impl->sema_context, *impl->DE, source_file_pairs);
 }
 
 DiagnosticEmitter const& Invocation::get_diagnostic_emitter() const {

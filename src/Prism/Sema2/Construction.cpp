@@ -113,7 +113,7 @@ struct NameResolution: AnalysisContext {
 
     // DFS helper
     void resolve_children(Scope* scope) {
-        for (auto* child_sym: scope->symbols())
+        for (auto* child_sym: scope->symbols() | ToSmallVector<>)
             resolve(*child_sym);
     }
 
@@ -206,8 +206,7 @@ struct NameResolution: AnalysisContext {
     }
 
     Type const* resolve_return_type(FunctionDef& func_def) {
-        if (!func_def.facet()->retType())
-            PRISM_UNIMPLEMENTED(); // return ctx.get_void_type();
+        if (!func_def.facet()->retType()) return ctx.get_void_type();
         return analyze_facet_as<Type>(*this, func_def.scope(),
                                       func_def.facet()->retType());
     }

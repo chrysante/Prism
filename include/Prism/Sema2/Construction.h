@@ -1,6 +1,8 @@
 #ifndef PRISM_SEMA2_CONSTRUCTION_H
 #define PRISM_SEMA2_CONSTRUCTION_H
 
+#include <span>
+
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema2/SemaFwd.h>
 
