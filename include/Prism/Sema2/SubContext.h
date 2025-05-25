@@ -3,33 +3,63 @@
 
 #include <span>
 
+#include <utl/hashtable.hpp>
 #include <utl/stack.hpp>
-#include <utl/vector.hpp>
 
-#include <Prism/Sema2/SymRef.h>
+#include <Prism/Sema2/SemaFwd.h>
 
 namespace prism {
 
-class SubContext {
+/// Substitution context for a single declaration
+class DeclSubContext {
 public:
-    Symbol* lookup(SubContextIndex idx) const {
-        auto ref = table.container()[idx.nesting_index][idx.param_index];
-        return ref.eval(*this);
-    }
+    explicit DeclSubContext(DeclSymbol* declaration,
+                            std::span<Symbol* const> generic_arguments);
 
-    void push(std::span<Symbol* const> params) {
-        table.emplace(params.begin(), params.end());
-    }
-
-    void pop() { table.pop(); }
+    DeclSymbol* declaration() const { return _decl; }
 
 private:
-    friend Symbol* lookup_incomplete(SubContext const& This,
-                                     SubContextIndex idx) {
-        return This.lookup(idx);
+    friend class SubContext;
+
+    // 'Unchecked' resolution
+    Symbol const* try_resolve(Symbol const* symbol) const;
+
+    DeclSymbol* _decl;
+    utl::hashmap<Symbol*, Symbol*> _map;
+};
+
+/// 'Global' substitution context for nested declarations
+class SubContext {
+public:
+    /// Push a declaration context onto the stack
+    void push(DeclSymbol* declaration,
+              std::span<Symbol* const> generic_arguments) {
+        _stack.emplace(declaration, generic_arguments);
     }
 
-    utl::stack<utl::small_vector<SymRef<>, 3>, 1> table;
+    /// Pop the last push context
+    void pop() { _stack.pop(); }
+
+    /// Resolves the argument \p symbol if it is a generic argument in this
+    /// substitution context
+    Symbol* resolve(Symbol* symbol) const {
+        return const_cast<Symbol*>(resolve(static_cast<Symbol const*>(symbol)));
+    }
+
+    /// \overload
+    Symbol const* resolve(Symbol const* symbol) const;
+
+    /// \overload
+    Type const* resolve(Type const* type);
+
+    /// \overload
+    Value* resolve(Value* value);
+
+    /// \overload
+    Value const* resolve(Value const* value);
+
+private:
+    utl::stack<DeclSubContext> _stack;
 };
 
 } // namespace prism

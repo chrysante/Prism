@@ -120,7 +120,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/SemaPrint.h
     include/Prism/Sema2/SubContext.h
     include/Prism/Sema2/Symbol.h
-    include/Prism/Sema2/SymRef.h
     include/Prism/Sema2/TypeLayout.h
 #[[
     include/Prism/Sema/Analysis.h
@@ -191,7 +190,6 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/SemaPrint.cpp
     src/Prism/Sema2/SubContext.cpp
     src/Prism/Sema2/Symbol.cpp
-    src/Prism/Sema2/SymRef.cpp
     src/Prism/Sema2/TypeLayout.cpp
 #[[
     src/Prism/Sema/Analysis.cpp

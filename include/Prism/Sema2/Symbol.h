@@ -11,7 +11,6 @@
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema2/FuncSig.h>
 #include <Prism/Sema2/SemaFwd.h>
-#include <Prism/Sema2/SymRef.h>
 #include <Prism/Sema2/TypeLayout.h>
 
 #define FACET_TYPE(Type)                                                       \
