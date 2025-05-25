@@ -56,18 +56,24 @@ struct GlobalConstruction {
     void do_construct(CompTypeDeclFacet const& facet, Scope* parent_scope) {
         std::string name = get_name(facet.name(), source_context);
         size_t num_gen_params = get_num_gen_params(facet.genParams());
-        switch (facet.declarator().kind) {
-        case TokenKind::Struct:
-            ctx.make<StructDef>(&facet, parent_scope, std::move(name),
-                                ScopeArg::make(ctx), num_gen_params);
-            break;
-        case TokenKind::Trait:
-            ctx.make<TraitDef>(&facet, parent_scope, std::move(name),
-                               ScopeArg::make(ctx), num_gen_params);
-            break;
-        default:
-            PRISM_UNREACHABLE();
-        }
+        auto* decl_symbol = [&]() -> DeclSymbol* {
+            switch (facet.declarator().kind) {
+            case TokenKind::Struct:
+                return ctx.make<StructDef>(&facet, parent_scope,
+                                           std::move(name), ScopeArg::make(ctx),
+                                           num_gen_params);
+                break;
+            case TokenKind::Trait:
+                return ctx.make<TraitDef>(&facet, parent_scope, std::move(name),
+                                          ScopeArg::make(ctx), num_gen_params);
+                break;
+            default:
+                PRISM_UNREACHABLE();
+            }
+        }();
+        if (auto* body = facet.body())
+            for (auto* child_decl_facet: body->elems())
+                construct(child_decl_facet, decl_symbol->scope());
     }
 
     void do_construct(FuncDeclBaseFacet const& facet, Scope* parent_scope) {
@@ -146,6 +152,7 @@ struct NameResolution: AnalysisContext {
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
         if (!gen_params.empty())
             struct_def._generic_params = std::move(gen_params);
+        resolve_children(struct_def.scope());
     }
 
     void do_resolve(TraitDef& trait_def) {
@@ -153,6 +160,7 @@ struct NameResolution: AnalysisContext {
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
         if (!gen_params.empty())
             trait_def._generic_params = std::move(gen_params);
+        resolve_children(trait_def.scope());
     }
 
     FunctionArgument* resolve_func_arg(ParamDeclFacet const* facet,
