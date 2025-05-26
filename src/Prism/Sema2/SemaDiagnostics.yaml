@@ -137,6 +137,30 @@ diags:
     header: >
       str << "'this' cannot appear in non-member functions";
 
+  - name: InvalidNumOfCallArgs
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: callee
+        type: Function const*
+      - name: num_arguments
+        type: size_t
+    header: >
+      str << "called function " << format_name(callee) << " expects " 
+          << callee->num_arguments() << " arguments, found " << num_arguments;
+
+  - name: BadOperandType
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: operand
+        type: Value const*
+      - name: expected_type
+        type: Type const*
+    header: >
+      str << "expected operand of type " << format_name(expected_type) 
+          << ", found " << format_name(operand->type());
+
 # - name: IncompleteImpl
 #   base: SemaDiagnostic
 #   kind: Error

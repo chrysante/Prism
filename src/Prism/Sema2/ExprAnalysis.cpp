@@ -68,6 +68,9 @@ struct AnaContext: AnalysisContext {
     bool validate_generic_args(DeclSymbol const& decl,
                                std::span<Symbol* const> args,
                                std::span<Facet const* const> arg_facets);
+    bool validate_call_arguments(Function const* callee,
+                                 std::span<Symbol* const> args,
+                                 std::span<Facet const* const> arg_facets);
     Symbol* do_analyze(CallFacet const& call);
 
     decltype(auto) with_scope(Scope* tempScope, std::invocable auto&& f) {
@@ -273,6 +276,40 @@ bool AnaContext::validate_generic_args(
     return success;
 }
 
+bool AnaContext::validate_call_arguments(
+    Function const* callee, std::span<Symbol* const> args,
+    std::span<Facet const* const> arg_facets) {
+    PRISM_ASSERT(callee);
+    PRISM_ASSERT(args.size() == arg_facets.size());
+    PRISM_ASSERT(args.size() == callee->num_arguments());
+    bool success = true;
+    for (auto [arg_spec, arg_sym, arg_facet]:
+         zip(callee->arguments(), args, arg_facets))
+    {
+        auto* arg = verify_symbol_type<Value>(arg_sym, arg_facet);
+        if (!arg) {
+            success = false;
+            continue;
+        }
+        if (arg_spec.type() != arg->type()) {
+            DE.emit<BadOperandType>(source_context, arg_facet, arg,
+                                    arg_spec.type());
+            success = false;
+            continue;
+        }
+        switch (arg_spec.passing_convention()) {
+        case PassingConvention::In:
+            break;
+        case PassingConvention::Inout:
+            if (arg->is_const()) PRISM_UNIMPLEMENTED();
+            break;
+        case PassingConvention::Sink:
+            break;
+        }
+    }
+    return success;
+}
+
 Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
     auto* callee = analyze(call_facet.callee());
     auto arg_facets = call_facet.arguments()->elems();
@@ -289,21 +326,14 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         return ctx.get_trait_instantiation(trait_def, args);
     }
     if (auto* function = dyncast<Function*>(callee)) {
-        if (function->arguments().size() != args.size()) PRISM_UNIMPLEMENTED();
-        if (!ranges::all_of(args, isa<Value>)) PRISM_UNIMPLEMENTED();
-        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
-        for (auto [arg_spec, arg]: zip(function->arguments(), value_args)) {
-            if (arg_spec.type() != arg->type()) PRISM_UNIMPLEMENTED();
-            switch (arg_spec.passing_convention()) {
-            case PassingConvention::In:
-                break;
-            case PassingConvention::Inout:
-                if (arg->is_const()) PRISM_UNIMPLEMENTED();
-                break;
-            case PassingConvention::Sink:
-                break;
-            }
+        if (function->arguments().size() != args.size()) {
+            DE.emit<InvalidNumOfCallArgs>(source_context, &call_facet, function,
+                                          args.size());
+            return nullptr; // TODO: return poison value of correct type here
         }
+        if (!validate_call_arguments(function, args, arg_facets))
+            return nullptr;
+        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
                                              function, value_args);
