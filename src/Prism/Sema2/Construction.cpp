@@ -238,11 +238,10 @@ struct NameResolution: AnalysisContext {
                 ctx.get_function_instantiation(&func_def, {}));
     }
 
+    void do_resolve(Library&) {}
     void do_resolve(GenTypeParam const&) {}
     void do_resolve(GenValueParam const&) {}
-
     void do_resolve(Type const&) {}
-
     void do_resolve(Trait const&) {}
 };
 

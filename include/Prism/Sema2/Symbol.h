@@ -108,6 +108,14 @@ public:
                ScopeArg::make(ctx)) {}
 };
 
+/// Imported code
+class Library final: public Symbol {
+public:
+    explicit Library(SemaContext& ctx, Scope* parent_scope, std::string name):
+        Symbol(SymbolType::Library, nullptr, parent_scope, std::move(name),
+               ScopeArg::make(ctx)) {}
+};
+
 /// Multiple source files can make up a compilation unit
 class SourceFile: public Symbol {
 public:
@@ -566,6 +574,9 @@ public:
     std::span<FuncArgSpec const> arguments() const {
         return signature().arguments();
     }
+
+    /// The number of arguments
+    size_t num_arguments() const { return arguments().size(); }
 
     /// The return type
     Type const* return_type() const { return signature().return_type(); }

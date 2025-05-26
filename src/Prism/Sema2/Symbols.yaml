@@ -4,6 +4,9 @@ symbols:
     
   - name: Module
     base: Symbol
+    
+  - name: Library
+    base: Symbol
 
   - name: SourceFile
     base: Symbol

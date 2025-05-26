@@ -83,6 +83,7 @@ struct std::hash<GenInstKeyImpl<Def, ArgsContainer>> {
 
 struct SemaContext::Impl {
     Module* mod = nullptr;
+    Library* core_libary = nullptr;
     std::vector<csp::unique_ptr<Symbol>> symbol_bag;
     std::vector<std::unique_ptr<Scope>> scope_bag;
     utl::hashmap<SourceFileFacet const*, SourceContext const*>
@@ -132,10 +133,16 @@ static Builtins make_builtins(SemaContext& ctx, Scope* parent_scope) {
     };
 }
 
+static Library* make_core_library(SemaContext& ctx, Scope* parent_scope) {
+    auto* lib = ctx.make<Library>(parent_scope, "core");
+    return lib;
+}
+
 Module* SemaContext::make_module() {
     PRISM_ASSERT(impl->mod == nullptr, "make_module() has been called before");
     auto* mod = impl->mod = make<Module>();
     impl->builtins = make_builtins(*this, mod->scope());
+    impl->core_libary = make_core_library(*this, mod->scope());
     return mod;
 }
 
