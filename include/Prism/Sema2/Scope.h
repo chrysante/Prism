@@ -21,9 +21,15 @@ class SemaContext;
 ///
 class Scope {
 public:
-    Scope() = default;
+    /// Complete constructor
+    /// \pre \p def_symbol must not be null
+    explicit Scope(Symbol* def_symbol) { set_defining_symbol(def_symbol); }
 
-    explicit Scope(Symbol* def_symbol);
+    /// Partial constructors, must call `set_defining_symbol()` after
+    /// construction @{
+    Scope() = default;
+    explicit Scope(Scope* parent_scope): _parent_scope(parent_scope) {}
+    /// @}
 
     /// \Returns the symbol defining this scope
     Symbol* defining_symbol() { return _defining_symbol; }
@@ -65,6 +71,7 @@ private:
     friend class ScopeArg;
 
     void add_symbol(Symbol& symbol);
+    /// \pre \p def_symbol must not be null
     void set_defining_symbol(Symbol* defining_symbol);
 
     Symbol* _defining_symbol = nullptr;

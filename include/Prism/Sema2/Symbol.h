@@ -211,6 +211,12 @@ public:
     ///
     Type const* return_type() const { return _return_type; }
 
+    /// The top-level block instruction computed by this function
+    BlockInst* body() { return _body; }
+
+    /// \overload
+    BlockInst const* body() const { return _body; }
+
     /// The canonical instantiation of this function, i.e., the defined
     /// function. This is only non-null if this declaration is not generic.
     template <typename FI = FunctionInst>
@@ -220,9 +226,12 @@ public:
 
 private:
     friend struct NameResolution;
+    friend struct FuncAnaCtx;
 
     Type const* _return_type = nullptr;
     utl::small_vector<FunctionArgument*> _args;
+
+    BlockInst* _body = nullptr;
 };
 
 // MARK: Types
@@ -601,6 +610,45 @@ private:
 class Instruction: public User {
 protected:
     using User::User;
+};
+
+/// Computation of a compound expression
+class BlockInst final: public Instruction {
+public:
+    using iterator = std::vector<Instruction*>::iterator;
+    using const_iterator = std::vector<Instruction*>::const_iterator;
+
+    BlockInst(Facet const* facet, Scope* parent_scope, std::string name,
+              ScopeArg scope_arg, Type const* type,
+              std::vector<Instruction*> instructions):
+        Instruction(SymbolType::BlockInst, facet, parent_scope, std::move(name),
+                    scope_arg, type, Mutability::Const, ValueCat::RValue),
+        _instructions(std::move(instructions)) {}
+
+    FACET_TYPE(CompoundFacet)
+
+    /// Container interface @{
+    iterator begin() { return _instructions.begin(); }
+    const_iterator begin() const { return _instructions.begin(); }
+    iterator end() { return _instructions.end(); }
+    const_iterator end() const { return _instructions.end(); }
+    size_t size() const { return _instructions.size(); }
+    bool empty() const { return _instructions.empty(); }
+    /// @}
+
+private:
+    std::vector<Instruction*> _instructions;
+};
+
+/// Instruction to mark the value of a block instruction
+class YieldInst final: public Instruction {
+public:
+    explicit YieldInst(SemaContext& ctx, Facet const* facet,
+                       Scope* parent_scope, Value* operand);
+
+    Value* operand() { return operand_at(0); }
+
+    Value const* operand() const { return operand_at(0); }
 };
 
 /// Resolved function call

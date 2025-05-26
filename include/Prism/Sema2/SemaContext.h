@@ -49,7 +49,10 @@ public:
     }
 
     /// Creates a new empty scope
-    Scope* make_scope(Symbol* defining_symbol = nullptr);
+    template <typename... Args>
+    Scope* make_scope(Args&&... args) {
+        return add_scope(std::make_unique<Scope>(std::forward<Args>(args)...));
+    }
 
     /// \Returns the source context of \p facet
     SourceContext const* get_source_context(Facet const* facet) const;
@@ -98,7 +101,7 @@ public:
 
 private:
     Symbol* add_symbol(csp::unique_ptr<Symbol> symbol);
-
+    Scope* add_scope(std::unique_ptr<Scope> scope);
     void map_source_to_context(SourceFileFacet const* facet,
                                SourceContext const* ctx);
 

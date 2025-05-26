@@ -192,3 +192,9 @@ void FunctionInst::verify() const {
     PRISM_ASSERT(generic_args().size() ==
                  definition()->generic_params().size());
 }
+
+YieldInst::YieldInst(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
+                     Value* operand):
+    Instruction(SymbolType::YieldInst, facet, parent_scope, /* name: */ {},
+                ScopeArg::None, ctx.get_void_type(), Mutability::Const,
+                ValueCat::RValue, operand) {}

@@ -139,11 +139,6 @@ Module* SemaContext::make_module() {
     return mod;
 }
 
-Scope* SemaContext::make_scope(Symbol* defining_symbol) {
-    impl->scope_bag.push_back(std::make_unique<Scope>(defining_symbol));
-    return impl->scope_bag.back().get();
-}
-
 SourceContext const* SemaContext::get_source_context(Facet const* facet) const {
     while (facet) {
         if (auto* file = dyncast<SourceFileFacet const*>(facet)) {
@@ -278,6 +273,12 @@ BuiltinType* SemaContext::get_f64_type() const {
 Symbol* SemaContext::add_symbol(csp::unique_ptr<Symbol> sym) {
     auto* s = sym.get();
     impl->symbol_bag.push_back(std::move(sym));
+    return s;
+}
+
+Scope* SemaContext::add_scope(std::unique_ptr<Scope> scope) {
+    auto* s = scope.get();
+    impl->scope_bag.push_back(std::move(scope));
     return s;
 }
 

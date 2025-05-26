@@ -10,8 +10,6 @@
 
 using namespace prism;
 
-Scope::Scope(Symbol* def_symbol): Scope() { set_defining_symbol(def_symbol); }
-
 std::span<Symbol const* const> Scope::symbols_by_name(
     std::string_view name) const {
     auto itr = _names.find(name);
@@ -55,6 +53,9 @@ void Scope::add_symbol(Symbol& symbol) {
 }
 
 void Scope::set_defining_symbol(Symbol* def_symbol) {
+    PRISM_ASSERT(def_symbol);
     _defining_symbol = def_symbol;
-    if (def_symbol) _parent_scope = def_symbol->parent_scope();
+    PRISM_ASSERT(_parent_scope == nullptr ||
+                 _parent_scope == def_symbol->parent_scope());
+    _parent_scope = def_symbol->parent_scope();
 }

@@ -93,5 +93,11 @@ symbols:
     base: User
     abstract: true
     
+  - name: BlockInst
+    base: Instruction
+    
+  - name: YieldInst
+    base: Instruction
+    
   - name: CallInst
     base: Instruction
