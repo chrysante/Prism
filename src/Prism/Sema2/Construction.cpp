@@ -107,7 +107,7 @@ static void resolve_global_names(SemaContext& ctx, DiagnosticEmitter& DE,
 namespace prism {
 
 struct TrappingInstEmitter final: InstructionEmitter {
-    void emit_instruction(Instruction*) override { PRISM_UNREACHABLE(); }
+    void emit_instruction(Instruction&) override { PRISM_UNREACHABLE(); }
 };
 
 struct NameResolution: AnalysisContext {

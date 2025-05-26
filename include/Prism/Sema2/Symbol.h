@@ -87,6 +87,7 @@ protected:
     void set_flag(Flag flag, bool value) { _flags[(size_t)flag] = value; }
 
 private:
+    friend struct FuncAnaCtx;
     friend SymbolType get_rtti(Symbol const& This) { return This._sym_type; }
 
     bool get_flag(Flag flag) const { return _flags[(size_t)flag]; }

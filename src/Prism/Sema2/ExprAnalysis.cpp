@@ -26,6 +26,12 @@ namespace {
 struct AnaContext: AnalysisContext {
     InstructionEmitter& inst_emitter;
     Scope* scope;
+    std::vector<Instruction*>* instructions = nullptr;
+
+    void emit_instruction(Instruction& inst) {
+        inst_emitter.emit_instruction(inst);
+        if (instructions) instructions->push_back(&inst);
+    }
 
     Symbol* analyze(Facet const* facet);
 
@@ -49,6 +55,8 @@ struct AnaContext: AnalysisContext {
     }
 
     Symbol* do_analyze(Facet const&) { PRISM_UNREACHABLE(); }
+    Symbol* do_analyze(CompoundFacet const& facet);
+    Symbol* do_analyze(ExprStmtFacet const& stmt_facet);
     Symbol* analyze_identifier(TerminalFacet const& id);
     IntLiteral* analyze_int_literal(TerminalFacet const& term, int base);
     Symbol* do_analyze(TerminalFacet const& term);
@@ -96,6 +104,37 @@ Symbol* AnaContext::analyze(Facet const* facet) {
     if (auto* decl = dyncast<DeclSymbol*>(sym))
         if (auto* canonical = decl->canonical()) return canonical;
     return sym;
+}
+
+Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
+    auto* outer_scope = scope;
+    auto* outer_inst_list = instructions;
+    scope = ctx.make_scope(outer_scope);
+    std::vector<Instruction*> block_instructions;
+    instructions = &block_instructions;
+    for (auto* elem: facet.statements()->elems())
+        analyze(elem);
+    auto* block_type = [&]() -> Type const* {
+        auto* yield_facet = facet.yieldFacet();
+        if (!yield_facet) return ctx.get_void_type();
+        auto* operand = analyze_as<Value>(yield_facet);
+        auto* yield_inst = ctx.make<YieldInst>(yield_facet, scope, operand);
+        emit_instruction(*yield_inst);
+        return operand->type();
+    }();
+    auto* block_inst = ctx.make<BlockInst>(&facet, outer_scope,
+                                           /* name: */ std::string{},
+                                           ScopeArg(scope), block_type,
+                                           std::move(block_instructions));
+    scope = outer_scope;
+    instructions = outer_inst_list;
+    emit_instruction(*block_inst);
+    return block_inst;
+}
+
+Symbol* AnaContext::do_analyze(ExprStmtFacet const& stmt_facet) {
+    (void)analyze(stmt_facet.expr());
+    return nullptr;
 }
 
 Symbol* AnaContext::do_analyze(TerminalFacet const& term) {
@@ -253,7 +292,7 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
                                              function, value_args);
-        inst_emitter.emit_instruction(call_inst);
+        emit_instruction(*call_inst);
         return call_inst;
     }
     PRISM_UNIMPLEMENTED();

@@ -2,6 +2,7 @@
 #define PRISM_SEMA2_EXPRANALYSIS_H
 
 #include <concepts>
+#include <span>
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Sema2/AnalysisContext.h>
@@ -48,7 +49,7 @@ S* analyze_facet_as(AnalysisContext const& context,
 class InstructionEmitter {
 public:
     virtual ~InstructionEmitter() = default;
-    virtual void emit_instruction(Instruction* inst) = 0;
+    virtual void emit_instruction(Instruction& inst) = 0;
 };
 
 namespace detail {
