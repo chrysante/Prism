@@ -42,6 +42,22 @@ utl::small_vector<Symbol const*> Scope::symbols_by_approx_name(
     return symbols_by_approx_name_impl<Symbol const>(name, _approx_names);
 }
 
+FunctionDef const* Scope::function_by_name_and_sig(
+    std::string_view name, GenericSignature const& generic_sig,
+    FuncSig const& function_sig) const {
+    return _function_overload_map.find({ name, generic_sig, function_sig });
+}
+
+void Scope::set_function_signature(GenericSignature generic_sig,
+                                   FuncSig function_sig,
+                                   FunctionDef* function) {
+    bool success = _function_overload_map.insert({ function->name(),
+                                                   std::move(generic_sig),
+                                                   std::move(function_sig) },
+                                                 function);
+    PRISM_ASSERT(success, "Function signature is already defined");
+}
+
 void Scope::add_symbol(Symbol& symbol) {
     PRISM_ASSERT_AUDIT(!ranges::contains(_symbols, &symbol),
                        "symbol has already been added to this scope");

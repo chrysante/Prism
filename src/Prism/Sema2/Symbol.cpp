@@ -2,9 +2,11 @@
 
 #include <sstream>
 
+#include <range/v3/view.hpp>
 #include <utl/streammanip.hpp>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/Scope.h"
@@ -12,6 +14,8 @@
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
+
+using ranges::views::transform;
 
 Scope* ScopeArg::eval(Symbol* def_symbol) const {
     // clang-format off
@@ -79,6 +83,12 @@ FunctionDef::FunctionDef(SemaContext& ctx, Facet const* facet,
 #if 0
     if (num_generic_params==0) set_canonical(ctx.make<FunctionInst>( !!! ));
 #endif
+}
+
+FuncSig FunctionDef::make_signature() const {
+    return FuncSig(arguments() | transform(FN1(, _1->make_spec())) |
+                       ToSmallVector<>,
+                   return_type());
 }
 
 static std::string_view name_proj(Symbol const* symbol) {

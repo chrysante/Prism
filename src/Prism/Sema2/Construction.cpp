@@ -9,6 +9,7 @@
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/ExprAnalysis.h"
 #include "Prism/Sema2/SemaContext.h"
+#include "Prism/Sema2/SemaDiagnostic.h"
 #include "Prism/Sema2/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -236,6 +237,19 @@ struct NameResolution: AnalysisContext {
         if (gen_params.empty())
             func_def.set_canonical(
                 ctx.get_function_instantiation(&func_def, {}));
+        auto* parent_scope = func_def.parent_scope();
+        auto gen_signature = func_def.make_generic_signature();
+        auto signature = func_def.make_signature();
+        auto* existing = parent_scope->function_by_name_and_sig(func_def.name(),
+                                                                gen_signature,
+                                                                signature);
+        if (existing) {
+            DE.emit<FuncRedefinition>(source_context, func_def.facet(),
+                                      &func_def, existing);
+            return;
+        }
+        parent_scope->set_function_signature(std::move(gen_signature),
+                                             std::move(signature), &func_def);
     }
 
     void do_resolve(Library&) {}

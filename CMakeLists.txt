@@ -69,7 +69,7 @@ function(add_code_generator target definitions template output filters)
 endfunction()
 
 CPMAddPackage("gh:chrysante/csp#main")
-CPMAddPackage("gh:chrysante/utility#42cdd3d0bb9d477206a778cd239473ab31de6b26")
+CPMAddPackage("gh:chrysante/utility#13083d11d0802da755837548c35622b5bc38302d")
 CPMAddPackage("gh:chrysante/APMath#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
 CPMAddPackage("gh:chrysante/graphgen#main")
@@ -114,6 +114,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/ExprAnalysis.h
     include/Prism/Sema2/FunctionAnalysis.h
     include/Prism/Sema2/FuncSig.h
+    include/Prism/Sema2/FunctionOverloadMap.h
     include/Prism/Sema2/NameLookup.h
     include/Prism/Sema2/Scope.h
     include/Prism/Sema2/SemaContext.h
@@ -186,6 +187,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/ExprAnalysis.cpp
     src/Prism/Sema2/FunctionAnalysis.cpp
     src/Prism/Sema2/FuncSig.cpp
+    src/Prism/Sema2/FunctionOverloadMap.cpp
     src/Prism/Sema2/NameLookup.cpp
     src/Prism/Sema2/Scope.cpp
     src/Prism/Sema2/SemaContext.cpp

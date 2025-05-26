@@ -140,6 +140,11 @@ public:
     /// this is empty.
     std::span<Symbol* const> generic_params() const { return _generic_params; }
 
+    ///
+    GenericSignature make_generic_signature() const {
+        return GenericSignature(generic_params());
+    }
+
     /// True if this declaration has generic parameters
     bool is_generic() const { return !generic_params().empty(); }
 
@@ -217,6 +222,9 @@ public:
 
     ///
     Type const* return_type() const { return _return_type; }
+
+    /// Creates a `FuncSig` object from the parameters and return type
+    FuncSig make_signature() const;
 
     /// The top-level block instruction computed by this function
     BlockInst* body() { return _body; }
@@ -536,6 +544,9 @@ public:
 
     ///
     PassingConvention passing_convention() const { return _pc; }
+
+    /// Creates a `FuncArgSpec` object from the passing convention and type
+    FuncArgSpec make_spec() const { return { passing_convention(), type() }; }
 
 private:
     PassingConvention _pc;

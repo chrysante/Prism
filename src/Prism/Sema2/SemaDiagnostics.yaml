@@ -50,9 +50,9 @@ diags:
     kind: Error
     members:
       - name: function
-        type: Function const*
+        type: FunctionDef const*
       - name: existing
-        type: Function const*
+        type: FunctionDef const*
         ctor_only: true
     ctor_body: >
       add_note(existing->facet(), [=](std::ostream& str) {

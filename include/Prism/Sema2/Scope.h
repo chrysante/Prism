@@ -3,6 +3,7 @@
 
 #include <bit>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -11,6 +12,9 @@
 #include <utl/metric_table.hpp>
 #include <utl/tiny_ptr_vector.hpp>
 #include <utl/vector.hpp>
+
+#include <Prism/Sema2/FuncSig.h>
+#include <Prism/Sema2/FunctionOverloadMap.h>
 
 namespace prism {
 
@@ -66,13 +70,33 @@ public:
     utl::small_vector<Symbol const*> symbols_by_approx_name(
         std::string_view name) const;
 
+    /// \Returns the function named \p name with exact signature \p func_sig or
+    /// null if none is found
+    FunctionDef* function_by_name_and_sig(std::string_view name,
+                                          GenericSignature const& generic_sig,
+                                          FuncSig const& function_sig) {
+        return const_cast<FunctionDef*>(
+            std::as_const(*this).function_by_name_and_sig(name, generic_sig,
+                                                          function_sig));
+    }
+
+    /// \overload
+    FunctionDef const* function_by_name_and_sig(
+        std::string_view name, GenericSignature const& generic_sig,
+        FuncSig const& function_sig) const;
+
 private:
     friend class SemaContext;
     friend class ScopeArg;
+    friend struct NameResolution;
 
     void add_symbol(Symbol& symbol);
     /// \pre \p def_symbol must not be null
     void set_defining_symbol(Symbol* defining_symbol);
+
+    // To be used by NameResolution
+    void set_function_signature(GenericSignature generic_sig,
+                                FuncSig function_sig, FunctionDef* function);
 
     Symbol* _defining_symbol = nullptr;
     Scope* _parent_scope = nullptr;
@@ -80,6 +104,7 @@ private:
     utl::hashmap<std::string_view, utl::tiny_ptr_vector<Symbol*>> _names;
     utl::metric_map<std::string_view, utl::tiny_ptr_vector<Symbol*>>
         _approx_names;
+    FunctionOverloadMap _function_overload_map;
 };
 
 } // namespace prism
