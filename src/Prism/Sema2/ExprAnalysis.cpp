@@ -11,10 +11,10 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/AnalysisContext.h"
+#include "Prism/Sema2/NameLookup.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
-// #include "Prism/Sema2/SemaDiagnostic.h"
-#include "Prism/Sema2/NameLookup.h"
+#include "Prism/Sema2/SemaDiagnostic.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -65,6 +65,9 @@ struct AnaContext: AnalysisContext {
     Symbol* do_analyze(FnTypeFacet const& facet);
     Symbol* do_analyze(NamedParamDeclFacet const& declFacet);
     Symbol* do_analyze(PrefixFacet const& prefix);
+    bool validate_generic_args(DeclSymbol const& decl,
+                               std::span<Symbol* const> args,
+                               std::span<Facet const* const> arg_facets);
     Symbol* do_analyze(CallFacet const& call);
 
     decltype(auto) with_scope(Scope* tempScope, std::invocable auto&& f) {
@@ -86,10 +89,7 @@ static bool is_any_null(R&& ptr_range) {
 void detail::push_bad_sym_ref(AnalysisContext const& context,
                               Facet const* facet, Symbol* symbol,
                               SymbolType expected) {
-    PRISM_UNIMPLEMENTED();
-#if 0
-    context.DE.emit<BadSymRef>(context.sourceContext, facet, symbol, expected);
-#endif
+    context.DE.emit<BadSymRef>(context.source_context, facet, symbol, expected);
 }
 
 Symbol* prism::analyze_facet(AnalysisContext const& context,
@@ -230,10 +230,7 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
     using NLR = NameLookupResult;
     return symbols.visit(csp::overload{
         [&](AnyOf<NLR::None, NLR::Similar> auto) -> Symbol* {
-            PRISM_UNIMPLEMENTED();
-#if 0
             DE.emit<UndeclaredID>(source_context, &id, symbols.similar());
-#endif
             return nullptr;
         },
         [&](Symbol* symbol) -> Symbol* { return symbol; },
@@ -241,10 +238,7 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
             PRISM_UNIMPLEMENTED();
         },
         [&](std::span<Symbol const* const> ambi_set) -> Symbol* {
-            PRISM_UNIMPLEMENTED();
-#if 0
             DE.emit<AmbiguousNameLookup>(source_context, &id, ambi_set);
-#endif
             return nullptr;
         },
     }); // clang-format on
@@ -264,15 +258,36 @@ Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
     PRISM_UNIMPLEMENTED();
 }
 
+bool AnaContext::validate_generic_args(
+    DeclSymbol const& decl, std::span<Symbol* const> args,
+    std::span<Facet const* const> arg_facets) {
+    bool success = true;
+    for (auto [param, arg, arg_facet]:
+         zip(decl.generic_params(), args, arg_facets))
+    {
+        if (isa<Type>(param))
+            success &= !!verify_symbol_type<Type>(arg, arg_facet);
+        else if (isa<Value>(param))
+            success &= !!verify_symbol_type<Value>(arg, arg_facet);
+    }
+    return success;
+}
+
 Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
     auto* callee = analyze(call_facet.callee());
-    auto args = call_facet.arguments()->elems() |
-                transform(FN1(&, analyze(_1))) | ToSmallVector<>;
+    auto arg_facets = call_facet.arguments()->elems();
+    auto args = arg_facets | transform(FN1(&, analyze(_1))) | ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
-    if (auto* struct_def = dyncast<StructDef*>(callee))
+    if (auto* struct_def = dyncast<StructDef*>(callee)) {
+        if (!validate_generic_args(*struct_def, args, arg_facets))
+            return nullptr;
         return ctx.get_struct_instantiation(struct_def, args);
-    if (auto* trait_def = dyncast<TraitDef*>(callee))
+    }
+    if (auto* trait_def = dyncast<TraitDef*>(callee)) {
+        if (!validate_generic_args(*trait_def, args, arg_facets))
+            return nullptr;
         return ctx.get_trait_instantiation(trait_def, args);
+    }
     if (auto* function = dyncast<Function*>(callee)) {
         if (function->arguments().size() != args.size()) PRISM_UNIMPLEMENTED();
         if (!ranges::all_of(args, isa<Value>)) PRISM_UNIMPLEMENTED();

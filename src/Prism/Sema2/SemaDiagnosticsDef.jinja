@@ -1,0 +1,39 @@
+
+{% macro define_ctor(diag) %}
+
+{{ diag.name }}::{{ diag.name }}(
+    {% if not diag.no_source -%}
+    SourceContext const* ctx, Facet const* facet
+        {% if diag.members %},{% endif %}
+    {%- endif %}
+        {{- diag.members | map('diag_member_ctor_param') | join(', ') -}}
+    ): SemaDiagnostic(
+            Diagnostic::{{ diag.kind }},
+    {% if not diag.no_source %}
+            ctx, facet
+    {% else %}
+            nullptr, nullptr
+    {% endif %}
+        )
+        {% set init_members = diag.members | rejectattr('ctor_only') | list %}
+        {% if init_members %},{% endif %}
+    {{- init_members | map('diag_member_ctor_init') | join(', ') -}}
+        { {{ diag.ctor_body }} }
+
+{% endmacro %}
+
+{% macro define_header(diag) %}
+    {% if not diag.abstract %}
+void {{ diag.name }}::header(std::ostream& str,
+                              [[maybe_unused]] SourceContext const* ctx) const {
+    {{ diag.header }}
+}
+    {% endif %}
+{% endmacro %}
+
+{% for diag in diags %}
+{% if not diag.decl_only %}
+{{ define_ctor(diag) }}
+{{ define_header(diag) }}
+{% endif %}
+{% endfor %}

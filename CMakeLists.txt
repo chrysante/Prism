@@ -117,6 +117,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/NameLookup.h
     include/Prism/Sema2/Scope.h
     include/Prism/Sema2/SemaContext.h
+    include/Prism/Sema2/SemaDiagnostic.h
     include/Prism/Sema2/SemaFwd.h
     include/Prism/Sema2/SemaPrint.h
     include/Prism/Sema2/SubContext.h
@@ -188,6 +189,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/NameLookup.cpp
     src/Prism/Sema2/Scope.cpp
     src/Prism/Sema2/SemaContext.cpp
+    src/Prism/Sema2/SemaDiagnostic.cpp
     src/Prism/Sema2/SemaFwd.cpp
     src/Prism/Sema2/SemaPrint.cpp
     src/Prism/Sema2/SubContext.cpp
@@ -267,6 +269,18 @@ add_code_generator(prism
                    src/Prism/Sema2/Symbols.yaml
                    src/Prism/Sema2/SymbolFwd.jinja
                    include/Prism/Sema2/SymbolFwd.inl
+                   src/Prism/Sema2/SemaFilters.py)
+
+add_code_generator(prism
+                   src/Prism/Sema2/SemaDiagnostics.yaml
+                   src/Prism/Sema2/SemaDiagnosticsDecl.jinja
+                   include/Prism/Sema2/SemaDiagnosticsDecl.inl
+                   src/Prism/Sema2/SemaFilters.py)
+
+add_code_generator(prism
+                   src/Prism/Sema2/SemaDiagnostics.yaml
+                   src/Prism/Sema2/SemaDiagnosticsDef.jinja
+                   include/Prism/Sema2/SemaDiagnosticsDef.inl
                    src/Prism/Sema2/SemaFilters.py)
 
 target_sources(prism 

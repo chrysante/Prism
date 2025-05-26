@@ -130,9 +130,7 @@ class DeclSymbol: public Symbol {
 public:
     /// The generic parameter of this declaration. For non-generic declarations
     /// this is empty.
-    std::span<GenericParam const> generic_params() const {
-        return _generic_params;
-    }
+    std::span<Symbol* const> generic_params() const { return _generic_params; }
 
     /// True if this declaration has generic parameters
     bool is_generic() const { return !generic_params().empty(); }
@@ -154,7 +152,7 @@ private:
     friend struct NameResolution;
 
     Symbol* _canonical = nullptr;
-    utl::small_vector<GenericParam, 3> _generic_params;
+    utl::small_vector<Symbol*, 3> _generic_params;
 };
 
 /// User definition of a struct type
@@ -325,6 +323,14 @@ public:
 
     ///
     FuncSig const& signature() const { return _sig; }
+
+    /// View over the arguments
+    std::span<FuncArgSpec const> arguments() const {
+        return signature().arguments();
+    }
+
+    /// The return type
+    Type const* return_type() const { return signature().return_type(); }
 
 private:
     static std::string make_name(FuncSig const& signature);

@@ -17,9 +17,7 @@ static utl::hashmap<Symbol*, Symbol*> make_map(
     PRISM_ASSERT(decl && decl->is_generic());
     PRISM_ASSERT(decl->generic_params().size() == gen_args.size());
     // TODO: Assert that arguments have correct symbol type Value/Type
-    return zip(decl->generic_params() |
-                   transform(FN1(, _1.visit(FN1(, static_cast<Symbol*>(_1))))),
-               gen_args) |
+    return zip(decl->generic_params(), gen_args) |
            ranges::to<utl::hashmap<Symbol*, Symbol*>>;
 }
 

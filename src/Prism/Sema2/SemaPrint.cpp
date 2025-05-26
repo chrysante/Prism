@@ -7,6 +7,7 @@
 #include <utl/stack.hpp>
 #include <utl/streammanip.hpp>
 
+#include "Prism/Common/Assert.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Common/TreeFormatter.h"
 #include "Prism/Sema2/Scope.h"
@@ -16,13 +17,32 @@ using namespace prism;
 using namespace tfmt::modifiers;
 
 using ranges::views::enumerate;
+using ranges::views::reverse;
 
 namespace {
 
-constexpr utl::streammanip Secondary = [](std::ostream& str,
-                                          auto const&... args) {
-    tfmt::FormatGuard guard(BrightGrey, str);
-    ((str << args), ...);
+static constexpr utl::streammanip Keyword = [](std::ostream& str,
+                                               auto const&... args) {
+    str << tfmt::format(Bold | BrightMagenta, args...);
+};
+
+static constexpr utl::streammanip Username = [](std::ostream& str,
+                                                auto const&... args) {
+    str << tfmt::format(BrightBlue, args...);
+};
+
+static constexpr utl::streammanip Secondary = [](std::ostream& str,
+                                                 auto const&... args) {
+    str << tfmt::format(BrightGrey, args...);
+};
+
+static constexpr utl::streammanip Comment = [](std::ostream& str,
+                                               auto const&... args) {
+    str << tfmt::format(BrightGrey | Italic, "// ", args...);
+};
+
+static constexpr utl::streammanip Null = [](std::ostream& str) {
+    str << tfmt::format(BrightRed | Bold, "NULL");
 };
 
 constexpr utl::streammanip SymTypeStyle = [](std::ostream& str,
@@ -59,11 +79,6 @@ constexpr utl::streammanip NameStyle = [](std::ostream& str,
     str << "\"";
 };
 
-static constexpr utl::streammanip Keyword = [](std::ostream& str,
-                                               std::string_view name) {
-    str << tfmt::format(BrightMagenta | Bold, name);
-};
-
 static constexpr utl::streammanip ValueName = [](std::ostream& str,
                                                  Value const* value) {
     if (!value)
@@ -83,6 +98,258 @@ static constexpr utl::streammanip TypeName = [](std::ostream& str,
     else
         str << "%" << type->name();
 };
+
+static void fmt_name(Symbol const* symbol, std::ostream& str,
+                     FmtNameOptions options = {});
+
+static void fmt_gen_args(std::span<Symbol const* const> args, std::ostream& str,
+                         std::string_view open_paren = "(",
+                         std::string_view close_paren = ")") {
+    if (args.empty()) return;
+    str << open_paren;
+    for (bool first = true; auto* arg: args) {
+        if (!first) str << ", ";
+        first = false;
+        fmt_name(arg, str, { .qualified = true });
+    }
+    str << close_paren;
+}
+
+static void fmt_name(Symbol const* symbol, std::ostream& str,
+                     FmtNameOptions options) {
+    if (!symbol) {
+        str << Null;
+        return;
+    }
+    if (options.qualified) {
+        utl::stack<Symbol const*> stack = { symbol };
+        auto* scope = symbol->parent_scope();
+        while (scope) {
+            auto* sym = scope->defining_symbol();
+            if (isa<SourceFile>(sym) || isa<Module>(sym)) break;
+            if (sym) stack.push(sym);
+            scope = scope->parent_scope();
+        }
+        bool first = true;
+        for (auto* sym: stack | reverse) {
+            if (!first) str << ".";
+            first = false;
+            fmt_name(sym, str);
+        }
+        return;
+    }
+    if (auto* type = dyncast<FunctionType const*>(symbol)) {
+        str << Keyword("fn") << " " << "(";
+        for (bool first = true; auto arg: type->arguments()) {
+            if (!first) str << ", ";
+            first = false;
+            str << arg.passing_convention() << " ";
+            fmt_name(arg.type(), str, options);
+        }
+        str << ") -> ";
+        fmt_name(type->return_type(), str, options);
+        return;
+    }
+    if (auto* type = dyncast<StructInst const*>(symbol)) {
+        fmt_name(type->definition(), str, options);
+        fmt_gen_args(type->generic_args(), str);
+        return;
+    }
+    if (auto* trait = dyncast<TraitInst const*>(symbol)) {
+        fmt_name(trait->definition(), str, options);
+        fmt_gen_args(trait->generic_args(), str);
+        return;
+    }
+#if 0
+    if (auto* impl = dyncast<TraitImpl const*>(symbol)) {
+        str << "(" << Keyword("impl") << " ";
+        fmt_name(impl->trait(), str, options);
+        str << " " << Keyword("for") << " ";
+        fmt_name(impl->conformingType(), str, options);
+        str << ")";
+        return;
+    }
+#endif
+    std::string_view name = symbol->name();
+    if (name.empty()) {
+        str << Secondary("anon: ", get_rtti(*symbol));
+        return;
+    }
+    str << name;
+}
+
+static auto fmt_name(Symbol const* symbol, FmtNameOptions options = {}) {
+    return utl::streammanip(
+        [=](std::ostream& str) { fmt_name(symbol, str, options); });
+}
+
+static auto fmt_name(Symbol const& symbol, FmtNameOptions options = {}) {
+    return fmt_name(&symbol, options);
+}
+
+static FmtDeclOptions asSecondary(FmtDeclOptions in) {
+    return {
+        .primary_qualified = in.secondary_qualified,
+        .secondary_qualified = in.secondary_qualified,
+    };
+}
+
+static FmtNameOptions as_primary_name(FmtDeclOptions in) {
+    return { .qualified = in.primary_qualified };
+}
+
+static FmtNameOptions as_secondary_name(FmtDeclOptions in) {
+    return { .qualified = in.secondary_qualified };
+}
+
+static void fmt_decl(Symbol const* symbol, std::ostream& str,
+                     FmtDeclOptions options);
+
+static void fmt_decl_impl(Symbol const&, std::ostream& str, FmtDeclOptions) {
+    str << tfmt::format(BrightRed | Bold, "<unknown-decl>");
+}
+
+static void fmtFuncDeclImpl(Symbol const& func, FunctionDef const& function,
+                            std::ostream& str, FmtDeclOptions options) {
+    str << fmt_name(func, as_primary_name(options)) << "(";
+    for (bool first = true; auto* param: function.arguments()) {
+        if (!first) str << ", ";
+        first = false;
+        fmt_decl(param, str, asSecondary(options));
+    }
+    str << ") -> "
+        << fmt_name(function.return_type(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(FunctionInst const& func, std::ostream& str,
+                          FmtDeclOptions options) {
+    str << Keyword("fn") << " ";
+    fmtFuncDeclImpl(func, *func.definition(), str, options);
+}
+
+static void fmt_gen_param_list(std::span<Symbol const* const> params,
+                               std::ostream& str, FmtDeclOptions options) {
+    str << "[";
+    for (bool first = true; auto* param: params) {
+        if (!first) str << ", ";
+        first = false;
+        fmt_decl(param, str, asSecondary(options));
+    }
+    str << "]";
+}
+#if 0
+static void fmt_decl_impl(FunctionArgument const& arg, std::ostream& str,
+                        FmtDeclOptions options) {
+    PRISM_UNIMPLEMENTED();
+#if 0
+    str << fmt_name(arg) << ": " << arg.
+    << fmt_name(arg.type().get(), as_secondary_name(options));
+#endif
+}
+
+static void fmt_decl_impl(GenTypeParam const& param, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << fmt_name(param) << ": "
+    << fmt_name(param.trait_bound(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(StructInst const& type, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("struct") << " " << fmt_name(type, as_primary_name(options));
+}
+
+static void fmt_decl_impl(StructDef const& def, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("struct") << " ";
+    fmt_gen_param_list(def.generic_params(), str, options);
+    str << " " << fmt_name(type, as_primary_name(options));
+}
+
+static void fmt_decl_impl(TraitDef const& trait, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("trait") << " " << fmt_name(trait, as_primary_name(options));
+}
+
+static void fmt_decl_impl(GenTraitInst const& trait, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("gen trait inst") << " "
+    << fmt_name(trait, as_primary_name(options));
+}
+
+static void fmt_decl_impl(GenTrait const& trait, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("gen trait") << " ";
+    fmt_gen_param_list(trait.genParams(), str, options);
+    str << " " << fmt_name(trait, as_primary_name(options));
+}
+
+static void fmt_decl_impl(TraitImpl const& impl, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("impl") << " "
+    << fmt_name(impl.trait(), as_primary_name(options)) << " "
+    << Keyword("for") << " "
+    << fmt_name(impl.conformingType(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(GenTraitImpl const& impl, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("impl") << " ";
+    fmt_gen_param_list(impl.genParams(), str, options);
+    str << " " << fmt_name(impl.trait(), as_primary_name(options)) << " "
+    << Keyword("for") << " "
+    << fmt_name(impl.conformingType(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(Variable const& var, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("var") << " " << fmt_name(var, as_primary_name(options)) << ": "
+    << fmt_name(var.type(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(Typedef const& type, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("typedef") << " " << fmt_name(type, as_primary_name(options))
+    << ": " << fmt_name(type.traitBound(), as_secondary_name(options)) << " = "
+    << fmt_name(type.definition(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(BaseClass const& base, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("base class") << " " << fmt_name(base, as_primary_name(options))
+    << ": " << fmt_name(base.type(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(BaseTrait const& base, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("base trait") << " " << fmt_name(base, as_primary_name(options))
+    << ": " << fmt_name(base.trait(), as_secondary_name(options));
+}
+
+static void fmt_decl_impl(MemberVar const& var, std::ostream& str,
+                        FmtDeclOptions options) {
+    str << Keyword("member var") << " " << fmt_name(var, as_primary_name(options))
+    << ": " << fmt_name(var.type(), as_secondary_name(options));
+}
+#endif
+
+static void fmt_decl(Symbol const* symbol, std::ostream& str,
+                     FmtDeclOptions options = {}) {
+    if (!symbol) {
+        str << Null;
+        return;
+    }
+    visit(*symbol,
+          [&](auto const& symbol) { fmt_decl_impl(symbol, str, options); });
+}
+
+static auto fmt_decl(Symbol const* symbol, FmtDeclOptions options = {}) {
+    return utl::streammanip(
+        [=](std::ostream& str) { fmt_decl(symbol, str, options); });
+}
+
+static auto fmt_decl(Symbol const& symbol, FmtDeclOptions options = {}) {
+    return fmt_decl(&symbol, options);
+}
 
 struct PrettyPrintInstCtx {
     std::ostream& str;
@@ -221,3 +488,23 @@ void prism::print(Symbol const& symbol, std::ostream& ostr,
 }
 
 void prism::print(Symbol const& symbol) { print(symbol, std::cerr); }
+
+utl::vstreammanip<> prism::format_decl(Symbol const& symbol,
+                                       FmtDeclOptions options) {
+    return [&, options](std::ostream& str) { fmt_decl(&symbol, str, options); };
+}
+
+utl::vstreammanip<> prism::format_decl(Symbol const* symbol,
+                                       FmtDeclOptions options) {
+    return [=](std::ostream& str) { fmt_decl(symbol, str, options); };
+}
+
+utl::vstreammanip<> prism::format_name(Symbol const& symbol,
+                                       FmtNameOptions options) {
+    return [&, options](std::ostream& str) { fmt_name(&symbol, str, options); };
+}
+
+utl::vstreammanip<> prism::format_name(Symbol const* symbol,
+                                       FmtNameOptions options) {
+    return [=](std::ostream& str) { fmt_name(symbol, str, options); };
+}

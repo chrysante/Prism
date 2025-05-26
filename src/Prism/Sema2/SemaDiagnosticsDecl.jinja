@@ -1,0 +1,49 @@
+
+{% macro define_ctor(diag) %}
+
+{% if diag.members %}
+{% set comma_if_members = ', ' %}
+{% else %}
+{% set comma_if_members = '' %}
+{% endif %}
+
+explicit {{ diag.name }}(
+    {% if not diag.no_source -%}
+    SourceContext const* ctx, Facet const* facet
+        {{ comma_if_members }}
+    {%- endif %}
+        {{- diag.members | map('diag_member_ctor_param') | join(', ') -}}
+    );
+{% endmacro %}
+
+{% macro define_diag_class(diag) %}
+
+/// {{ diag.comment }}
+class {{ diag.name }}: public {{ diag.base }} {
+{% if not diag.abstract %}
+public:
+    {{ define_ctor(diag) }}
+
+private:
+    void header(std::ostream& str, SourceContext const* ctx) const override;
+
+    {% for member in diag.members %}
+        {% if not member.ctor_only %}
+    {{ member.type }} {{ member.name }};
+        {% endif %}
+    {% endfor %}
+    
+{% endif %}
+};
+    
+{% endmacro %}
+
+namespace prism {
+    
+    {% for diag in diags %}
+    {% if not diag.decl_only %}
+    {{ define_diag_class(diag) }}
+    {% endif %}
+    {% endfor %}
+    
+}

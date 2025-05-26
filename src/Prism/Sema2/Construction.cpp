@@ -139,8 +139,8 @@ struct NameResolution: AnalysisContext {
         resolve_children(source_file.scope());
     }
 
-    GenericParam resolve_gen_param(GenParamDeclFacet const& facet,
-                                   DeclSymbol& decl) {
+    Symbol* resolve_gen_param(GenParamDeclFacet const& facet,
+                              DeclSymbol& decl) {
         std::string name = get_name(facet.nameFacet(), *source_context);
         auto* req_symbol =
             analyze_facet(decl.parent_scope(), facet.requirements());
@@ -153,7 +153,7 @@ struct NameResolution: AnalysisContext {
         PRISM_UNIMPLEMENTED();
     }
 
-    utl::small_vector<GenericParam> resolve_gen_params(
+    utl::small_vector<Symbol*> resolve_gen_params(
         std::derived_from<DeclSymbol> auto& decl) {
         auto* gen_params_facet = decl.facet()->genParams();
         if (!gen_params_facet) return {};
@@ -237,6 +237,9 @@ struct NameResolution: AnalysisContext {
             func_def.set_canonical(
                 ctx.get_function_instantiation(&func_def, {}));
     }
+
+    void do_resolve(GenTypeParam const&) {}
+    void do_resolve(GenValueParam const&) {}
 
     void do_resolve(Type const&) {}
 

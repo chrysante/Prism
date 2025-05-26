@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include <APMath/APInt.h>
-#include <utl/ptr_union.hpp>
 
 #include <Prism/Common/EnumUtil.h>
 #include <Prism/Sema2/SymbolFwd.inl>
@@ -15,7 +14,6 @@ class Scope;
 class SemaContext;
 
 class GenValueParam;
-using GenericParam = utl::ptr_union<GenTypeParam*, GenValueParam*>;
 
 using APMath::APInt;
 

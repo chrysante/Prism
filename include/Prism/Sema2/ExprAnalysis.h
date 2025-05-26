@@ -84,6 +84,7 @@ void push_bad_sym_ref(AnalysisContext const& context, Facet const* facet,
 template <std::derived_from<Symbol> S>
 S* detail::verify_symbol_type(AnalysisContext const& context,
                               Facet const* facet, Symbol* symbol) {
+    if (!symbol) return nullptr;
     auto* result = SymbolConverter<S>::convert(symbol);
     if (result) return result;
     auto type_id = csp::type_to_id_v<std::remove_cv_t<S>>;
