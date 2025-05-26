@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <range/v3/view.hpp>
 #include <termfmt/termfmt.h>
 #include <utl/stack.hpp>
 #include <utl/streammanip.hpp>
@@ -13,6 +14,8 @@
 
 using namespace prism;
 using namespace tfmt::modifiers;
+
+using ranges::views::enumerate;
 
 namespace {
 
@@ -31,6 +34,10 @@ constexpr utl::streammanip NameStyle = [](std::ostream& str,
                                           Symbol const* symbol) {
     if (!symbol) {
         str << "NULL";
+        return;
+    }
+    if (symbol->name().empty()) {
+        str << tfmt::format(BrightGrey | Italic, "<anon>");
         return;
     }
     tfmt::FormatGuard guard(Italic, str);
@@ -52,47 +59,149 @@ constexpr utl::streammanip NameStyle = [](std::ostream& str,
     str << "\"";
 };
 
-struct Print2Ctx {
+static constexpr utl::streammanip Keyword = [](std::ostream& str,
+                                               std::string_view name) {
+    str << tfmt::format(BrightMagenta | Bold, name);
+};
+
+static constexpr utl::streammanip ValueName = [](std::ostream& str,
+                                                 Value const* value) {
+    if (!value)
+        str << "NULL";
+    else if (!value->name().empty())
+        str << "%" << value->name();
+    else
+        str << tfmt::format(BrightGrey | Italic, "<anon>");
+};
+
+static constexpr utl::streammanip TypeName = [](std::ostream& str,
+                                                Type const* type) {
+    if (!type)
+        str << "NULL";
+    else if (isa<BuiltinType>(type))
+        str << Keyword(type->name());
+    else
+        str << "%" << type->name();
+};
+
+struct PrettyPrintInstCtx {
     std::ostream& str;
-    TreeFormatter& treeFmt;
+    int indent = 0;
+    unsigned block_nest_level = 0;
+    std::array<tfmt::Modifier, 4> BlockColor = { Blue, Cyan, Green, Yellow };
+
+    void begin_line() {
+        for (int i = 0; i < indent; ++i)
+            str << "  ";
+    }
+
+    void begin_inst(Instruction const& inst) {
+        begin_line();
+        if (!inst.name().empty()) str << ValueName(&inst) << " = ";
+    }
+
+    void print(Instruction const* inst) {
+        if (!inst) {
+            begin_line();
+            str << "NULL\n";
+            return;
+        }
+        begin_inst(*inst);
+        visit(*inst, FN1(&, do_print(_1)));
+        str << "\n";
+    }
+
+    void do_print(Instruction const&) { PRISM_UNREACHABLE(); }
+
+    void do_print(BlockInst const& block) {
+        str << Keyword("block") << " " << TypeName(block.type());
+
+        if (block.empty()) {
+            str << " " << tfmt::format(BlockColor[block_nest_level % 4], "{}");
+            return;
+        }
+        str << " " << tfmt::format(BlockColor[block_nest_level % 4], "{")
+            << "\n";
+        ++block_nest_level;
+        ++indent;
+        for (auto* inst: block)
+            print(inst);
+        --indent;
+        --block_nest_level;
+        begin_line();
+        str << tfmt::format(BlockColor[block_nest_level % 4], "}");
+    }
+
+    void do_print(YieldInst const& inst) {
+        str << Keyword("yield") << " " << ValueName(inst.operand());
+    }
+
+    void do_print(CallInst const& inst) {
+        str << Keyword("call") << " " << TypeName(inst.type()) << " "
+            << ValueName(inst.callee()) << "(";
+        bool first = true;
+        for (auto* arg: inst.arguments())
+            str << (first ? ((void)(first = false), "") : ", ")
+                << ValueName(arg);
+        str << ")";
+    }
+};
+
+struct SemaPrintCtx {
+    SemaPrintOptions const& options;
+    std::ostream& str;
+    TreeFormatter& tree_fmt;
 
     void print(Symbol const* symbol) {
         if (!symbol) {
             str << "NULL\n";
             return;
         }
+        if (auto* inst = dyncast<Instruction const*>(symbol);
+            inst && options.pretty_print_instructions)
+        {
+            PrettyPrintInstCtx{ str }.print(inst);
+            return;
+        }
         str << SymTypeStyle(*symbol) << " " << NameStyle(symbol) << " ";
-        visit(*symbol, FN1(&, writeHeader(_1)));
+        visit(*symbol, FN1(&, write_header(_1)));
         str << "\n";
         auto* scope = symbol->scope();
-        bool isLeaf = !scope || scope->symbols().empty();
-        treeFmt.writeDetails(isLeaf,
-                             FN0(&, visit(*symbol, FN1(&, writeDetails(_1)))));
-        if (scope) treeFmt.writeChildren(scope->symbols(), FN1(&, print(_1)));
+        bool is_leaf = !scope || scope->symbols().empty();
+        tree_fmt.writeDetails(is_leaf,
+                              FN0(&,
+                                  visit(*symbol, FN1(&, write_details(_1)))));
+        if (scope) tree_fmt.writeChildren(scope->symbols(), FN1(&, print(_1)));
     }
 
-    void writeHeader(Symbol const&) {}
+    void write_header(Symbol const&) {}
 
-    void writeHeader(Type const& type) {
+    void write_header(Type const& type) {
         str << Secondary("[", type.layout(), "]");
     }
 
-    void writeHeader(GenTypeParam const& param) {
+    void write_header(GenTypeParam const& param) {
         str << ": " << NameStyle(param.trait_bound());
     }
 
-    void writeHeader(Value const& value) {
+    void write_header(Value const& value) {
         str << ": " << NameStyle(value.type());
     }
 
-    void writeDetails(Symbol const&) {}
+    void write_details(Symbol const&) {}
+
+    void write_details(Instruction const& inst) {
+        for (auto [index, operand]: inst.operands() | enumerate)
+            str << "[" << index << "] = " << NameStyle(operand) << "\n";
+    }
 };
 
 } // namespace
 
-void prism::print(Symbol const& symbol, std::ostream& ostr) {
-    TreeFormatter treeFmt(ostr);
-    Print2Ctx ctx{ ostr, treeFmt };
+void prism::print(Symbol const& symbol, std::ostream& ostr,
+                  SemaPrintOptions const& options) {
+    TreeFormatter tree_fmt(ostr);
+    SemaPrintCtx ctx{ options, ostr, tree_fmt };
     ctx.print(&symbol);
 }
 

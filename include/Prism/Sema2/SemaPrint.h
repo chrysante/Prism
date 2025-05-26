@@ -7,8 +7,13 @@
 
 namespace prism {
 
+struct SemaPrintOptions {
+    bool pretty_print_instructions = true;
+};
+
 /// Prints \p symbol as a tree to \p ostr
-void print(Symbol const& symbol, std::ostream& ostr);
+void print(Symbol const& symbol, std::ostream& ostr,
+           SemaPrintOptions const& options = {});
 
 /// Prints to `std::cerr`
 void print(Symbol const& symbol);
