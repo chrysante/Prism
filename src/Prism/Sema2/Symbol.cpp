@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include <range/v3/view.hpp>
+#include <utl/strcat.hpp>
 #include <utl/streammanip.hpp>
 
 #include "Prism/Common/Assert.h"
@@ -111,23 +112,38 @@ void StructInst::verify() const {
                  definition()->generic_params().size());
 }
 
-static constexpr utl::streammanip Typename = [](std::ostream& str,
-                                                Type const* type) {
-    if (type)
-        str << type->name();
+static constexpr utl::streammanip SymbolName = [](std::ostream& str,
+                                                  Symbol const* symbol) {
+    if (symbol)
+        str << symbol->name();
     else
         str << "NULL";
 };
+
+std::string make_name(Symbol const* bound, size_t index, size_t nesting_depth) {
+    return utl::strcat("<gen-param.", nesting_depth, ".", index, ":",
+                       SymbolName(bound), ">");
+}
+
+GenTypeParam::GenTypeParam(Trait const* trait_bound, size_t index,
+                           size_t nesting_depth):
+    Type(SymbolType::GenTypeParam, /* facet: */ nullptr,
+         /* parent_scope: */ nullptr,
+         make_name(trait_bound, index, nesting_depth), ScopeArg::None,
+         TypeLayout::Incomplete),
+    _trait_bound(trait_bound),
+    _index(index),
+    _nesting_depth(nesting_depth) {}
 
 std::string FunctionType::make_name(FuncSig const& sig) {
     std::stringstream sstr;
     sstr << "fn (";
     print_separated(sstr, ", ", sig.arguments(), [](FuncArgSpec arg) {
         return utl::streammanip([=](std::ostream& str) {
-            str << arg.passing_convention() << " " << Typename(arg.type());
+            str << arg.passing_convention() << " " << SymbolName(arg.type());
         });
     });
-    sstr << ") -> " << Typename(sig.return_type());
+    sstr << ") -> " << SymbolName(sig.return_type());
     return std::move(sstr).str();
 }
 
@@ -187,6 +203,14 @@ void User::on_value_destruction(Value* operand) {
     for (auto& op: _operands)
         if (op == operand) op = nullptr;
 }
+
+GenValueParam::GenValueParam(Type const* type, size_t index,
+                             size_t nesting_depth):
+    Value(SymbolType::GenValueParam, /* facet: */ nullptr,
+          /* parent_scope: */ nullptr, make_name(type, index, nesting_depth),
+          ScopeArg::None, type, Mutability::Const, ValueCat::LValue),
+    _index(index),
+    _nesting_depth(nesting_depth) {}
 
 std::string FunctionInst::make_name() const {
     if (generic_args().empty()) return definition()->name();

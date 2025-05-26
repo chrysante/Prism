@@ -73,6 +73,23 @@ public:
     /// The function type instance with \p signature
     FunctionType const* get_function_type(FuncSig const& signature);
 
+    /// \Returns the unique generic parameter modulo alpha equivalence.
+    /// This means that for every triplet of
+    /// \p trait_bound, \p parameter_index, \p generic_nesting_depth
+    /// there is exactly one `GenTypeParam` instance. This
+    /// instance will be added to each \p parent_scope by the name \p name for
+    /// name lookup.
+    /// https://en.wikipedia.org/wiki/Lambda_calculus#Alpha_equivalence
+    GenTypeParam* get_gen_type_param(Scope* parent_scope, std::string name,
+                                     Trait const* trait_bound,
+                                     size_t parameter_index,
+                                     size_t generic_nesting_depth);
+
+    /// See `get_gen_type_param()`
+    GenValueParam* get_gen_value_param(Scope* parent_scope, std::string name,
+                                       Type const* type, size_t parameter_index,
+                                       size_t generic_nesting_depth);
+
     /// The integer literal with value \p value
     /// Uniqued for each facet
     IntLiteral* get_int_literal(Facet const* facet, APInt value,
@@ -107,7 +124,7 @@ private:
 
     struct Impl;
 
-    utl::local_pimpl<Impl, 512> impl;
+    utl::local_pimpl<Impl, 1024> impl;
 };
 
 } // namespace prism

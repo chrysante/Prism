@@ -1,15 +1,9 @@
 
 
+fn [T: type, U: type] foo(T, U) -> i32 {}
+fn [A: type, B: type] foo(A, B) {}
+
+fn [T: type, U: type] bar(T, U) {}
+fn [A: type, B: type] bar(B, A) {}
 
 
-struct S {}
-
-fn pass(arg: i32) -> i32 {}
-
-fn foo(in i32, in i32) -> f32 {}
-
-fn main(arg: inout i32) {
-
-}
-
-fn bar() -> S {}

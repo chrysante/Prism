@@ -314,17 +314,22 @@ private:
 /// Generic type parameter
 class GenTypeParam final: public Type {
 public:
-    explicit GenTypeParam(Facet const* facet, Scope* parent_scope,
-                          std::string name, Trait const* trait_bound):
-        Type(SymbolType::GenTypeParam, facet, parent_scope, std::move(name),
-             ScopeArg::None, TypeLayout::Incomplete),
-        _trait_bound(trait_bound) {}
+    explicit GenTypeParam(Trait const* trait_bound, size_t index,
+                          size_t nesting_depth);
 
     /// The trait requirements of this parameter
     Trait const* trait_bound() const { return _trait_bound; }
 
+    /// The index of this parameter in the parameter list
+    size_t index() const { return _index; }
+
+    /// The nesting depth of the parameter list
+    size_t nesting_depth() const { return _nesting_depth; }
+
 private:
     Trait const* _trait_bound;
+    size_t _index;
+    size_t _nesting_depth;
 };
 
 ///
@@ -524,10 +529,18 @@ private:
 /// Non-type generic parameter
 class GenValueParam final: public Value {
 public:
-    explicit GenValueParam(Facet const* facet, Scope* parent_scope,
-                           std::string name, Type const* type):
-        Value(SymbolType::GenValueParam, facet, parent_scope, std::move(name),
-              ScopeArg::None, type, Mutability::Const, ValueCat::LValue) {}
+    explicit GenValueParam(Type const* type, size_t index,
+                           size_t nesting_depth);
+
+    /// The index of this parameter in the parameter list
+    size_t index() const { return _index; }
+
+    /// The nesting depth of the parameter list
+    size_t nesting_depth() const { return _nesting_depth; }
+
+private:
+    size_t _index;
+    size_t _nesting_depth;
 };
 
 ///

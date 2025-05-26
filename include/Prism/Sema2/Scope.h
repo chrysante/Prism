@@ -91,6 +91,8 @@ private:
     friend struct NameResolution;
 
     void add_symbol(Symbol& symbol);
+    void add_symbol(Symbol& symbol, std::string const& name,
+                    bool participate_in_name_lookup);
     /// \pre \p def_symbol must not be null
     void set_defining_symbol(Symbol* defining_symbol);
 
@@ -101,9 +103,8 @@ private:
     Symbol* _defining_symbol = nullptr;
     Scope* _parent_scope = nullptr;
     std::vector<Symbol*> _symbols;
-    utl::hashmap<std::string_view, utl::tiny_ptr_vector<Symbol*>> _names;
-    utl::metric_map<std::string_view, utl::tiny_ptr_vector<Symbol*>>
-        _approx_names;
+    utl::hashmap<std::string, utl::tiny_ptr_vector<Symbol*>> _names;
+    utl::metric_map<std::string, utl::tiny_ptr_vector<Symbol*>> _approx_names;
     FunctionOverloadMap _function_overload_map;
 };
 

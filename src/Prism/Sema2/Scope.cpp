@@ -59,12 +59,18 @@ void Scope::set_function_signature(GenericSignature generic_sig,
 }
 
 void Scope::add_symbol(Symbol& symbol) {
+    bool participate_in_name_lookup = !symbol.excluded_from_name_lookup();
+    add_symbol(symbol, symbol.name(), participate_in_name_lookup);
+}
+
+void Scope::add_symbol(Symbol& symbol, std::string const& name,
+                       bool participate_in_name_lookup) {
     PRISM_ASSERT_AUDIT(!ranges::contains(_symbols, &symbol),
                        "symbol has already been added to this scope");
     _symbols.push_back(&symbol);
-    if (!symbol.name().empty() && !symbol.excluded_from_name_lookup()) {
-        _names[symbol.name()].push_back(&symbol);
-        _approx_names[symbol.name()].push_back(&symbol);
+    if (participate_in_name_lookup && !name.empty()) {
+        _names[name].push_back(&symbol);
+        _approx_names[name].push_back(&symbol);
     }
 }
 

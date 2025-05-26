@@ -1,6 +1,7 @@
 #include "Prism/Sema2/Construction.h"
 
 #include <range/v3/view.hpp>
+#include <utl/scope_guard.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/Ranges.h"
@@ -15,6 +16,7 @@
 
 using namespace prism;
 
+using ranges::views::enumerate;
 using ranges::views::transform;
 
 static std::string get_name(Facet const* name_facet,
@@ -112,6 +114,13 @@ struct TrappingInstEmitter final: InstructionEmitter {
 };
 
 struct NameResolution: AnalysisContext {
+    size_t generic_nesting_depth = 0;
+
+    auto make_gen_scope() {
+        ++generic_nesting_depth;
+        return utl::scope_guard([this] { --generic_nesting_depth; });
+    }
+
     Symbol* analyze_facet(Scope* scope, Facet const* facet) {
         TrappingInstEmitter inst_emitter;
         return prism::analyze_facet(*this, inst_emitter, scope, facet);
@@ -140,30 +149,36 @@ struct NameResolution: AnalysisContext {
         resolve_children(source_file.scope());
     }
 
-    Symbol* resolve_gen_param(GenParamDeclFacet const& facet,
+    Symbol* resolve_gen_param(GenParamDeclFacet const& facet, size_t index,
                               DeclSymbol& decl) {
         std::string name = get_name(facet.nameFacet(), *source_context);
         auto* req_symbol =
             analyze_facet(decl.parent_scope(), facet.requirements());
+        if (!req_symbol) return nullptr;
         if (auto* trait = dyncast<Trait*>(req_symbol))
-            return ctx.make<GenTypeParam>(&facet, decl.scope(), std::move(name),
-                                          trait);
+            return ctx.get_gen_type_param(decl.scope(), std::move(name), trait,
+                                          index, generic_nesting_depth - 1);
         if (auto* type = dyncast<Type*>(req_symbol))
-            return ctx.make<GenValueParam>(&facet, decl.scope(),
-                                           std::move(name), type);
-        PRISM_UNIMPLEMENTED();
+            return ctx.get_gen_value_param(decl.scope(), std::move(name), type,
+                                           index, generic_nesting_depth - 1);
+        DE.emit<BadSymRef>(source_context, &facet, req_symbol,
+                           SymbolType::Trait);
+        return nullptr;
     }
 
     utl::small_vector<Symbol*> resolve_gen_params(
         std::derived_from<DeclSymbol> auto& decl) {
         auto* gen_params_facet = decl.facet()->genParams();
         if (!gen_params_facet) return {};
-        return gen_params_facet->elems() |
-               transform(FN1(&, resolve_gen_param(*_1, decl))) |
-               ToSmallVector<>;
+        utl::small_vector<Symbol*> result;
+        result.reserve(gen_params_facet->elems().size());
+        for (auto [index, facet]: gen_params_facet->elems() | enumerate)
+            result.push_back(resolve_gen_param(*facet, index, decl));
+        return result;
     }
 
     void do_resolve(StructDef& struct_def) {
+        auto gen_scope = make_gen_scope();
         auto gen_params = resolve_gen_params(struct_def);
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
         if (!gen_params.empty())
@@ -172,6 +187,7 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(TraitDef& trait_def) {
+        auto gen_scope = make_gen_scope();
         auto gen_params = resolve_gen_params(trait_def);
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
         if (!gen_params.empty())
@@ -228,6 +244,7 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(FunctionDef& func_def) {
+        auto gen_scope = make_gen_scope();
         auto gen_params = resolve_gen_params(func_def);
         PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
         if (!gen_params.empty())
@@ -263,7 +280,7 @@ struct NameResolution: AnalysisContext {
 
 static void resolve_global_names(SemaContext& ctx, DiagnosticEmitter& DE,
                                  Module& mod) {
-    NameResolution{ ctx, DE }.resolve(mod);
+    NameResolution{ { ctx, DE } }.resolve(mod);
 }
 
 Module* prism::construct_sema_ir(SemaContext& ctx, DiagnosticEmitter& DE,

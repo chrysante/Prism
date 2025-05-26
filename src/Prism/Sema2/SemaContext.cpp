@@ -81,6 +81,25 @@ struct std::hash<GenInstKeyImpl<Def, ArgsContainer>> {
     }
 };
 
+namespace {
+
+struct GenericParamKey {
+    Symbol const* bound;
+    size_t index;
+    size_t nesting_depth;
+
+    bool operator==(GenericParamKey const&) const = default;
+};
+
+} // namespace
+
+template <>
+struct std::hash<GenericParamKey> {
+    size_t operator()(GenericParamKey const& key) const {
+        return utl::hash_combine(key.bound, key.index, key.nesting_depth);
+    }
+};
+
 struct SemaContext::Impl {
     Module* mod = nullptr;
     Library* core_libary = nullptr;
@@ -92,6 +111,7 @@ struct SemaContext::Impl {
     utl::hashmap<TraitInstKey, TraitInst*> trait_instantiations;
     utl::hashmap<FuncInstKey, FunctionInst*> function_instantiations;
     utl::hashmap<FuncSig, FunctionType*> function_types;
+    utl::hashmap<GenericParamKey, Symbol*> generic_parameters;
     utl::hashmap<Facet const*, IntLiteral*> int_literals;
     Builtins builtins;
 };
@@ -158,8 +178,9 @@ SourceContext const* SemaContext::get_source_context(Facet const* facet) const {
     return nullptr;
 }
 
-template <typename KeyType, typename T>
-static T get_or_make(utl::hashmap<KeyType, T>& map, auto&& key, auto&& ctor) {
+template <typename KeyType, typename T, typename KeyTypeU = KeyType>
+static T get_or_make(utl::hashmap<KeyType, T>& map, KeyTypeU&& key,
+                     auto&& ctor) {
     auto itr = map.find(key);
     if (itr != map.end()) return itr->second;
     auto result = ctor();
@@ -210,6 +231,33 @@ FunctionType const* SemaContext::get_function_type(FuncSig const& signature) {
     return get_or_make(impl->function_types, signature, [&] {
         return make<FunctionType>(impl->mod->scope(), signature);
     });
+}
+
+GenTypeParam* SemaContext::get_gen_type_param(Scope* parent_scope,
+                                              std::string name,
+                                              Trait const* trait_bound,
+                                              size_t index,
+                                              size_t nesting_depth) {
+    auto* sym = get_or_make(impl->generic_parameters,
+                            { trait_bound, index, nesting_depth }, [&] {
+        return make<GenTypeParam>(trait_bound, index, nesting_depth);
+    });
+    parent_scope->add_symbol(*sym, name,
+                             /* participate_in_name_lookup: */ true);
+    return cast<GenTypeParam*>(sym);
+}
+
+GenValueParam* SemaContext::get_gen_value_param(Scope* parent_scope,
+                                                std::string name,
+                                                Type const* type, size_t index,
+                                                size_t nesting_depth) {
+    auto* sym = get_or_make(impl->generic_parameters,
+                            { type, index, nesting_depth }, [&] {
+        return make<GenValueParam>(type, index, nesting_depth);
+    });
+    parent_scope->add_symbol(*sym, name,
+                             /* participate_in_name_lookup: */ true);
+    return cast<GenValueParam*>(sym);
 }
 
 static BuiltinType const* get_int_literal_type(SemaContext const& ctx,
