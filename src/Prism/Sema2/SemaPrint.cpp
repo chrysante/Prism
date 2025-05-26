@@ -87,23 +87,43 @@ static constexpr utl::streammanip TypeName = [](std::ostream& str,
 struct PrettyPrintInstCtx {
     std::ostream& str;
     int indent = 0;
-    unsigned block_nest_level = 0;
-    std::array<tfmt::Modifier, 4> BlockColor = { Blue, Cyan, Green, Yellow };
+    int block_nest_level = 0;
+    std::array<tfmt::Modifier, 4> const block_color = { Blue, Cyan, Green,
+                                                        Yellow };
 
-    void begin_line() {
-        for (int i = 0; i < indent; ++i)
-            str << "  ";
+    auto bracket_impl(int offset, std::string_view bracket) {
+        return utl::streammanip([=, this](std::ostream& str) {
+            if (offset < 0) block_nest_level += offset;
+            str << tfmt::format(block_color[(unsigned)block_nest_level %
+                                            block_color.size()] |
+                                    Bold,
+                                bracket);
+            if (offset > 0) block_nest_level += offset;
+        });
+    }
+
+    auto open_paren() { return bracket_impl(1, "("); }
+    auto close_paren() { return bracket_impl(-1, ")"); }
+    auto open_bracket() { return bracket_impl(1, "["); }
+    auto close_bracket() { return bracket_impl(-1, "]"); }
+    auto open_brace() { return bracket_impl(1, "{"); }
+    auto close_brace() { return bracket_impl(-1, "}"); }
+
+    auto begin_line() {
+        return utl::streammanip([this](std::ostream& str) {
+            for (int i = 0; i < indent; ++i)
+                str << "  ";
+        });
     }
 
     void begin_inst(Instruction const& inst) {
-        begin_line();
+        str << begin_line();
         if (!inst.name().empty()) str << ValueName(&inst) << " = ";
     }
 
     void print(Instruction const* inst) {
         if (!inst) {
-            begin_line();
-            str << "NULL\n";
+            str << begin_line() << "NULL\n";
             return;
         }
         begin_inst(*inst);
@@ -115,21 +135,16 @@ struct PrettyPrintInstCtx {
 
     void do_print(BlockInst const& block) {
         str << Keyword("block") << " " << TypeName(block.type());
-
         if (block.empty()) {
-            str << " " << tfmt::format(BlockColor[block_nest_level % 4], "{}");
+            str << " " << open_brace() << close_brace();
             return;
         }
-        str << " " << tfmt::format(BlockColor[block_nest_level % 4], "{")
-            << "\n";
-        ++block_nest_level;
+        str << " " << open_brace() << "\n";
         ++indent;
         for (auto* inst: block)
             print(inst);
         --indent;
-        --block_nest_level;
-        begin_line();
-        str << tfmt::format(BlockColor[block_nest_level % 4], "}");
+        str << begin_line() << close_brace();
     }
 
     void do_print(YieldInst const& inst) {
@@ -138,12 +153,12 @@ struct PrettyPrintInstCtx {
 
     void do_print(CallInst const& inst) {
         str << Keyword("call") << " " << TypeName(inst.type()) << " "
-            << ValueName(inst.callee()) << "(";
+            << ValueName(inst.callee()) << open_paren();
         bool first = true;
         for (auto* arg: inst.arguments())
             str << (first ? ((void)(first = false), "") : ", ")
                 << ValueName(arg);
-        str << ")";
+        str << close_paren();
     }
 };
 
