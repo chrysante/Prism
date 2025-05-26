@@ -237,10 +237,10 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
             return nullptr;
         },
         [&](Symbol* symbol) -> Symbol* { return symbol; },
-        [&](std::span<Function* const> /* overload_set */) -> Symbol* {
+        [&](NLR::OverloadSet const& overload_set) -> Symbol* {
             PRISM_UNIMPLEMENTED();
         },
-        [&](std::span<Symbol const* const> ambi_set) -> Symbol* {
+        [&](NLR::AmbiSet const& ambi_set) -> Symbol* {
             DE.emit<AmbiguousNameLookup>(source_context, &id, ambi_set);
             return nullptr;
         },

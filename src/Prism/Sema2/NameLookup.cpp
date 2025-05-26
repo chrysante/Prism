@@ -46,28 +46,18 @@ struct LookupContext {
     NameLookupOptions options;
 
     NameLookupResult lookup_unqual(Scope* scope) {
-        utl::small_vector<Symbol*> symbols;
-        auto* current_scope = scope;
-        while (current_scope) {
-            auto scope_symbols = search_scope(current_scope);
-            symbols.insert(symbols.end(), scope_symbols.begin(),
-                           scope_symbols.end());
+        for (auto* current_scope = scope; current_scope;
+             current_scope = current_scope->parent_scope())
+        {
+            auto symbols = search_scope(current_scope);
+            if (symbols.empty()) continue;
             if (symbols.size() == 1) return symbols.front();
-            if (!symbols.empty() && ranges::none_of(symbols, is_function_like))
-                return AmbiSet{ std::move(symbols) };
-            current_scope = current_scope->parent_scope();
+            if (ranges::all_of(symbols, is_function_like))
+                return OverloadSet{ std::move(symbols) };
+            return AmbiSet{ std::move(symbols) };
         }
-        if (symbols.empty()) {
-            if (options.allow_similar_names)
-                return lookup_similar(scope, name);
-            else
-                return {};
-        }
-        // Overload set
-        if (ranges::all_of(symbols, is_function_like))
-            return symbols | ranges::to<OverloadSet>;
-        // Ambiguous
-        return AmbiSet{ std::move(symbols) };
+        if (options.allow_similar_names) return lookup_similar(scope, name);
+        return {};
     }
 
     utl::small_vector<Symbol*> search_scope(Scope* scope) {
