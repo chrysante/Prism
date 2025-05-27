@@ -59,6 +59,11 @@ symbols:
   - name: TraitInst
     base: Trait
     
+# Misc
+    
+  - name: OverloadSet
+    base: Symbol
+    
 # Values
 
   - name: Value

@@ -148,6 +148,10 @@ public:
     /// True if this declaration has generic parameters
     bool is_generic() const { return !generic_params().empty(); }
 
+    /// The nesting depth of this declaration. This is valid regardless of
+    /// whether this declarations is actually generic. Set by name resolution.
+    size_t generic_nesting_depth() const { return _generic_nesting_depth; }
+
     /// The canonical instantiation of this definition, i.e., the defined
     /// type/trait/function. This is only non-null if this declaration is not
     /// generic.
@@ -165,6 +169,7 @@ private:
     friend struct NameResolution;
 
     Symbol* _canonical = nullptr;
+    uint32_t _generic_nesting_depth = (uint32_t)-1;
     utl::small_vector<Symbol*, 3> _generic_params;
 };
 
@@ -440,6 +445,28 @@ private:
 
     TraitDef* _definition;
     utl::small_vector<Symbol*, 3> _generic_args;
+};
+
+// MARK: Misc
+
+/// Plumbing symbol to return from analysis functions. Can eventually be removed
+/// by the call analysis function performing name lookup.
+class OverloadSet final: public Symbol {
+public:
+    explicit OverloadSet(utl::small_vector<Symbol*> symbols):
+        Symbol(SymbolType::OverloadSet, /* facet: */ nullptr,
+               /* parent_scope: */ nullptr,
+               /* name: */ {}, ScopeArg::None),
+        _symbols(std::move(symbols)) {}
+
+    /// The symbols in the overload set (`Function` and `FunctionDef`)
+    std::span<Symbol* const> symbols() { return _symbols; }
+
+    /// \overload
+    std::span<Symbol const* const> symbols() const { return _symbols; }
+
+private:
+    utl::small_vector<Symbol*> _symbols;
 };
 
 // MARK: Values

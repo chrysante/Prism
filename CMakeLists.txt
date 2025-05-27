@@ -116,6 +116,7 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/FuncSig.h
     include/Prism/Sema2/FunctionOverloadMap.h
     include/Prism/Sema2/NameLookup.h
+    include/Prism/Sema2/OverloadResolution.h
     include/Prism/Sema2/Scope.h
     include/Prism/Sema2/SemaContext.h
     include/Prism/Sema2/SemaDiagnostic.h
@@ -189,6 +190,7 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/FuncSig.cpp
     src/Prism/Sema2/FunctionOverloadMap.cpp
     src/Prism/Sema2/NameLookup.cpp
+    src/Prism/Sema2/OverloadResolution.cpp
     src/Prism/Sema2/Scope.cpp
     src/Prism/Sema2/SemaContext.cpp
     src/Prism/Sema2/SemaDiagnostic.cpp

@@ -204,23 +204,55 @@ TraitInst* SemaContext::get_trait_instantiation(
     });
 }
 
-static FuncSig compute_signature(FunctionDef const& definition,
+static Symbol* substitute_symbol(SemaContext& ctx, size_t gen_nesting_depth,
+                                 Symbol* input,
                                  std::span<Symbol* const> generic_args) {
-    // The assertions here are temporary until we implement generic substitution
-    PRISM_ASSERT(generic_args.empty());
-    PRISM_ASSERT(definition.generic_params().empty());
-    auto args = definition.arguments() |
-                transform([](FunctionArgument const* arg) {
-        return FuncArgSpec(arg->passing_convention(), arg->type());
+    auto recur = [=, &ctx](Symbol* sym) -> Symbol* {
+        return substitute_symbol(ctx, gen_nesting_depth, sym, generic_args);
+    };
+    if (!input) return nullptr;
+    if (auto* gen_type_param = dyncast<GenTypeParam const*>(input);
+        gen_type_param && gen_type_param->nesting_depth() == gen_nesting_depth)
+        return generic_args[gen_type_param->index()];
+    // clang-format off
+    return visit(*input, csp::overload{
+        [&](StructInst& struct_inst) {
+            auto args = struct_inst.generic_args() | transform(recur) |
+                        ToSmallVector<>;
+            return ctx.get_struct_instantiation(struct_inst.definition(), args);
+        },
+        [&](Symbol const&) { return input; }
+    }); // clang-format on
+}
+
+static Type const* substitute_type(SemaContext& ctx, size_t gen_nesting_depth,
+                                   Type const* input,
+                                   std::span<Symbol* const> generic_args) {
+    auto* type = const_cast<Type*>(input);
+    return cast<Type const*>(
+        substitute_symbol(ctx, gen_nesting_depth, type, generic_args));
+}
+
+static FuncSig compute_signature(SemaContext& ctx,
+                                 FunctionDef const& definition,
+                                 std::span<Symbol* const> generic_args) {
+    auto param_types = definition.arguments() |
+                       transform([&](FunctionArgument const* param) {
+        return FuncArgSpec(param->passing_convention(),
+                           substitute_type(ctx,
+                                           definition.generic_nesting_depth(),
+                                           param->type(), generic_args));
     }) | ToSmallVector<>;
-    return FuncSig(args, definition.return_type());
+    auto* return_type = substitute_type(ctx, definition.generic_nesting_depth(),
+                                        definition.return_type(), generic_args);
+    return FuncSig(param_types, return_type);
 }
 
 FunctionInst* SemaContext::get_function_instantiation(
     FunctionDef* definition, std::span<Symbol* const> generic_args) {
     return get_or_make(impl->function_instantiations,
                        FuncInstKeyView{ definition, generic_args }, [&] {
-        auto signature = compute_signature(*definition, generic_args);
+        auto signature = compute_signature(*this, *definition, generic_args);
         auto* type = get_function_type(signature);
         return make<FunctionInst>(/* facet: */ nullptr, definition, type,
                                   generic_args);

@@ -118,7 +118,7 @@ struct TrappingInstEmitter final: InstructionEmitter {
 namespace prism {
 
 struct NameResolution: AnalysisContext {
-    size_t generic_nesting_depth = 0;
+    uint32_t generic_nesting_depth = -1;
 
     auto increase_generic_depth() {
         ++generic_nesting_depth;
@@ -163,12 +163,11 @@ struct NameResolution: AnalysisContext {
         if (!req_symbol) return nullptr;
         if (auto* trait = dyncast<Trait*>(req_symbol))
             return ctx.get_gen_type_param(&facet, parent_scope, std::move(name),
-                                          trait, index,
-                                          generic_nesting_depth - 1);
+                                          trait, index, generic_nesting_depth);
         if (auto* type = dyncast<Type*>(req_symbol))
             return ctx.get_gen_value_param(&facet, parent_scope,
                                            std::move(name), type, index,
-                                           generic_nesting_depth - 1);
+                                           generic_nesting_depth);
         DE.emit<BadSymRef>(source_context, &facet, req_symbol,
                            SymbolType::Trait);
         return nullptr;
@@ -191,6 +190,7 @@ struct NameResolution: AnalysisContext {
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
         if (!gen_params.empty())
             struct_def._generic_params = std::move(gen_params);
+        struct_def._generic_nesting_depth = generic_nesting_depth;
         resolve_children(struct_def.scope());
     }
 
@@ -200,6 +200,7 @@ struct NameResolution: AnalysisContext {
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
         if (!gen_params.empty())
             trait_def._generic_params = std::move(gen_params);
+        trait_def._generic_nesting_depth = generic_nesting_depth;
         resolve_children(trait_def.scope());
     }
 
@@ -258,6 +259,7 @@ struct NameResolution: AnalysisContext {
         PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
         if (!gen_params.empty())
             func_def._generic_params = std::move(gen_params);
+        func_def._generic_nesting_depth = generic_nesting_depth;
         func_def._args = resolve_func_args(func_def);
         func_def._return_type = resolve_return_type(func_def);
         if (gen_params.empty())

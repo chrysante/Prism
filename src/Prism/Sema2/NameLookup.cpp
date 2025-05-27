@@ -15,8 +15,7 @@ using ranges::views::filter;
 using ranges::views::join;
 using ranges::views::transform;
 
-using OverloadSet = NameLookupResult::OverloadSet;
-using AmbiSet = NameLookupResult::AmbiSet;
+using NLR = NameLookupResult;
 
 static NameLookupResult lookup_similar(Scope* scope, std::string_view name) {
     while (scope) {
@@ -39,6 +38,12 @@ static bool is_function_like(Symbol* sym) {
     return isa<Function>(sym) || isa<FunctionDef>(sym);
 }
 
+static Symbol* strip_non_generic_decl(Symbol* sym) {
+    if (auto* decl = dyncast<DeclSymbol*>(sym))
+        if (auto* canonical = decl->canonical()) return canonical;
+    return sym;
+}
+
 namespace {
 
 struct LookupContext {
@@ -53,15 +58,17 @@ struct LookupContext {
             if (symbols.empty()) continue;
             if (symbols.size() == 1) return symbols.front();
             if (ranges::all_of(symbols, is_function_like))
-                return OverloadSet{ std::move(symbols) };
-            return AmbiSet{ std::move(symbols) };
+                return NLR::OverloadSet{ std::move(symbols) };
+            return NLR::AmbiSet{ std::move(symbols) };
         }
         if (options.allow_similar_names) return lookup_similar(scope, name);
         return {};
     }
 
     utl::small_vector<Symbol*> search_scope(Scope* scope) {
-        auto scope_symbols = scope->symbols_by_name(name) | ToSmallVector<>;
+        auto scope_symbols = scope->symbols_by_name(name) |
+                             transform(strip_non_generic_decl) |
+                             ToSmallVector<>;
 #if 0 // Search base classes
         if (scope_symbols.empty()) return search_bases(scope);
         if (ranges::any_of(scope_symbols, isa<Function>)) {

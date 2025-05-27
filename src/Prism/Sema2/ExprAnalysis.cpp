@@ -12,6 +12,7 @@
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/AnalysisContext.h"
 #include "Prism/Sema2/NameLookup.h"
+#include "Prism/Sema2/OverloadResolution.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
 #include "Prism/Sema2/SemaDiagnostic.h"
@@ -104,10 +105,7 @@ Symbol* prism::analyze_facet(AnalysisContext const& context,
 
 Symbol* AnaContext::analyze(Facet const* facet) {
     if (!facet) return nullptr;
-    auto* sym = visit(*facet, FN1(&, do_analyze(_1)));
-    if (auto* decl = dyncast<DeclSymbol*>(sym))
-        if (auto* canonical = decl->canonical()) return canonical;
-    return sym;
+    return visit(*facet, FN1(&, do_analyze(_1)));
 }
 
 Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
@@ -267,7 +265,7 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
         },
         [&](Symbol* symbol) -> Symbol* { return symbol; },
         [&](NLR::OverloadSet const& overload_set) -> Symbol* {
-            PRISM_UNIMPLEMENTED();
+            return ctx.make<OverloadSet>(std::move(overload_set));
         },
         [&](NLR::AmbiSet const& ambi_set) -> Symbol* {
             DE.emit<AmbiguousNameLookup>(source_context, &id, ambi_set);
@@ -363,6 +361,33 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         if (!validate_call_arguments(function, args, arg_facets))
             return nullptr;
         auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
+        auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
+                                             /* name: */ std::string{},
+                                             function, value_args);
+        emit_instruction(*call_inst);
+        return call_inst;
+    }
+    if (auto* generic = dyncast<FunctionDef*>(callee)) {
+        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
+        Function* function = deduce_generic_function(ctx, generic, value_args);
+        if (!function) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
+        auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
+                                             /* name: */ std::string{},
+                                             function, value_args);
+        emit_instruction(*call_inst);
+        return call_inst;
+    }
+    if (auto* overload_set = dyncast<OverloadSet*>(callee)) {
+        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
+        auto* function =
+            resolve_overload(ctx, overload_set->symbols(), value_args);
+        if (!function) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
                                              function, value_args);

@@ -221,12 +221,19 @@ GenValueParam::GenValueParam(Type const* type, size_t index,
     _index(index),
     _nesting_depth(nesting_depth) {}
 
+static constexpr utl::streammanip FuncArgSpecProj = [](std::ostream& str,
+                                                       FuncArgSpec arg) {
+    str << arg.passing_convention() << " " << name_proj(arg.type());
+};
+
 std::string FunctionInst::make_name() const {
     if (generic_args().empty()) return definition()->name();
     std::stringstream sstr;
     sstr << definition()->name() << "[";
     print_separated(sstr, ", ", generic_args(), name_proj);
-    sstr << "](...)";
+    sstr << "](";
+    print_separated(sstr, ", ", arguments(), FuncArgSpecProj);
+    sstr << ") -> " << name_proj(return_type());
     return std::move(sstr).str();
 }
 
