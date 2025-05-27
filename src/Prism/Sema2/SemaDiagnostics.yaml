@@ -174,10 +174,19 @@ diags:
     base: SemaDiagnostic
     kind: Error
     members:
-      - name: binding
-        type: BindingDef const*
+      - name: name
+        type: std::string
     header: >
-      str << "binding " << binding->name() << " requires a type specifier";
+      str << "binding " << name << " requires a type specifier";
+
+  - name: BindingMissingInit
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: name
+        type: std::string
+    header: >
+      str << "binding " << name << " requires an initializer";
 
   - name: SymbolNotCallable
     base: SemaDiagnostic

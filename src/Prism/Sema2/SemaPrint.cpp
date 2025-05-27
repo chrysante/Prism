@@ -414,6 +414,10 @@ struct PrettyPrintInstCtx {
         str << begin_line() << close_brace();
     }
 
+    void do_print(BindingInst const& inst) {
+        str << ValueName(inst.initializer());
+    }
+
     void do_print(YieldInst const& inst) {
         str << Keyword("yield") << " " << ValueName(inst.operand());
     }

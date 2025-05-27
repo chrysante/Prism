@@ -1,6 +1,5 @@
 #include "Prism/Sema2/Construction.h"
 
-#include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <utl/scope_guard.hpp>
 
@@ -20,13 +19,6 @@ using namespace prism;
 using ranges::views::enumerate;
 using ranges::views::transform;
 
-static std::string get_name(Facet const* name_facet,
-                            SourceContext const& source_context) {
-    if (!name_facet) return {};
-    auto* term = cast<TerminalFacet const*>(name_facet);
-    return std::string(source_context.getTokenStr(term->token()));
-}
-
 // Declares all globally visible symbols in the given sources files to a module
 static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
                               Module& mod,
@@ -34,27 +26,6 @@ static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
 
 static size_t get_num_gen_params(GenParamListFacet const* gen_params) {
     return gen_params ? gen_params->elems().size() : 0;
-}
-
-static bool is_function_like(Symbol const* symbol) {
-    return isa<Function>(symbol) || isa<FunctionDef>(symbol);
-}
-
-static bool check_redefinition(AnalysisContext const& ana_context,
-                               Scope const* parent_scope, Facet const& facet,
-                               std::string_view name,
-                               bool for_function = false) {
-    auto existing = parent_scope->symbols_by_name(name);
-    if (existing.empty()) return true;
-    auto* conflict = existing.front();
-    if (for_function) {
-        if (ranges::all_of(existing, is_function_like)) return true;
-        conflict = *ranges::find_if(existing, FN1(, !is_function_like(_1)));
-    }
-    ana_context.DE.emit<Redefinition>(ana_context.source_context, &facet,
-                                      std::string(name), conflict,
-                                      parent_scope);
-    return false;
 }
 
 namespace {
@@ -75,9 +46,9 @@ struct GlobalConstruction: AnalysisContext {
     }
 
     void do_construct(CompTypeDeclFacet const& facet, Scope* parent_scope) {
-        std::string name = get_name(facet.name(), *source_context);
+        std::string name = get_name(facet.name());
         size_t num_gen_params = get_num_gen_params(facet.genParams());
-        if (!check_redefinition(*this, parent_scope, facet, name)) return;
+        if (!check_redefinition(parent_scope, facet, name)) return;
         auto* decl_symbol = [&]() -> DeclSymbol* {
             switch (facet.declarator().kind) {
             case TokenKind::Struct:
@@ -99,10 +70,10 @@ struct GlobalConstruction: AnalysisContext {
     }
 
     void do_construct(FuncDeclBaseFacet const& facet, Scope* parent_scope) {
-        std::string name = get_name(facet.name(), *source_context);
+        std::string name = get_name(facet.name());
         size_t num_gen_params = get_num_gen_params(facet.genParams());
         size_t num_args = facet.params() ? facet.params()->elems().size() : 0;
-        if (!check_redefinition(*this, parent_scope, facet, name,
+        if (!check_redefinition(parent_scope, facet, name,
                                 /* is_function: */ true))
             return;
         ctx.make<FunctionDef>(&facet, parent_scope, std::move(name),
@@ -110,8 +81,8 @@ struct GlobalConstruction: AnalysisContext {
     }
 
     void do_construct(VarDeclFacet const& facet, Scope* parent_scope) {
-        std::string name = get_name(facet.name(), *source_context);
-        if (!check_redefinition(*this, parent_scope, facet, name)) return;
+        std::string name = get_name(facet.name());
+        if (!check_redefinition(parent_scope, facet, name)) return;
         ctx.make<BindingDef>(&facet, parent_scope, std::move(name), nullptr,
                              nullptr);
     }
@@ -185,11 +156,10 @@ struct NameResolution: AnalysisContext {
     Symbol* resolve_gen_param(GenParamDeclFacet const& facet, size_t index,
                               DeclSymbol& decl) {
         auto* parent_scope = decl.scope();
-        std::string name = get_name(facet.nameFacet(), *source_context);
+        std::string name = get_name(facet.nameFacet());
         auto* req_symbol =
             analyze_facet(decl.parent_scope(), facet.requirements());
-        if (!check_redefinition(*this, parent_scope, facet, name))
-            return nullptr;
+        if (!check_redefinition(parent_scope, facet, name)) return nullptr;
         if (!req_symbol) return nullptr;
         if (auto* trait = dyncast<Trait*>(req_symbol))
             return ctx.get_gen_type_param(&facet, parent_scope, std::move(name),
@@ -247,7 +217,7 @@ struct NameResolution: AnalysisContext {
     FunctionArgument* do_resolve_func_arg(NamedParamDeclFacet const& facet,
                                           FunctionDef& func_def) {
         auto* parent_scope = func_def.scope();
-        std::string name = get_name(facet.nameFacet(), *source_context);
+        std::string name = get_name(facet.nameFacet());
         PassingConvention passing_conv = [&] {
             if (!facet.passingConventionFacet()) return PassingConvention::In;
             switch (facet.passingConvention().kind) {
@@ -262,8 +232,7 @@ struct NameResolution: AnalysisContext {
             }
         }();
         auto* type = analyze_facet_as<Type>(parent_scope, facet.typespec());
-        if (!check_redefinition(*this, parent_scope, facet, name))
-            return nullptr;
+        if (!check_redefinition(parent_scope, facet, name)) return nullptr;
         return ctx.make<FunctionArgument>(&facet, parent_scope, std::move(name),
                                           passing_conv, type);
     }
@@ -315,7 +284,8 @@ struct NameResolution: AnalysisContext {
             binding._type_spec =
                 analyze_facet_as<Type>(binding.parent_scope(), typespec_facet);
         else if (!facet->colonFacet())
-            DE.emit<BindingMissingTypespec>(source_context, facet, &binding);
+            DE.emit<BindingMissingTypespec>(source_context, facet,
+                                            binding.name());
         if (auto* init_expr = facet->initExpr()) {
             auto* init_value =
                 analyze_facet_as<Value>(binding.parent_scope(), init_expr);

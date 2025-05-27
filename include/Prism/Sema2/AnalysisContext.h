@@ -1,6 +1,10 @@
 #ifndef PRISM_SEMA2_ANALYSISCONTEXT_H
 #define PRISM_SEMA2_ANALYSISCONTEXT_H
 
+#include <string>
+#include <string_view>
+
+#include <Prism/Common/Assert.h>
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Sema2/SubContext.h>
 
@@ -11,6 +15,24 @@ class SourceContext;
 class Symbol;
 class Facet;
 
+/// Returns the facet of \p symbol in \p scope
+/// This function exists because not all symbols are unique to their source
+/// location. Generic parameters, literals etc. are shared between scope,
+/// for these symbols we maintain maps to lookup their facets in a given scope.
+Facet const* get_facet(Symbol const& symbol, Scope const* scope);
+
+///
+std::string get_name(Facet const* name_facet,
+                     SourceContext const& source_context);
+
+/// Checks if \p name is already declared in \p scope and generates a diagnostic
+/// if so.
+/// \Returns true if the name has not been declared yet.
+bool check_redefinition(DiagnosticEmitter& DE,
+                        SourceContext const* source_context, Scope const* scope,
+                        Facet const& facet, std::string_view name,
+                        bool for_function = false);
+
 /// Base class for semantic analysis contexts that provides commonly required
 /// members
 class AnalysisContext {
@@ -19,13 +41,20 @@ public:
     DiagnosticEmitter& DE;
     SourceContext const* source_context = nullptr;
     SubContext sub_context{};
-};
 
-/// Returns the facet of \p symbol in \p scope
-/// This function exists because not all symbols are unique to their source
-/// location. Generic parameters, literals etc. are shared between scope,
-/// for these symbols we maintain maps to lookup their facets in a given scope.
-Facet const* get_facet(Symbol const& symbol, Scope const* scope);
+    /// See global `get_name()`
+    std::string get_name(Facet const* name_facet) const {
+        PRISM_ASSERT(source_context);
+        return prism::get_name(name_facet, *source_context);
+    }
+
+    /// See global `check_redefinition()`
+    bool check_redefinition(Scope const* parent_scope, Facet const& facet,
+                            std::string_view name, bool for_function = false) {
+        return prism::check_redefinition(DE, source_context, parent_scope,
+                                         facet, name, for_function);
+    }
+};
 
 } // namespace prism
 

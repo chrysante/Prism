@@ -56,6 +56,7 @@ struct AnaContext: AnalysisContext {
 
     Symbol* do_analyze(Facet const&) { PRISM_UNREACHABLE(); }
     Symbol* do_analyze(CompoundFacet const& facet);
+    Symbol* do_analyze(VarDeclFacet const& var_decl_facet);
     Symbol* do_analyze(ExprStmtFacet const& stmt_facet);
     Symbol* analyze_identifier(TerminalFacet const& id);
     IntLiteral* analyze_int_literal(TerminalFacet const& term, int base);
@@ -135,6 +136,32 @@ Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
     instructions = outer_inst_list;
     emit_instruction(*block_inst);
     return block_inst;
+}
+
+Symbol* AnaContext::do_analyze(VarDeclFacet const& var_decl_facet) {
+    std::string name = get_name(var_decl_facet.name());
+    Type const* type = analyze_as<Type>(var_decl_facet.typespec());
+    Value* init = analyze_as<Value>(var_decl_facet.initExpr());
+    if (!init && !var_decl_facet.assignFacet())
+        DE.emit<BindingMissingInit>(source_context, &var_decl_facet, name);
+    // Try to infer type or check type correctness
+    if (init) {
+        auto* init_type = init->type();
+        if (!type)
+            type = init_type;
+        else if (init_type && type != init_type)
+            DE.emit<BadOperandType>(source_context, var_decl_facet.initExpr(),
+                                    init, init_type);
+    }
+    // TODO: Maybe declare variable of poison type here
+    if (!type) return nullptr;
+    using enum Mutability;
+    auto mut = var_decl_facet.declarator().kind == TokenKind::Let ? Const : Mut;
+    if (!check_redefinition(scope, var_decl_facet, name)) return nullptr;
+    auto* binding = ctx.make<BindingInst>(&var_decl_facet, scope,
+                                          std::move(name), type, mut, init);
+    emit_instruction(*binding);
+    return binding;
 }
 
 Symbol* AnaContext::do_analyze(ExprStmtFacet const& stmt_facet) {

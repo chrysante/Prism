@@ -713,6 +713,23 @@ private:
     std::vector<Instruction*> _instructions;
 };
 
+/// Local name binding
+class BindingInst final: public Instruction {
+public:
+    explicit BindingInst(Facet const* facet, Scope* parent_scope,
+                         std::string name, Type const* type,
+                         Mutability mutability, Value* initializer):
+        Instruction(SymbolType::BindingInst, facet, parent_scope,
+                    std::move(name), ScopeArg::None, type, mutability,
+                    ValueCat::LValue, initializer) {}
+
+    /// The evaluated initializer expression
+    Value* initializer() { return operand_at(0); }
+
+    /// \overload
+    Value const* initializer() const { return operand_at(0); }
+};
+
 /// Instruction to mark the value of a block instruction
 class YieldInst final: public Instruction {
 public:

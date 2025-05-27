@@ -1,10 +1,10 @@
 symbols:
   - name: Symbol
     abstract: true
-    
+
   - name: Module
     base: Symbol
-    
+
   - name: Library
     base: Symbol
 
@@ -19,7 +19,7 @@ symbols:
 
   - name: StructDef
     base: DeclSymbol
-    
+
   - name: TraitDef
     base: DeclSymbol
 
@@ -76,7 +76,7 @@ symbols:
     base: Value
 
 # Constants
-    
+
   - name: Constant
     base: Value
     abstract: true
@@ -98,12 +98,15 @@ symbols:
   - name: Instruction
     base: User
     abstract: true
-    
+
   - name: BlockInst
     base: Instruction
-    
+
+  - name: BindingInst
+    base: Instruction
+
   - name: YieldInst
     base: Instruction
-    
+
   - name: CallInst
     base: Instruction
