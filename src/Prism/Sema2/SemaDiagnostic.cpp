@@ -114,6 +114,7 @@ static std::string_view get_gen_symbol_category_name(DeclSymbol const* sym) {
         [](TraitDef const&) { return "trait"sv; },
 //        [](GenTraitImpl const&) { return "impl"sv; },
         [](FunctionDef const&) { return "function"sv; },
+        [](BindingDef const&) { return "binding"sv; },
     }); // clang-format on
 }
 
@@ -160,8 +161,9 @@ static void indeclared_id_notes(UndeclaredID& diag, Symbol const* similar) {
     auto* note = diag.add_note([=](std::ostream& str) {
         str << "Did you mean \'" << format_name(*similar) << "\'?";
     });
-    if (auto* nameFct = get_decl_name(similar->facet()))
-        note->add_note(nameFct, [=](std::ostream& str) {
+    if (auto* name_facet = get_decl_name(similar->facet()))
+        note->add_note(get_source_context(similar), name_facet,
+                       [=](std::ostream& str) {
             str << format_name(*similar) << " declared here";
         });
 }

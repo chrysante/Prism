@@ -26,6 +26,9 @@ symbols:
   - name: FunctionDef
     base: DeclSymbol
 
+  - name: BindingDef
+    base: DeclSymbol
+
 # Types
 
   - name: Type
@@ -71,7 +74,7 @@ symbols:
 
   - name: FunctionArgument
     base: Value
-    
+
 # Constants
     
   - name: Constant

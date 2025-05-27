@@ -122,6 +122,7 @@ Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
         if (!yield_facet) return ctx.get_void_type();
         auto* operand = analyze_as<Value>(yield_facet);
         if (!operand) return nullptr; // TODO: return poison type
+        if (operand->type() == ctx.get_void_type()) return operand->type();
         auto* yield_inst = ctx.make<YieldInst>(yield_facet, scope, operand);
         emit_instruction(*yield_inst);
         return operand->type();
@@ -341,5 +342,6 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         emit_instruction(*call_inst);
         return call_inst;
     }
-    PRISM_UNIMPLEMENTED();
+    DE.emit<SymbolNotCallable>(source_context, call_facet.callee(), callee);
+    return nullptr;
 }

@@ -18,8 +18,8 @@ TEST_CASE("Redefinition", "[sema]") {
 /*  3: */ struct MyType {}
 /*  4: */ trait MyTrait {}
 /*  5: */ trait MyTrait {}
-/*  6: */ // var MyVar: i32;
-/*  7: */ // var MyVar: i32;
+/*  6: */ var MyVar: i32 = 0;
+/*  7: */ var MyVar: i32 = 0;
 /*  8: */ fn MyFunc() -> i32 {}
 /*  9: */ fn MyFunc(n: i32) -> i32 {}
 /* 10: */ fn MyFunc(n: i32) -> i32 {}
@@ -29,7 +29,7 @@ TEST_CASE("Redefinition", "[sema]") {
     CHECK(c.no_diag_on_line(4));
     CHECK(c.find_diag_on_line<Redefinition>(5));
     CHECK(c.no_diag_on_line(6));
-    // CHECK(c.find_diag_on_line<Redefinition>(7));
+    CHECK(c.find_diag_on_line<Redefinition>(7));
     CHECK(c.no_diag_on_line(8));
     CHECK(c.no_diag_on_line(9));
     CHECK(c.find_diag_on_line<FuncRedefinition>(10));
@@ -62,6 +62,13 @@ TEST_CASE("Function redefinition 2", "[sema]") {
     CHECK(c.find_diag_on_line<FuncRedefinition>(5));
 }
 
+TEST_CASE("BindingMissingTypespec", "[sema]") {
+    auto c = make_diag_checker(R"(
+let x = 0;
+)");
+    CHECK(c.find_diag_on_line<BindingMissingTypespec>(2));
+}
+
 TEST_CASE("Bad function calls", "[sema]") {
     auto c = make_diag_checker(R"(
 fn foo(arg: i32) {}
@@ -69,11 +76,13 @@ fn user(x: f32) {
     foo(i32);    // BadSymRef
     foo(x);      // BadOperandType
     foo(x, i32); // InvalidNumOfCallArgs
+    x();         // SymbolNotCallable
 } 
 )");
     CHECK(c.find_diag_on_line<BadSymRef>(4));
     CHECK(c.find_diag_on_line<BadOperandType>(5));
     CHECK(c.find_diag_on_line<InvalidNumOfCallArgs>(6));
+    CHECK(c.find_diag_on_line<SymbolNotCallable>(7));
 }
 
 TEST_CASE("TypeDefCycle", "[sema]") {

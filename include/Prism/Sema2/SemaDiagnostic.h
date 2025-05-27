@@ -24,11 +24,6 @@ public:
         return dyncast<F const*>(facet());
     }
 
-    /// Adds a descriptive note
-    SemaNote* add_note(Facet const* facet, utl::vstreammanip<> impl) {
-        return add_note(sourceContext(), facet, std::move(impl));
-    }
-
     /// \overload Use this overload to provide a facet if the original
     /// diagnonistic has no source context
     SemaNote* add_note(SourceContext const* sourceContext, Facet const* facet,

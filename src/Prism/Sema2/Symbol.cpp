@@ -92,6 +92,15 @@ FuncSig FunctionDef::make_signature() const {
                    return_type());
 }
 
+BindingDef::BindingDef(Facet const* facet, Scope* parent_scope,
+                       std::string name, Type const* type_spec,
+                       Value* initializer):
+    DeclSymbol(SymbolType::BindingDef, facet, parent_scope, std::move(name),
+               ScopeArg::None,
+               /* num_generic_params: */ 0),
+    _type_spec(type_spec),
+    _init(initializer) {}
+
 static std::string_view name_proj(Symbol const* symbol) {
     using namespace std::string_view_literals;
     return symbol ? symbol->name() : "NULL"sv;

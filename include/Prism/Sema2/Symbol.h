@@ -249,6 +249,37 @@ private:
     BlockInst* _body = nullptr;
 };
 
+/// Name binding (`var` or `let`) at global or class scope
+class BindingDef final: public DeclSymbol {
+public:
+    explicit BindingDef(Facet const* facet, Scope* parent_scope,
+                        std::string name, Type const* type_spec,
+                        Value* initializer);
+
+    FACET_TYPE(VarDeclFacet)
+
+    /// The specified type
+    Type const* type_spec() const { return _type_spec; }
+
+    /// The evaluated initializer expression
+    Value* initializer() { return _init; }
+
+    /// \overload
+    Value const* initializer() const { return _init; }
+
+    /// The bound value
+    template <typename V = Value>
+    V* canonical() const {
+        return cast<V*>(DeclSymbol::canonical());
+    }
+
+private:
+    friend struct NameResolution;
+
+    Type const* _type_spec;
+    Value* _init;
+};
+
 // MARK: Types
 
 /// Base class of all types

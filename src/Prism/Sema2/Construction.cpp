@@ -108,6 +108,13 @@ struct GlobalConstruction: AnalysisContext {
         ctx.make<FunctionDef>(&facet, parent_scope, std::move(name),
                               ScopeArg::make(ctx), num_gen_params, num_args);
     }
+
+    void do_construct(VarDeclFacet const& facet, Scope* parent_scope) {
+        std::string name = get_name(facet.name(), *source_context);
+        if (!check_redefinition(*this, parent_scope, facet, name)) return;
+        ctx.make<BindingDef>(&facet, parent_scope, std::move(name), nullptr,
+                             nullptr);
+    }
 };
 
 } // namespace
@@ -300,6 +307,33 @@ struct NameResolution: AnalysisContext {
         }
         parent_scope->set_function_signature(std::move(gen_signature),
                                              std::move(signature), &func_def);
+    }
+
+    void do_resolve(BindingDef& binding) {
+        auto* facet = binding.facet();
+        if (auto* typespec_facet = facet->typespec())
+            binding._type_spec =
+                analyze_facet_as<Type>(binding.parent_scope(), typespec_facet);
+        else if (!facet->colonFacet())
+            DE.emit<BindingMissingTypespec>(source_context, facet, &binding);
+        if (auto* init_expr = facet->initExpr()) {
+            auto* init_value =
+                analyze_facet_as<Value>(binding.parent_scope(), init_expr);
+            auto* type = init_value ? init_value->type() : nullptr;
+            auto* exp_type = binding.type_spec();
+            if (type && exp_type && type != exp_type)
+                DE.emit<BadOperandType>(source_context, init_expr, init_value,
+                                        exp_type);
+            binding._init = init_value;
+            if (auto* const_init = dyncast<Constant*>(init_value))
+                binding.set_canonical(const_init);
+            else
+                PRISM_UNIMPLEMENTED(); // TODO: create value class for this
+                                       // purpose
+        }
+        else {
+            PRISM_UNIMPLEMENTED(); // TODO: emit error
+        }
     }
 
     void do_resolve(Library&) {}

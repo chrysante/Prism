@@ -20,7 +20,8 @@ diags:
         ctor_only: true
     ctor_body: >
       for (auto* symbol: symbols)
-          add_note(symbol->facet(), [symbol](std::ostream& str) {
+          add_note(sourceContext(), symbol->facet(), 
+                   [symbol](std::ostream& str) {
               str << "Found " << pretty_name(get_rtti(*symbol)) << " '"
                   << format_name(symbol, { .qualified = true })
                   << "' declared here";
@@ -42,7 +43,8 @@ diags:
         type: Scope const*
         ctor_only: true
     ctor_body: >
-      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
+      add_note(sourceContext(), get_facet(*existing, scope),
+               [=](std::ostream& str) {
           str << "Existing definition is here";
       });
     header: >
@@ -61,7 +63,8 @@ diags:
         type: Scope const*
         ctor_only: true
     ctor_body: >
-      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
+      add_note(sourceContext(), get_facet(*existing, scope), 
+               [=](std::ostream& str) {
           str << "Existing definition is here";
       });
       if (function->return_type() != existing->return_type())
@@ -166,6 +169,28 @@ diags:
     header: >
       str << "expected operand of type " << format_name(expected_type) 
           << ", found " << format_name(operand->type());
+          
+  - name: BindingMissingTypespec
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: binding
+        type: BindingDef const*
+    header: >
+      str << "binding " << binding->name() << " requires a type specifier";
+
+  - name: SymbolNotCallable
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: provided_symbol
+        type: Symbol const*
+    header: >
+        if (auto* value = dyncast<Value const*>(provided_symbol))
+            str << "value of type " << format_name(value->type()) 
+                << " is not callable";
+        else 
+            str << format_name(provided_symbol) << " is not callable";
 
 # - name: IncompleteImpl
 #   base: SemaDiagnostic
