@@ -18,6 +18,7 @@
 
 namespace prism {
 
+class Facet;
 class Symbol;
 class ScopeArg;
 class SemaContext;
@@ -85,13 +86,16 @@ public:
         std::string_view name, GenericSignature const& generic_sig,
         FuncSig const& function_sig) const;
 
+    /// The facet of \p symbol in this scope or null
+    Facet const* get_facet(Symbol const* symbol) const;
+
 private:
     friend class SemaContext;
     friend class ScopeArg;
     friend struct NameResolution;
 
     void add_symbol(Symbol& symbol);
-    void add_symbol(Symbol& symbol, std::string const& name,
+    void add_symbol(Symbol& symbol, std::string const& name, Facet const* facet,
                     bool participate_in_name_lookup);
     /// \pre \p def_symbol must not be null
     void set_defining_symbol(Symbol* defining_symbol);
@@ -105,6 +109,7 @@ private:
     std::vector<Symbol*> _symbols;
     utl::hashmap<std::string, utl::tiny_ptr_vector<Symbol*>> _names;
     utl::metric_map<std::string, utl::tiny_ptr_vector<Symbol*>> _approx_names;
+    utl::hashmap<Symbol const*, Facet const*> _facet_map;
     FunctionOverloadMap _function_overload_map;
 };
 

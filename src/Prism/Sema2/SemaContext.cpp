@@ -233,21 +233,20 @@ FunctionType const* SemaContext::get_function_type(FuncSig const& signature) {
     });
 }
 
-GenTypeParam* SemaContext::get_gen_type_param(Scope* parent_scope,
-                                              std::string name,
-                                              Trait const* trait_bound,
-                                              size_t index,
-                                              size_t nesting_depth) {
+GenTypeParam* SemaContext::get_gen_type_param(
+    Facet const* facet, Scope* parent_scope, std::string name,
+    Trait const* trait_bound, size_t index, size_t nesting_depth) {
     auto* sym = get_or_make(impl->generic_parameters,
                             { trait_bound, index, nesting_depth }, [&] {
         return make<GenTypeParam>(trait_bound, index, nesting_depth);
     });
-    parent_scope->add_symbol(*sym, name,
+    parent_scope->add_symbol(*sym, name, facet,
                              /* participate_in_name_lookup: */ true);
     return cast<GenTypeParam*>(sym);
 }
 
-GenValueParam* SemaContext::get_gen_value_param(Scope* parent_scope,
+GenValueParam* SemaContext::get_gen_value_param(Facet const* facet,
+                                                Scope* parent_scope,
                                                 std::string name,
                                                 Type const* type, size_t index,
                                                 size_t nesting_depth) {
@@ -255,7 +254,7 @@ GenValueParam* SemaContext::get_gen_value_param(Scope* parent_scope,
                             { type, index, nesting_depth }, [&] {
         return make<GenValueParam>(type, index, nesting_depth);
     });
-    parent_scope->add_symbol(*sym, name,
+    parent_scope->add_symbol(*sym, name, facet,
                              /* participate_in_name_lookup: */ true);
     return cast<GenValueParam*>(sym);
 }

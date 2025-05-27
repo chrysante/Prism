@@ -34,13 +34,16 @@ diags:
     kind: Error
     members:
       - name: name
-        type: std::string_view
+        type: std::string
       - name: existing
         type: Symbol const*
         ctor_only: true
+      - name: scope
+        type: Scope const*
+        ctor_only: true
     ctor_body: >
-      add_note(existing->facet(), [=](std::ostream& str) {
-          str << "Existing declaration is here";
+      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
+          str << "Existing definition is here";
       });
     header: >
       str << "Redefition of name '" << name << "'";
@@ -54,9 +57,12 @@ diags:
       - name: existing
         type: FunctionDef const*
         ctor_only: true
+      - name: scope
+        type: Scope const*
+        ctor_only: true
     ctor_body: >
-      add_note(existing->facet(), [=](std::ostream& str) {
-          str << "Existing declaration is here";
+      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
+          str << "Existing definition is here";
       });
       if (function->return_type() != existing->return_type())
           add_note([=](std::ostream& str) {

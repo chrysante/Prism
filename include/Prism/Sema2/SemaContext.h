@@ -80,14 +80,15 @@ public:
     /// instance will be added to each \p parent_scope by the name \p name for
     /// name lookup.
     /// https://en.wikipedia.org/wiki/Lambda_calculus#Alpha_equivalence
-    GenTypeParam* get_gen_type_param(Scope* parent_scope, std::string name,
-                                     Trait const* trait_bound,
+    GenTypeParam* get_gen_type_param(Facet const* facet, Scope* parent_scope,
+                                     std::string name, Trait const* trait_bound,
                                      size_t parameter_index,
                                      size_t generic_nesting_depth);
 
     /// See `get_gen_type_param()`
-    GenValueParam* get_gen_value_param(Scope* parent_scope, std::string name,
-                                       Type const* type, size_t parameter_index,
+    GenValueParam* get_gen_value_param(Facet const* facet, Scope* parent_scope,
+                                       std::string name, Type const* type,
+                                       size_t parameter_index,
                                        size_t generic_nesting_depth);
 
     /// The integer literal with value \p value

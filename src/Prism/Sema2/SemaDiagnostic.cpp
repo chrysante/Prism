@@ -12,6 +12,7 @@
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 // #include "Prism/Sema/Contracts.h"
+#include "Prism/Sema2/AnalysisContext.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaPrint.h"
 #include "Prism/Sema2/Symbol.h"

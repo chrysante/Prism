@@ -1,5 +1,6 @@
 #include "Prism/Sema2/Construction.h"
 
+#include <range/v3/algorithm.hpp>
 #include <range/v3/view.hpp>
 #include <utl/scope_guard.hpp>
 
@@ -35,13 +36,30 @@ static size_t get_num_gen_params(GenParamListFacet const* gen_params) {
     return gen_params ? gen_params->elems().size() : 0;
 }
 
+static bool is_function_like(Symbol const* symbol) {
+    return isa<Function>(symbol) || isa<FunctionDef>(symbol);
+}
+
+static bool check_redefinition(AnalysisContext const& ana_context,
+                               Scope const* parent_scope, Facet const& facet,
+                               std::string_view name,
+                               bool for_function = false) {
+    auto existing = parent_scope->symbols_by_name(name);
+    if (existing.empty()) return true;
+    auto* conflict = existing.front();
+    if (for_function) {
+        if (ranges::all_of(existing, is_function_like)) return true;
+        conflict = *ranges::find_if(existing, FN1(, !is_function_like(_1)));
+    }
+    ana_context.DE.emit<Redefinition>(ana_context.source_context, &facet,
+                                      std::string(name), conflict,
+                                      parent_scope);
+    return false;
+}
+
 namespace {
 
-struct GlobalConstruction {
-    SemaContext& ctx;
-    DiagnosticEmitter& DE;
-    SourceContext const& source_context;
-
+struct GlobalConstruction: AnalysisContext {
     void construct(Facet const* facet, Scope* parent_scope) {
         if (!facet) return;
         visit(*facet, FN1(&, do_construct(_1, parent_scope)));
@@ -51,14 +69,15 @@ struct GlobalConstruction {
 
     void do_construct(SourceFileFacet const& facet, Scope* parent_scope) {
         auto* file = ctx.make<SourceFile>(&facet, parent_scope,
-                                          ScopeArg::make(ctx), source_context);
+                                          ScopeArg::make(ctx), *source_context);
         for (auto* decl: facet.decls())
             construct(decl, file->scope());
     }
 
     void do_construct(CompTypeDeclFacet const& facet, Scope* parent_scope) {
-        std::string name = get_name(facet.name(), source_context);
+        std::string name = get_name(facet.name(), *source_context);
         size_t num_gen_params = get_num_gen_params(facet.genParams());
+        if (!check_redefinition(*this, parent_scope, facet, name)) return;
         auto* decl_symbol = [&]() -> DeclSymbol* {
             switch (facet.declarator().kind) {
             case TokenKind::Struct:
@@ -80,9 +99,12 @@ struct GlobalConstruction {
     }
 
     void do_construct(FuncDeclBaseFacet const& facet, Scope* parent_scope) {
-        std::string name = get_name(facet.name(), source_context);
+        std::string name = get_name(facet.name(), *source_context);
         size_t num_gen_params = get_num_gen_params(facet.genParams());
         size_t num_args = facet.params() ? facet.params()->elems().size() : 0;
+        if (!check_redefinition(*this, parent_scope, facet, name,
+                                /* is_function: */ true))
+            return;
         ctx.make<FunctionDef>(&facet, parent_scope, std::move(name),
                               ScopeArg::make(ctx), num_gen_params, num_args);
     }
@@ -94,7 +116,7 @@ static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
                               Module& mod,
                               std::span<SourceFilePair const> sources) {
     for (auto [facet, source_context]: sources) {
-        GlobalConstruction global_construction{ ctx, DE, *source_context };
+        GlobalConstruction global_construction{ ctx, DE, source_context };
         global_construction.construct(facet, mod.scope());
     }
 }
@@ -116,7 +138,7 @@ struct TrappingInstEmitter final: InstructionEmitter {
 struct NameResolution: AnalysisContext {
     size_t generic_nesting_depth = 0;
 
-    auto make_gen_scope() {
+    auto increase_generic_depth() {
         ++generic_nesting_depth;
         return utl::scope_guard([this] { --generic_nesting_depth; });
     }
@@ -151,16 +173,21 @@ struct NameResolution: AnalysisContext {
 
     Symbol* resolve_gen_param(GenParamDeclFacet const& facet, size_t index,
                               DeclSymbol& decl) {
+        auto* parent_scope = decl.scope();
         std::string name = get_name(facet.nameFacet(), *source_context);
         auto* req_symbol =
             analyze_facet(decl.parent_scope(), facet.requirements());
+        if (!check_redefinition(*this, parent_scope, facet, name))
+            return nullptr;
         if (!req_symbol) return nullptr;
         if (auto* trait = dyncast<Trait*>(req_symbol))
-            return ctx.get_gen_type_param(decl.scope(), std::move(name), trait,
-                                          index, generic_nesting_depth - 1);
+            return ctx.get_gen_type_param(&facet, parent_scope, std::move(name),
+                                          trait, index,
+                                          generic_nesting_depth - 1);
         if (auto* type = dyncast<Type*>(req_symbol))
-            return ctx.get_gen_value_param(decl.scope(), std::move(name), type,
-                                           index, generic_nesting_depth - 1);
+            return ctx.get_gen_value_param(&facet, parent_scope,
+                                           std::move(name), type, index,
+                                           generic_nesting_depth - 1);
         DE.emit<BadSymRef>(source_context, &facet, req_symbol,
                            SymbolType::Trait);
         return nullptr;
@@ -178,7 +205,7 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(StructDef& struct_def) {
-        auto gen_scope = make_gen_scope();
+        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(struct_def);
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
         if (!gen_params.empty())
@@ -187,7 +214,7 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(TraitDef& trait_def) {
-        auto gen_scope = make_gen_scope();
+        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(trait_def);
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
         if (!gen_params.empty())
@@ -208,6 +235,7 @@ struct NameResolution: AnalysisContext {
 
     FunctionArgument* do_resolve_func_arg(NamedParamDeclFacet const& facet,
                                           FunctionDef& func_def) {
+        auto* parent_scope = func_def.scope();
         std::string name = get_name(facet.nameFacet(), *source_context);
         PassingConvention passing_conv = [&] {
             if (!facet.passingConventionFacet()) return PassingConvention::In;
@@ -222,10 +250,11 @@ struct NameResolution: AnalysisContext {
                 PRISM_UNREACHABLE();
             }
         }();
-        Type const* type =
-            analyze_facet_as<Type>(func_def.scope(), facet.typespec());
-        return ctx.make<FunctionArgument>(&facet, func_def.scope(),
-                                          std::move(name), passing_conv, type);
+        auto* type = analyze_facet_as<Type>(parent_scope, facet.typespec());
+        if (!check_redefinition(*this, parent_scope, facet, name))
+            return nullptr;
+        return ctx.make<FunctionArgument>(&facet, parent_scope, std::move(name),
+                                          passing_conv, type);
     }
 
     utl::small_vector<FunctionArgument*> resolve_func_args(
@@ -244,7 +273,7 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(FunctionDef& func_def) {
-        auto gen_scope = make_gen_scope();
+        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(func_def);
         PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
         if (!gen_params.empty())
@@ -262,7 +291,7 @@ struct NameResolution: AnalysisContext {
                                                                 signature);
         if (existing) {
             DE.emit<FuncRedefinition>(source_context, func_def.facet(),
-                                      &func_def, existing);
+                                      &func_def, existing, parent_scope);
             return;
         }
         parent_scope->set_function_signature(std::move(gen_signature),

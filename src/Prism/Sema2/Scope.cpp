@@ -48,6 +48,11 @@ FunctionDef const* Scope::function_by_name_and_sig(
     return _function_overload_map.find({ name, generic_sig, function_sig });
 }
 
+Facet const* Scope::get_facet(Symbol const* symbol) const {
+    auto itr = _facet_map.find(symbol);
+    return itr != _facet_map.end() ? itr->second : nullptr;
+}
+
 void Scope::set_function_signature(GenericSignature generic_sig,
                                    FuncSig function_sig,
                                    FunctionDef* function) {
@@ -60,11 +65,13 @@ void Scope::set_function_signature(GenericSignature generic_sig,
 
 void Scope::add_symbol(Symbol& symbol) {
     bool participate_in_name_lookup = !symbol.excluded_from_name_lookup();
-    add_symbol(symbol, symbol.name(), participate_in_name_lookup);
+    // TODO: Here we could assert that symbol has a unique facet. Otherwise the
+    // facet should be added to our facet map
+    add_symbol(symbol, symbol.name(), nullptr, participate_in_name_lookup);
 }
 
 void Scope::add_symbol(Symbol& symbol, std::string const& name,
-                       bool participate_in_name_lookup) {
+                       Facet const* facet, bool participate_in_name_lookup) {
     PRISM_ASSERT_AUDIT(!ranges::contains(_symbols, &symbol),
                        "symbol has already been added to this scope");
     _symbols.push_back(&symbol);
@@ -72,6 +79,7 @@ void Scope::add_symbol(Symbol& symbol, std::string const& name,
         _names[name].push_back(&symbol);
         _approx_names[name].push_back(&symbol);
     }
+    if (facet) _facet_map[&symbol] = facet;
 }
 
 void Scope::set_defining_symbol(Symbol* def_symbol) {
