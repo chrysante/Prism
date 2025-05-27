@@ -304,7 +304,8 @@ struct NameResolution: AnalysisContext {
                                        // purpose
         }
         else {
-            PRISM_UNIMPLEMENTED(); // TODO: emit error
+            DE.emit<BindingMissingInit>(source_context, binding.facet(),
+                                        binding.name());
         }
     }
 

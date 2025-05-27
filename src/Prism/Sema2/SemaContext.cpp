@@ -214,6 +214,10 @@ static Symbol* substitute_symbol(SemaContext& ctx, size_t gen_nesting_depth,
     if (auto* gen_type_param = dyncast<GenTypeParam const*>(input);
         gen_type_param && gen_type_param->nesting_depth() == gen_nesting_depth)
         return generic_args[gen_type_param->index()];
+    if (auto* gen_value_param = dyncast<GenValueParam const*>(input);
+        gen_value_param &&
+        gen_value_param->nesting_depth() == gen_nesting_depth)
+        return generic_args[gen_value_param->index()];
     // clang-format off
     return visit(*input, csp::overload{
         [&](StructInst& struct_inst) {

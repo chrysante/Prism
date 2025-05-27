@@ -140,6 +140,9 @@ public:
     /// this is empty.
     std::span<Symbol* const> generic_params() const { return _generic_params; }
 
+    /// The number of generic parameters
+    size_t num_generic_params() const { return _generic_params.size(); }
+
     ///
     GenericSignature make_generic_signature() const {
         return GenericSignature(generic_params());
@@ -224,6 +227,9 @@ public:
 
     /// \overload
     std::span<FunctionArgument const* const> arguments() const { return _args; }
+
+    ///
+    size_t num_arguments() const { return _args.size(); }
 
     ///
     Type const* return_type() const { return _return_type; }
@@ -453,10 +459,9 @@ private:
 /// by the call analysis function performing name lookup.
 class OverloadSet final: public Symbol {
 public:
-    explicit OverloadSet(utl::small_vector<Symbol*> symbols):
+    explicit OverloadSet(std::string name, utl::small_vector<Symbol*> symbols):
         Symbol(SymbolType::OverloadSet, /* facet: */ nullptr,
-               /* parent_scope: */ nullptr,
-               /* name: */ {}, ScopeArg::None),
+               /* parent_scope: */ nullptr, std::move(name), ScopeArg::None),
         _symbols(std::move(symbols)) {}
 
     /// The symbols in the overload set (`Function` and `FunctionDef`)

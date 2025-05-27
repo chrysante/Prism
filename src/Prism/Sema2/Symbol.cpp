@@ -186,7 +186,7 @@ void Value::unregister_user(User* user) {
 
 IntLiteral::IntLiteral(Facet const* facet, APInt value, Type const* type):
     Constant(SymbolType::IntLiteral, facet, /* parent_scope: */ nullptr,
-             /* name: */ {}, ScopeArg::None, type, Mutability::Const,
+             value.toString(), ScopeArg::None, type, Mutability::Const,
              ValueCat::RValue),
     _value(std::move(value)) {}
 

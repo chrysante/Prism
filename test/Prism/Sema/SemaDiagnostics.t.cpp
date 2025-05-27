@@ -71,18 +71,43 @@ let x = 0;
 
 TEST_CASE("Bad function calls", "[sema]") {
     auto c = make_diag_checker(R"(
-fn foo(arg: i32) {}
 fn user(x: f32) {
     foo(i32);    // BadSymRef
+    bar(i32);    // BadSymRef
     foo(x);      // BadOperandType
     foo(x, i32); // InvalidNumOfCallArgs
     x();         // SymbolNotCallable
-} 
+}
+fn foo(arg: i32) {}
+fn [T: type] bar(arg: T) {}
 )");
+    CHECK(c.find_diag_on_line<BadSymRef>(3));
     CHECK(c.find_diag_on_line<BadSymRef>(4));
     CHECK(c.find_diag_on_line<BadOperandType>(5));
     CHECK(c.find_diag_on_line<InvalidNumOfCallArgs>(6));
     CHECK(c.find_diag_on_line<SymbolNotCallable>(7));
+}
+
+TEST_CASE("Overload resolution errors", "[sema]") {
+    auto c = make_diag_checker(R"(
+struct [T: type, N: i32] Array {}
+fn foo(arg: Array(i32, 7)) {}
+fn [T: type] foo(arg: Array(T, 7)) {}
+fn user(x: Array(f32, 8)) {
+    foo(x);      // NoMatchingFunction
+} 
+)");
+    CHECK(c.find_diag_on_line<NoMatchingFunction>(6));
+}
+
+TEST_CASE("InvalidNumOfGenArgs", "[sema]") {
+    auto c = make_diag_checker(R"(
+struct [T: type, N: i32] Array {}
+fn user(arg: Array(i32)) {}
+fn user(arg: Array(i32, 7, 7)) {}
+)");
+    CHECK(c.find_diag_on_line<InvalidNumOfGenArgs>(3));
+    CHECK(c.find_diag_on_line<InvalidNumOfGenArgs>(4));
 }
 
 TEST_CASE("TypeDefCycle", "[sema]") {

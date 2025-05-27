@@ -55,6 +55,22 @@ struct AnaContext: AnalysisContext {
         return detail::verify_symbol_type<S>(*this, facet, symbol);
     }
 
+    template <std::derived_from<Symbol> S>
+    std::pair<utl::small_vector<S*>, bool> verify_list(
+        std::span<Symbol* const> list, std::span<Facet const* const> facets) {
+        PRISM_ASSERT(list.size() == facets.size());
+        std::pair<utl::small_vector<S*>, bool> result{ {}, true };
+        auto& [converted, success] = result;
+        converted.reserve(list.size());
+        for (auto [sym, facet]: zip(list, facets)) {
+            if (auto* s = verify_symbol_type<S>(sym, facet))
+                converted.push_back(s);
+            else
+                success = false;
+        }
+        return result;
+    }
+
     Symbol* do_analyze(Facet const&) { PRISM_UNREACHABLE(); }
     Symbol* do_analyze(CompoundFacet const& facet);
     Symbol* do_analyze(VarDeclFacet const& var_decl_facet);
@@ -67,12 +83,15 @@ struct AnaContext: AnalysisContext {
     Symbol* do_analyze(FnTypeFacet const& facet);
     Symbol* do_analyze(NamedParamDeclFacet const& declFacet);
     Symbol* do_analyze(PrefixFacet const& prefix);
-    bool validate_generic_args(DeclSymbol const& decl,
+    bool validate_generic_args(DeclSymbol const& decl, Facet const* call_facet,
                                std::span<Symbol* const> args,
                                std::span<Facet const* const> arg_facets);
     bool validate_call_arguments(Function const* callee,
                                  std::span<Symbol* const> args,
                                  std::span<Facet const* const> arg_facets);
+    bool validate_num_call_arguments(Facet const* call_facet,
+                                     Symbol const* callee, size_t num_params,
+                                     size_t num_args);
     Symbol* do_analyze(CallFacet const& call);
 
     decltype(auto) with_scope(Scope* tempScope, std::invocable auto&& f) {
@@ -228,7 +247,7 @@ Symbol* AnaContext::do_analyze_scope_resolution(BinaryFacet const& binary) {
                  binary.operation().kind == TokenKind::Period);
     auto* LHS = analyze(binary.LHS());
     if (!LHS) return nullptr;
-    if (!LHS->scope()) PRISM_UNIMPLEMENTED(); // TODO: push error
+    if (!LHS->scope()) PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
     return with_scope(LHS->scope(), FN0(&, analyze(binary.RHS())));
 }
 
@@ -265,7 +284,7 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
         },
         [&](Symbol* symbol) -> Symbol* { return symbol; },
         [&](NLR::OverloadSet const& overload_set) -> Symbol* {
-            return ctx.make<OverloadSet>(std::move(overload_set));
+            return ctx.make<OverloadSet>(std::string(name), std::move(overload_set));
         },
         [&](NLR::AmbiSet const& ambi_set) -> Symbol* {
             DE.emit<AmbiguousNameLookup>(source_context, &id, ambi_set);
@@ -278,7 +297,7 @@ IntLiteral* AnaContext::analyze_int_literal(TerminalFacet const& term,
                                             int base) {
     auto str = source_context->getTokenStr(term.token());
     auto value = APInt::parse(str, base, 32); // 32 for now
-    if (!value) PRISM_UNIMPLEMENTED();        // TODO: Emit error
+    if (!value) PRISM_UNIMPLEMENTED();        // TODO: emit diagnostic
     return ctx.get_int_literal(&term, *std::move(value), /* is_signed: */ true);
 }
 
@@ -289,8 +308,14 @@ Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
 }
 
 bool AnaContext::validate_generic_args(
-    DeclSymbol const& decl, std::span<Symbol* const> args,
-    std::span<Facet const* const> arg_facets) {
+    DeclSymbol const& decl, Facet const* call_facet,
+    std::span<Symbol* const> args, std::span<Facet const* const> arg_facets) {
+    PRISM_ASSERT(args.size() == arg_facets.size());
+    if (decl.generic_params().size() != args.size()) {
+        DE.emit<InvalidNumOfGenArgs>(source_context, call_facet, &decl,
+                                     args.size());
+        return false;
+    }
     bool success = true;
     for (auto [param, arg, arg_facet]:
          zip(decl.generic_params(), args, arg_facets))
@@ -337,27 +362,36 @@ bool AnaContext::validate_call_arguments(
     return success;
 }
 
+bool AnaContext::validate_num_call_arguments(Facet const* call_facet,
+                                             Symbol const* callee,
+                                             size_t num_params,
+                                             size_t num_args) {
+    if (num_params == num_args) return true;
+    DE.emit<InvalidNumOfCallArgs>(source_context, call_facet, callee,
+                                  num_params, num_args);
+    return false;
+}
+
 Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
     auto* callee = analyze(call_facet.callee());
     auto arg_facets = call_facet.arguments()->elems();
     auto args = arg_facets | transform(FN1(&, analyze(_1))) | ToSmallVector<>;
     if (!callee || !ranges::all_of(args, ToAddress)) return nullptr;
     if (auto* struct_def = dyncast<StructDef*>(callee)) {
-        if (!validate_generic_args(*struct_def, args, arg_facets))
+        if (!validate_generic_args(*struct_def, &call_facet, args, arg_facets))
             return nullptr;
         return ctx.get_struct_instantiation(struct_def, args);
     }
     if (auto* trait_def = dyncast<TraitDef*>(callee)) {
-        if (!validate_generic_args(*trait_def, args, arg_facets))
+        if (!validate_generic_args(*trait_def, &call_facet, args, arg_facets))
             return nullptr;
         return ctx.get_trait_instantiation(trait_def, args);
     }
     if (auto* function = dyncast<Function*>(callee)) {
-        if (function->arguments().size() != args.size()) {
-            DE.emit<InvalidNumOfCallArgs>(source_context, &call_facet, function,
-                                          args.size());
-            return nullptr; // TODO: return poison value of correct type here
-        }
+        if (!validate_num_call_arguments(&call_facet, function,
+                                         function->num_arguments(),
+                                         args.size()))
+            return nullptr;
         if (!validate_call_arguments(function, args, arg_facets))
             return nullptr;
         auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
@@ -368,7 +402,11 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         return call_inst;
     }
     if (auto* generic = dyncast<FunctionDef*>(callee)) {
-        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
+        if (!validate_num_call_arguments(&call_facet, generic,
+                                         generic->num_arguments(), args.size()))
+            return nullptr;
+        auto [value_args, success] = verify_list<Value>(args, arg_facets);
+        if (!success) return nullptr;
         Function* function = deduce_generic_function(ctx, generic, value_args);
         if (!function) {
             PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
@@ -381,16 +419,20 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         return call_inst;
     }
     if (auto* overload_set = dyncast<OverloadSet*>(callee)) {
-        auto value_args = args | transform(cast<Value*>) | ToSmallVector<>;
-        auto* function =
-            resolve_overload(ctx, overload_set->symbols(), value_args);
-        if (!function) {
-            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+        auto [value_args, success] = verify_list<Value>(args, arg_facets);
+        if (!success) return nullptr;
+        auto overload_resultion_result =
+            resolve_overload(ctx, source_context, &call_facet,
+                             overload_set->name(), overload_set->symbols(),
+                             value_args);
+        if (!overload_resultion_result) {
+            DE.emit(std::move(overload_resultion_result).error());
             return nullptr;
         }
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
-                                             function, value_args);
+                                             *overload_resultion_result,
+                                             value_args);
         emit_instruction(*call_inst);
         return call_inst;
     }

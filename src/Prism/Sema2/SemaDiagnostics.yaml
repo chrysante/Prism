@@ -101,21 +101,6 @@ diags:
           str << pretty_name(get_rtti(*provided_symbol)) << " ";
       str << format_name(provided_symbol);
 
-  - name: InvalidNumOfGenArgs
-    base: SemaDiagnostic
-    kind: Error
-    members:
-      - name: decl_symbol
-        type: DeclSymbol const*
-      - name: num_args
-        type: size_t
-    header: >
-      size_t num_params = decl_symbol->generic_params().size();
-      str << "Generic " << get_gen_symbol_category_name(decl_symbol) << " "
-          << format_name(decl_symbol) << " requires "
-          << pluralize(num_params, "argument") << ", have "
-          << num_to_word(num_args);
-
   - name: BadGenTypeArg
     base: SemaDiagnostic
     kind: Error
@@ -151,12 +136,46 @@ diags:
     kind: Error
     members:
       - name: callee
-        type: Function const*
+        type: Symbol const*
+      - name: num_params
+        type: size_t
       - name: num_arguments
         type: size_t
     header: >
       str << "called function " << format_name(callee) << " expects " 
-          << callee->num_arguments() << " arguments, found " << num_arguments;
+          << num_params << " arguments, found " << num_arguments;
+
+  - name: InvalidNumOfGenArgs
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: generic
+        type: DeclSymbol const*
+      - name: num_arguments
+        type: size_t
+    header: >
+      str << "generic " << format_name(generic) << " expects " 
+          << generic->num_generic_params() << " arguments, found " 
+          << num_arguments;
+
+  - name: NoMatchingFunction
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: name
+        type: std::string
+    header: >
+      str << "no matching function for call to " << name;
+
+  - name: AmbiguousCall
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: name
+        type: std::string
+    header: >
+      str << "ambiguous call to " << name;
+     
 
   - name: BadOperandType
     base: SemaDiagnostic
