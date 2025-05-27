@@ -121,6 +121,7 @@ Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
         auto* yield_facet = facet.yieldFacet();
         if (!yield_facet) return ctx.get_void_type();
         auto* operand = analyze_as<Value>(yield_facet);
+        if (!operand) return nullptr; // TODO: return poison type
         auto* yield_inst = ctx.make<YieldInst>(yield_facet, scope, operand);
         emit_instruction(*yield_inst);
         return operand->type();

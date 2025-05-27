@@ -237,8 +237,8 @@ set(PRISM_TEST_FILES
     test/Prism/Parser/ParserTestUtils.cpp
 #[[
     test/Prism/Sema/ConformanceAnalysis.t.cpp
+    ]]
     test/Prism/Sema/SemaDiagnostics.t.cpp
-]]
     test/Prism/TestUtils/TestCompiler.h
     test/Prism/TestUtils/TestCompiler.cpp
 )

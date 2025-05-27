@@ -12,9 +12,7 @@
 #include "Prism/Diagnostic/Diagnostic.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Invocation/Invocation.h"
-#if 0
-#include "Prism/Sema/SemaFwd.h"
-#endif
+#include "Prism/Sema2/SemaFwd.h"
 
 namespace prism {
 
@@ -26,29 +24,29 @@ public:
     DiagnosticChecker() = default;
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiagOnLine(int line) const {
-        return findImpl<D>(inv.get_diagnostic_emitter().getAll(),
-                           onLineFn<D>(line));
+    D const* find_diag_on_line(int line) const {
+        return find_impl<D>(inv.get_diagnostic_emitter().getAll(),
+                            on_line_fn<D>(line));
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiagOnLine(Diagnostic const& diag, int line) const {
-        return findImpl<D>(diag.children(), onLineFn<D>(line));
+    D const* find_diag_on_line(Diagnostic const& diag, int line) const {
+        return find_impl<D>(diag.children(), on_line_fn<D>(line));
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiag() const {
-        return findImpl<D>(inv.get_diagnostic_emitter().getAll(), Isa<D>);
+    D const* find_diag() const {
+        return find_impl<D>(inv.get_diagnostic_emitter().getAll(), Isa<D>);
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findDiag(Diagnostic const& diag) const {
-        return findImpl<D>(diag.children(), Isa<D>);
+    D const* find_diag(Diagnostic const& diag) const {
+        return find_impl<D>(diag.children(), Isa<D>);
     }
 
-    bool noDiagOnLine(int line) const {
-        return findImpl<Diagnostic>(inv.get_diagnostic_emitter().getAll(),
-                                    onLineFn<Diagnostic>(line)) == nullptr;
+    bool no_diag_on_line(int line) const {
+        return find_impl<Diagnostic>(inv.get_diagnostic_emitter().getAll(),
+                                     on_line_fn<Diagnostic>(line)) == nullptr;
     }
 
     InvValue& invocation() { return inv; }
@@ -64,7 +62,7 @@ private:
         [](auto* p) { return dynamic_cast<T const*>(p) != nullptr; };
 
     template <typename D>
-    static auto onLineFn(int line) {
+    static auto on_line_fn(int line) {
         PRISM_ASSERT(line > 0);
         return [=](auto* diag) {
             if (!Isa<D>(diag)) return false;
@@ -74,7 +72,7 @@ private:
     }
 
     template <std::derived_from<Diagnostic> D>
-    D const* findImpl(auto&& rng, auto condition) const {
+    D const* find_impl(auto&& rng, auto condition) const {
         auto itr = ranges::find_if(rng, condition, ToAddress);
         return itr != ranges::end(rng) ?
                    dynamic_cast<D const*>(std::to_address(*itr)) :
@@ -84,7 +82,7 @@ private:
     Inv inv;
 };
 
-DiagnosticChecker<Invocation> makeDiagChecker(
+DiagnosticChecker<Invocation> make_diag_checker(
     std::string source, InvocationStage until = InvocationStage::Sema);
 
 namespace detail {
@@ -96,43 +94,41 @@ struct InvHolder {
 } // namespace detail
 
 class InvocationTester:
-    detail::InvHolder,
+    private detail::InvHolder,
     public DiagnosticChecker<Invocation&> {
 public:
     InvocationTester(): DiagnosticChecker(InvHolder::inv) {}
 
     Invocation& invocation() { return InvHolder::inv; }
 
-#if 0
     ///
-    Symbol* eval(std::string_view exprSource);
-    
+    Symbol* eval(std::string_view expr_source);
+
     ///
-    Symbol* eval(Scope* scope, std::string_view exprSource);
-    
+    Symbol* eval(Scope* scope, std::string_view expr_source);
+
     /// \overload
     template <std::derived_from<Symbol> S>
-    S* eval(std::string_view exprSource) {
-        auto* sym = eval(exprSource);
+    S* eval(std::string_view expr_source) {
+        auto* sym = eval(expr_source);
         return cast<S*>(sym);
     }
-    
+
     /// \overload
     template <std::derived_from<Symbol> S>
-    S* eval(Scope* scope, std::string_view exprSource) {
-        auto* sym = eval(scope, exprSource);
+    S* eval(Scope* scope, std::string_view expr_source) {
+        auto* sym = eval(scope, expr_source);
         return cast<S*>(sym);
     }
-#endif
 };
 
 struct InvTesterOptions {
-    bool expectNoErrors = false;
+    bool expect_no_errors = false;
 };
 
-InvocationTester makeInvTester(std::string source,
-                               InvTesterOptions options = {},
-                               InvocationStage until = InvocationStage::Sema);
+InvocationTester make_inv_tester(std::string source,
+                                 InvTesterOptions options = {},
+                                 InvocationStage until = InvocationStage::Sema);
 
 } // namespace prism
 

@@ -6,11 +6,10 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Diagnostic/DiagnosticFormat.h"
 #include "Prism/Parser/Parser.h"
-#if 0
-#include "Prism/Sema/AnalysisContext.h"
-#include "Prism/Sema/ExprAnalysis.h"
-#include "Prism/Sema/Symbol.h"
-#endif
+#include "Prism/Sema2/AnalysisContext.h"
+#include "Prism/Sema2/ExprAnalysis.h"
+#include "Prism/Sema2/Scope.h"
+#include "Prism/Sema2/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;
@@ -21,20 +20,20 @@ static void doInvoke(Invocation& inv, std::string source,
     inv.run_until(stage);
 }
 
-DiagnosticChecker<Invocation> prism::makeDiagChecker(std::string source,
-                                                     InvocationStage stage) {
+DiagnosticChecker<Invocation> prism::make_diag_checker(std::string source,
+                                                       InvocationStage stage) {
     DiagnosticChecker<Invocation> c;
     doInvoke(c.invocation(), std::move(source), stage);
     return c;
 }
 
-InvocationTester prism::makeInvTester(std::string source,
-                                      InvTesterOptions options,
-                                      InvocationStage stage) {
+InvocationTester prism::make_inv_tester(std::string source,
+                                        InvTesterOptions options,
+                                        InvocationStage stage) {
     InvocationTester t;
     doInvoke(t.invocation(), std::move(source), stage);
     auto& DE = t.invocation().get_diagnostic_emitter();
-    if (options.expectNoErrors && DE.hasErrors()) {
+    if (options.expect_no_errors && DE.hasErrors()) {
         std::stringstream sstr;
         sstr << "Failed to compile: ";
         print(DE, sstr);
@@ -43,39 +42,47 @@ InvocationTester prism::makeInvTester(std::string source,
     return t;
 }
 
-#if 0
-static MonotonicBufferResource gAlloc;
+static MonotonicBufferResource g_alloc;
 
 [[noreturn]]
-static void throwJitError(std::string_view exprSource,
-                          DiagnosticEmitter const& DE) {
+static void throw_jit_error(std::string_view expr_source,
+                            DiagnosticEmitter const& DE) {
     std::stringstream sstr;
-    sstr << "Failed to jit source fragment: " << exprSource << "\n";
+    sstr << "Failed to jit source fragment: " << expr_source << "\n";
     print(DE, sstr);
     throw std::runtime_error(std::move(sstr).str());
 }
 
-Symbol* InvocationTester::eval(std::string_view exprSource) {
-    auto* globalScope = invocation().getTarget()->associatedScope();
-    auto* fileScope = [&] {
-        auto itr = ranges::find_if(globalScope->symbols(), isa<SourceFile>);
-        if (itr == globalScope->symbols().end())
+Symbol* InvocationTester::eval(std::string_view expr_source) {
+    auto* global_scope = invocation().get_module()->scope();
+    auto* file_scope = [&] {
+        auto itr = ranges::find_if(global_scope->symbols(), isa<SourceFile>);
+        if (itr == global_scope->symbols().end())
             throw std::runtime_error("Cannot find source file");
-        return (*itr)->associatedScope();
+        return (*itr)->scope();
     }();
-    return eval(fileScope, exprSource);
+    return eval(file_scope, expr_source);
 }
 
-Symbol* InvocationTester::eval(Scope* scope, std::string_view exprSource) {
+namespace {
+
+struct TrappingInstEmitter final: InstructionEmitter {
+    void emit_instruction(Instruction&) override { PRISM_UNREACHABLE(); }
+};
+
+} // namespace
+
+Symbol* InvocationTester::eval(Scope* scope, std::string_view expr_source) {
     // We just leak this here...
-    auto* ctx = new SourceContext("test/expr-fragment.prism", exprSource);
+    auto* ctx = allocate<SourceContext>(g_alloc, "test/expr-fragment.prism",
+                                        expr_source);
     auto DE = makeDefaultDiagnosticEmitter();
-    auto* facet = parseExpr(gAlloc, *ctx, *DE);
-    if (DE->hasErrors()) throwJitError(exprSource, *DE);
+    auto* facet = parseExpr(g_alloc, *ctx, *DE);
+    if (DE->hasErrors()) throw_jit_error(expr_source, *DE);
     if (!facet) throw std::runtime_error("No facet");
-    auto* symbol =
-        analyzeFacet({ invocation().get_sema_context(), *DE, ctx }, scope, facet);
-    if (!symbol || DE->hasErrors()) throwJitError(exprSource, *DE);
+    TrappingInstEmitter inst_emitter;
+    AnalysisContext ana_context{ invocation().get_sema_context(), *DE, ctx };
+    auto* symbol = analyze_facet(ana_context, inst_emitter, scope, facet);
+    if (!symbol || DE->hasErrors()) throw_jit_error(expr_source, *DE);
     return symbol;
 }
-#endif

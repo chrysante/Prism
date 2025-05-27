@@ -129,11 +129,15 @@ static void construct_globals(SemaContext& ctx, DiagnosticEmitter& DE,
 static void resolve_global_names(SemaContext& ctx, DiagnosticEmitter& DE,
                                  Module& mod);
 
-namespace prism {
+namespace {
 
 struct TrappingInstEmitter final: InstructionEmitter {
     void emit_instruction(Instruction&) override { PRISM_UNREACHABLE(); }
 };
+
+} // namespace
+
+namespace prism {
 
 struct NameResolution: AnalysisContext {
     size_t generic_nesting_depth = 0;
