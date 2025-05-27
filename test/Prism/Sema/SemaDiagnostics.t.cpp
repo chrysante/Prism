@@ -35,6 +35,33 @@ TEST_CASE("Redefinition", "[sema]") {
     CHECK(c.find_diag_on_line<FuncRedefinition>(10));
 }
 
+TEST_CASE("Function redefinition", "[sema]") {
+    auto c = make_diag_checker(R"(
+/* 2: */ fn [T: type, U: type] foo(T, U) {}
+/* 3: */ fn [A: type, B: type] foo(A, B) {}
+/* 4: */ 
+/* 5: */ fn [T: type, U: type] bar(T, U) {}
+/* 6: */ fn [T: type, U: type] bar(U, T) {}
+)");
+    CHECK(c.no_diag_on_line(2));
+    CHECK(c.find_diag_on_line<FuncRedefinition>(3));
+    CHECK(c.no_diag_on_line(5));
+    CHECK(c.no_diag_on_line(6));
+}
+
+TEST_CASE("Function redefinition 2", "[sema]") {
+    auto c = make_diag_checker(R"(
+/* 2: */ struct [T: type] S {
+/* 3: */     fn foo(T) {}
+/* 4: */     fn [T: type] foo(T) {}
+/* 5: */     fn [T: type] foo(T) {}
+/* 6: */ }
+)");
+    CHECK(c.no_diag_on_line(3));
+    CHECK(c.no_diag_on_line(4));
+    CHECK(c.find_diag_on_line<FuncRedefinition>(5));
+}
+
 TEST_CASE("Bad function calls", "[sema]") {
     auto c = make_diag_checker(R"(
 fn foo(arg: i32) {}
