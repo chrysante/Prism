@@ -112,7 +112,7 @@ static std::string_view get_gen_symbol_category_name(DeclSymbol const* sym) {
     return visit(*sym, csp::overload{
         [](StructDef const&) { return "struct"sv; },
         [](TraitDef const&) { return "trait"sv; },
-//        [](GenTraitImpl const&) { return "impl"sv; },
+        [](TraitImplDef const&) { return "impl"sv; },
         [](FunctionDef const&) { return "function"sv; },
         [](BindingDef const&) { return "binding"sv; },
     }); // clang-format on

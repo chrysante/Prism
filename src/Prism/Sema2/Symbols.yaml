@@ -23,6 +23,9 @@ symbols:
   - name: TraitDef
     base: DeclSymbol
 
+  - name: TraitImplDef
+    base: DeclSymbol
+
   - name: FunctionDef
     base: DeclSymbol
 
@@ -39,6 +42,9 @@ symbols:
     base: Type
 
   - name: StructInst
+    base: Type
+
+  - name: TraitThisType
     base: Type
 
   - name: GenTypeParam

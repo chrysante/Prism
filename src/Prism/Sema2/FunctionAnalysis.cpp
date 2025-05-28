@@ -64,10 +64,9 @@ struct FuncAnaCtx: AnalysisContext, InstructionEmitter {
 void FuncAnaCtx::run() {
     auto* def_facet = dyncast<FuncDefFacet const*>(function.facet());
     if (!def_facet) return;
-    auto* block_inst = analyze_facet_as<BlockInst>(*this, *this,
-                                                   function.scope(),
-                                                   def_facet->body());
-    function._body = block_inst;
+    if (auto* body = dyncast<CompoundFacet const*>(def_facet->body()))
+        function._body =
+            analyze_facet_as<BlockInst>(*this, *this, function.scope(), body);
 }
 
 void prism::analyze_functions(SemaContext& ctx, DiagnosticEmitter& DE,

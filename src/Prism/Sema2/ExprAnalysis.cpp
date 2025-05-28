@@ -75,6 +75,7 @@ struct AnaContext: AnalysisContext {
     Symbol* do_analyze(CompoundFacet const& facet);
     Symbol* do_analyze(VarDeclFacet const& var_decl_facet);
     Symbol* do_analyze(ExprStmtFacet const& stmt_facet);
+    Symbol* analyze_this_literal();
     Symbol* analyze_identifier(TerminalFacet const& id);
     IntLiteral* analyze_int_literal(TerminalFacet const& term, int base);
     Symbol* do_analyze(TerminalFacet const& term);
@@ -216,6 +217,8 @@ Symbol* AnaContext::do_analyze(TerminalFacet const& term) {
         return ctx.get_f32_type();
     case TokenKind::Float64:
         return ctx.get_f64_type();
+    case TokenKind::This:
+        return analyze_this_literal();
     case TokenKind::Identifier:
         return analyze_identifier(term);
     case TokenKind::IntLiteralBin:
@@ -267,6 +270,27 @@ Symbol* AnaContext::do_analyze(NamedParamDeclFacet const& declFacet) {
     if (isa<FnTypeFacet>(declFacet.parent()->parent()))
         return analyze_as<Type>(declFacet.typespec());
     PRISM_UNIMPLEMENTED();
+}
+
+Symbol* AnaContext::analyze_this_literal() {
+    for (auto* curr_scope = scope; curr_scope;
+         curr_scope = curr_scope->parent_scope())
+    {
+        auto* func_def = dyncast<FunctionDef*>(curr_scope->defining_symbol());
+        if (!func_def) continue;
+        if (func_def->num_arguments() == 0) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
+        auto* arg = func_def->arguments().front();
+        if (!arg) return nullptr;
+        if (!arg->is_this()) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
+        return arg;
+    }
+    PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
 }
 
 template <typename T, typename... Args>

@@ -66,6 +66,9 @@ public:
     TraitInst* get_trait_instantiation(TraitDef* definition,
                                        std::span<Symbol* const> generic_args);
 
+    /// The symbolic this-type of \p trait
+    TraitThisType* get_trait_this_type(Trait* trait);
+
     /// See `get_struct_instantiation()`
     FunctionInst* get_function_instantiation(
         FunctionDef* definition, std::span<Symbol* const> generic_args);

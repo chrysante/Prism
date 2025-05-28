@@ -109,6 +109,7 @@ struct SemaContext::Impl {
         source_context_map;
     utl::hashmap<StructInstKey, StructInst*> struct_instantiations;
     utl::hashmap<TraitInstKey, TraitInst*> trait_instantiations;
+    utl::hashmap<Trait*, TraitThisType*> trait_this_types;
     utl::hashmap<FuncInstKey, FunctionInst*> function_instantiations;
     utl::hashmap<FuncSig, FunctionType*> function_types;
     utl::hashmap<GenericParamKey, Symbol*> generic_parameters;
@@ -202,6 +203,11 @@ TraitInst* SemaContext::get_trait_instantiation(
                        TraitInstKeyView{ definition, generic_args }, [&] {
         return make<TraitInst>(/* facet: */ nullptr, definition, generic_args);
     });
+}
+
+TraitThisType* SemaContext::get_trait_this_type(Trait* trait) {
+    return get_or_make(impl->trait_this_types, trait,
+                       [&] { return make<TraitThisType>(trait); });
 }
 
 static Symbol* substitute_symbol(SemaContext& ctx, size_t gen_nesting_depth,

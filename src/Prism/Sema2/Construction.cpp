@@ -69,6 +69,17 @@ struct GlobalConstruction: AnalysisContext {
                 construct(child_decl_facet, decl_symbol->scope());
     }
 
+    void do_construct(TraitImplFacet const& facet, Scope* parent_scope) {
+        size_t num_gen_params = get_num_gen_params(facet.genParams());
+        auto* decl_symbol = ctx.make<TraitImplDef>(&facet, parent_scope,
+                                                   ScopeArg::make(ctx),
+                                                   num_gen_params);
+        auto* def_facet = cast<TraitImplTypeFacet const*>(facet.definition());
+        if (auto* body = def_facet->body())
+            for (auto* child_decl_facet: body->elems())
+                construct(child_decl_facet, decl_symbol->scope());
+    }
+
     void do_construct(FuncDeclBaseFacet const& facet, Scope* parent_scope) {
         std::string name = get_name(facet.name());
         size_t num_gen_params = get_num_gen_params(facet.genParams());
@@ -118,7 +129,7 @@ struct TrappingInstEmitter final: InstructionEmitter {
 namespace prism {
 
 struct NameResolution: AnalysisContext {
-    uint32_t generic_nesting_depth = -1;
+    uint32_t generic_nesting_depth = (uint32_t)-1;
 
     auto increase_generic_depth() {
         ++generic_nesting_depth;
@@ -188,9 +199,11 @@ struct NameResolution: AnalysisContext {
         auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(struct_def);
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
-        if (!gen_params.empty())
-            struct_def._generic_params = std::move(gen_params);
+        struct_def._generic_params = std::move(gen_params);
         struct_def._generic_nesting_depth = generic_nesting_depth;
+        struct_def.set_canonical(
+            ctx.get_struct_instantiation(&struct_def,
+                                         struct_def.generic_params()));
         resolve_children(struct_def.scope());
     }
 
@@ -198,52 +211,98 @@ struct NameResolution: AnalysisContext {
         auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(trait_def);
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
-        if (!gen_params.empty())
-            trait_def._generic_params = std::move(gen_params);
+        trait_def._generic_params = std::move(gen_params);
         trait_def._generic_nesting_depth = generic_nesting_depth;
+        trait_def.set_canonical(
+            ctx.get_trait_instantiation(&trait_def,
+                                        trait_def.generic_params()));
         resolve_children(trait_def.scope());
     }
 
+    void do_resolve(TraitImplDef& impl_def) {
+        auto gen_scope = increase_generic_depth();
+        auto gen_params = resolve_gen_params(impl_def);
+        PRISM_ASSERT(gen_params.size() == impl_def._generic_params.size());
+        impl_def._generic_params = std::move(gen_params);
+        impl_def._generic_nesting_depth = generic_nesting_depth;
+        auto* def_facet =
+            cast<TraitImplTypeFacet const*>(impl_def.facet()->definition());
+        impl_def._trait = analyze_facet_as<Trait>(impl_def.scope(),
+                                                  def_facet->traitDeclRef());
+        impl_def._type =
+            analyze_facet_as<Type>(impl_def.scope(),
+                                   def_facet->conformingTypename());
+        resolve_children(impl_def.scope());
+    }
+
     FunctionArgument* resolve_func_arg(ParamDeclFacet const* facet,
-                                       FunctionDef& func_def) {
+                                       size_t index, FunctionDef& func_def) {
         if (!facet) return nullptr;
-        return visit(*facet, FN1(&, do_resolve_func_arg(_1, func_def)));
+        return visit(*facet, FN1(&, do_resolve_func_arg(_1, index, func_def)));
+    }
+
+    static PassingConvention get_passing_conv(TerminalFacet const* term) {
+        if (!term) return PassingConvention::In;
+        switch (term->token().kind) {
+        case TokenKind::In:
+            return PassingConvention::In;
+        case TokenKind::Inout:
+            return PassingConvention::Inout;
+        case TokenKind::Sink:
+            return PassingConvention::Sink;
+        default:
+            PRISM_UNREACHABLE();
+        }
+    }
+
+    Type* get_this_type(Symbol* parent_symbol) {
+        if (auto* struct_type = dyncast<StructDef*>(parent_symbol))
+            return struct_type->canonical();
+        if (auto* trait = dyncast<TraitDef*>(parent_symbol))
+            return ctx.get_trait_this_type(trait->canonical());
+        if (auto* impl = dyncast<TraitImplDef*>(parent_symbol))
+            return impl->type();
+        return nullptr;
     }
 
     FunctionArgument* do_resolve_func_arg(ThisParamDeclFacet const& facet,
-                                          FunctionDef& func_def) {
-        PRISM_UNIMPLEMENTED();
+                                          size_t index, FunctionDef& func_def) {
+        auto* parent_symbol = func_def.parent_scope()->defining_symbol();
+        auto* this_type = get_this_type(parent_symbol);
+        if (!this_type) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
+        auto* function_scope = func_def.scope();
+        auto passing_conv = get_passing_conv(facet.passingConventionFacet());
+        if (index != 0) {
+            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            return nullptr;
+        }
+        return ctx.make<FunctionArgument>(&facet, function_scope, "this",
+                                          passing_conv, this_type,
+                                          /* is_this: */ true);
     }
 
     FunctionArgument* do_resolve_func_arg(NamedParamDeclFacet const& facet,
-                                          FunctionDef& func_def) {
-        auto* parent_scope = func_def.scope();
+                                          size_t, FunctionDef& func_def) {
+        auto* function_scope = func_def.scope();
         std::string name = get_name(facet.nameFacet());
-        PassingConvention passing_conv = [&] {
-            if (!facet.passingConventionFacet()) return PassingConvention::In;
-            switch (facet.passingConvention().kind) {
-            case TokenKind::In:
-                return PassingConvention::In;
-            case TokenKind::Inout:
-                return PassingConvention::Inout;
-            case TokenKind::Sink:
-                return PassingConvention::Sink;
-            default:
-                PRISM_UNREACHABLE();
-            }
-        }();
-        auto* type = analyze_facet_as<Type>(parent_scope, facet.typespec());
-        if (!check_redefinition(parent_scope, facet, name)) return nullptr;
-        return ctx.make<FunctionArgument>(&facet, parent_scope, std::move(name),
-                                          passing_conv, type);
+        auto passing_conv = get_passing_conv(facet.passingConventionFacet());
+        auto* type = analyze_facet_as<Type>(function_scope, facet.typespec());
+        if (!check_redefinition(function_scope, facet, name)) return nullptr;
+        return ctx.make<FunctionArgument>(&facet, function_scope,
+                                          std::move(name), passing_conv, type,
+                                          /* is_this: */ false);
     }
 
     utl::small_vector<FunctionArgument*> resolve_func_args(
         FunctionDef& func_def) {
         auto* params_facet = func_def.facet()->params();
         if (!params_facet) return {};
-        return params_facet->elems() |
-               transform(FN1(&, resolve_func_arg(_1, func_def))) |
+        return params_facet->elems() | enumerate |
+               transform(
+                   FN1(&, resolve_func_arg(_1.second, _1.first, func_def))) |
                ToSmallVector<>;
     }
 
@@ -257,14 +316,13 @@ struct NameResolution: AnalysisContext {
         auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(func_def);
         PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
-        if (!gen_params.empty())
-            func_def._generic_params = std::move(gen_params);
+        func_def._generic_params = std::move(gen_params);
         func_def._generic_nesting_depth = generic_nesting_depth;
         func_def._args = resolve_func_args(func_def);
         func_def._return_type = resolve_return_type(func_def);
-        if (gen_params.empty())
-            func_def.set_canonical(
-                ctx.get_function_instantiation(&func_def, {}));
+        func_def.set_canonical(
+            ctx.get_function_instantiation(&func_def,
+                                           func_def.generic_params()));
         auto* parent_scope = func_def.parent_scope();
         auto gen_signature = func_def.make_generic_signature();
         auto signature = func_def.make_signature();

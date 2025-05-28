@@ -40,7 +40,7 @@ static bool is_function_like(Symbol* sym) {
 
 static Symbol* strip_non_generic_decl(Symbol* sym) {
     if (auto* decl = dyncast<DeclSymbol*>(sym))
-        if (auto* canonical = decl->canonical()) return canonical;
+        if (!decl->is_generic()) return decl->canonical();
     return sym;
 }
 

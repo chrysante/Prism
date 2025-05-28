@@ -179,10 +179,11 @@ private:
 /// User definition of a struct type
 class StructDef final: public DeclSymbol {
 public:
-    /// Constructor for generic definitions
-    explicit StructDef(SemaContext& ctx, Facet const* facet,
-                       Scope* parent_scope, std::string name,
-                       ScopeArg scope_arg, size_t num_generic_params);
+    explicit StructDef(Facet const* facet, Scope* parent_scope,
+                       std::string name, ScopeArg scope_arg,
+                       size_t num_generic_params):
+        DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
+                   scope_arg, num_generic_params) {}
 
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -197,10 +198,10 @@ public:
 /// User definition of a trait
 class TraitDef final: public DeclSymbol {
 public:
-    /// Constructor for generic definitions
-    explicit TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
-                      std::string name, ScopeArg scope_arg,
-                      size_t num_generic_params);
+    explicit TraitDef(Facet const* facet, Scope* parent_scope, std::string name,
+                      ScopeArg scope_arg, size_t num_generic_params):
+        DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
+                   scope_arg, num_generic_params) {}
 
     FACET_TYPE(CompTypeDeclFacet)
 
@@ -212,13 +213,44 @@ public:
     }
 };
 
+/// Definition of a trait implementation
+class TraitImplDef final: public DeclSymbol {
+public:
+    explicit TraitImplDef(Facet const* facet, Scope* parent_scope,
+                          ScopeArg scope_arg, size_t num_generic_params):
+        DeclSymbol(SymbolType::TraitImplDef, facet, parent_scope,
+                   /* name: */ {}, scope_arg, num_generic_params) {}
+
+    FACET_TYPE(TraitImplFacet)
+
+    /// The trait being implemented
+    Trait* trait() { return _trait; }
+
+    /// \overload
+    Trait const* trait() const { return _trait; }
+
+    /// The type for which the trait is implemented
+    Type* type() { return _type; }
+
+    /// \overload
+    Type const* type() const { return _type; }
+
+private:
+    friend struct NameResolution;
+
+    Trait* _trait = nullptr;
+    Type* _type = nullptr;
+};
+
 /// User definition of a function
 class FunctionDef final: public DeclSymbol {
 public:
-    explicit FunctionDef(SemaContext& ctx, Facet const* facet,
-                         Scope* parent_scope, std::string name,
-                         ScopeArg scope_arg, size_t num_generic_params,
-                         size_t num_arguments);
+    explicit FunctionDef(Facet const* facet, Scope* parent_scope,
+                         std::string name, ScopeArg scope_arg,
+                         size_t num_generic_params, size_t num_arguments):
+        DeclSymbol(SymbolType::FunctionDef, facet, parent_scope,
+                   std::move(name), scope_arg, num_generic_params),
+        _args(num_arguments) {}
 
     FACET_TYPE(FuncDeclBaseFacet)
 
@@ -351,6 +383,25 @@ private:
 
     StructDef* _definition;
     utl::small_vector<Symbol*, 3> _generic_args;
+};
+
+/// The symbolic type the `this` parameter (`this type`) in a trait definition
+class TraitThisType final: public Type {
+public:
+    explicit TraitThisType(Trait* trait):
+        Type(SymbolType::TraitThisType, /* facet: */ nullptr,
+             /* parent_scope: */ nullptr, "this-type", ScopeArg::None,
+             TypeLayout::Incomplete),
+        _trait(trait) {}
+
+    ///
+    Trait* trait() { return _trait; }
+
+    /// \overload
+    Trait const* trait() const { return _trait; }
+
+private:
+    Trait* _trait;
 };
 
 /// Generic type parameter
@@ -611,12 +662,13 @@ class FunctionArgument final: public Value {
 public:
     explicit FunctionArgument(Facet const* facet, Scope* parent_scope,
                               std::string name, PassingConvention pc,
-                              Type const* type):
+                              Type const* type, bool is_this):
         Value(SymbolType::FunctionArgument, facet, parent_scope,
               std::move(name), ScopeArg::None, type,
               pc == PassingConvention::In ? Mutability::Const : Mutability::Mut,
               ValueCat::LValue),
-        _pc(pc) {}
+        _pc(pc),
+        _is_this(is_this) {}
 
     ///
     PassingConvention passing_convention() const { return _pc; }
@@ -624,8 +676,12 @@ public:
     /// Creates a `FuncArgSpec` object from the passing convention and type
     FuncArgSpec make_spec() const { return { passing_convention(), type() }; }
 
+    /// True if this is the `this` parameter
+    bool is_this() const { return _is_this; }
+
 private:
     PassingConvention _pc;
+    bool _is_this;
 };
 
 // MARK: Constants

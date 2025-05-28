@@ -56,36 +56,6 @@ SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
            source_context.filepath().string(), scope_arg),
     _source_context(source_context) {}
 
-StructDef::StructDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
-                     std::string name, ScopeArg scope_arg,
-                     size_t num_generic_params):
-    DeclSymbol(SymbolType::StructDef, facet, parent_scope, std::move(name),
-               scope_arg, num_generic_params) {
-    if (num_generic_params == 0)
-        set_canonical(ctx.get_struct_instantiation(this, {}));
-}
-
-TraitDef::TraitDef(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
-                   std::string name, ScopeArg scope_arg,
-                   size_t num_generic_params):
-    DeclSymbol(SymbolType::TraitDef, facet, parent_scope, std::move(name),
-               scope_arg, num_generic_params) {
-    if (num_generic_params == 0)
-        set_canonical(ctx.get_trait_instantiation(this, {}));
-}
-
-FunctionDef::FunctionDef(SemaContext& ctx, Facet const* facet,
-                         Scope* parent_scope, std::string name,
-                         ScopeArg scope_arg, size_t num_generic_params,
-                         size_t num_arguments):
-    DeclSymbol(SymbolType::FunctionDef, facet, parent_scope, std::move(name),
-               scope_arg, num_generic_params),
-    _args(num_arguments) {
-#if 0
-    if (num_generic_params==0) set_canonical(ctx.make<FunctionInst>( !!! ));
-#endif
-}
-
 FuncSig FunctionDef::make_signature() const {
     return FuncSig(arguments() | transform(FN1(, _1->make_spec())) |
                        ToSmallVector<>,
