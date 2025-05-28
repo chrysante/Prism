@@ -275,6 +275,9 @@ public:
     /// \overload
     BlockInst const* body() const { return _body; }
 
+    ///
+    bool has_this_parameter() const;
+
     /// The canonical instantiation of this function, i.e., the defined
     /// function. This is only non-null if this declaration is not generic.
     template <typename FI = FunctionInst>

@@ -62,6 +62,12 @@ FuncSig FunctionDef::make_signature() const {
                    return_type());
 }
 
+bool FunctionDef::has_this_parameter() const {
+    if (num_arguments() == 0) return false;
+    auto* arg = arguments().front();
+    return arg && arg->is_this();
+}
+
 BindingDef::BindingDef(Facet const* facet, Scope* parent_scope,
                        std::string name, Type const* type_spec,
                        Value* initializer):

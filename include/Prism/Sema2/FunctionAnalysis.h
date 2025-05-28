@@ -5,7 +5,6 @@
 
 namespace prism {
 
-class SemaContext;
 class DiagnosticEmitter;
 
 /// Analyze function bodies

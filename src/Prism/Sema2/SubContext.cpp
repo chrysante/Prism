@@ -38,7 +38,7 @@ Symbol const* SubContext::resolve(Symbol const* symbol) const {
         return symbol;
     for (auto& decl_context: _stack | reverse)
         if (auto* result = decl_context.try_resolve(symbol)) return result;
-    PRISM_UNREACHABLE();
+    return symbol;
 }
 
 Type const* SubContext::resolve(Type const* type) {

@@ -110,6 +110,7 @@ set(PRISM_HEADER_FILES
 
     include/Prism/Sema2/Analysis.h
     include/Prism/Sema2/AnalysisContext.h
+    include/Prism/Sema2/ConformanceAnalysis.h
     include/Prism/Sema2/Construction.h
     include/Prism/Sema2/ExprAnalysis.h
     include/Prism/Sema2/FunctionAnalysis.h
@@ -184,6 +185,7 @@ set(PRISM_SOURCE_FILES
 
     src/Prism/Sema2/Analysis.cpp
     src/Prism/Sema2/AnalysisContext.cpp
+    src/Prism/Sema2/ConformanceAnalysis.cpp
     src/Prism/Sema2/Construction.cpp
     src/Prism/Sema2/ExprAnalysis.cpp
     src/Prism/Sema2/FunctionAnalysis.cpp
