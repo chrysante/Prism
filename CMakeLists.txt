@@ -69,7 +69,7 @@ function(add_code_generator target definitions template output filters)
 endfunction()
 
 CPMAddPackage("gh:chrysante/csp#main")
-CPMAddPackage("gh:chrysante/utility#b6a09c50b0109ee771f9fcf8b5d35f0526c8757b")
+CPMAddPackage("gh:chrysante/utility#3c24fa7dbdabdc645d2455f0dd6f4656fa15a5e6")
 CPMAddPackage("gh:chrysante/APMath#main")
 CPMAddPackage("gh:chrysante/termfmt#main")
 CPMAddPackage("gh:chrysante/graphgen#main")
