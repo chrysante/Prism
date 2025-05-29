@@ -13,6 +13,7 @@
 #include <Prism/Facet/FacetFwd.h>
 #include <Prism/Sema2/FuncSig.h>
 #include <Prism/Sema2/SemaFwd.h>
+#include <Prism/Sema2/SubContext.h>
 #include <Prism/Sema2/TypeLayout.h>
 
 #define FACET_TYPE(Type)                                                       \
@@ -361,39 +362,52 @@ public:
              std::move(name), scope_arg, layout) {}
 };
 
-/// Instantiation of a possibly generic struct type
-class StructInst final: public Type {
+/// Base class of `StructInst`, `TraitInst` and `FunctionInst`
+class InstantiationBase {
 public:
-    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
-    explicit StructInst(Facet const* facet, StructDef* definition,
-                        GenArgs&& generic_args = {}):
-        Type(SymbolType::StructInst, facet, definition->parent_scope(), {},
-             ScopeArg::None,
-             // FIXME: compute correct layout here if possible
-             TypeLayout::Incomplete),
-        _definition(definition),
-        _generic_args(ranges::begin(generic_args), ranges::end(generic_args)) {
-        set_flag(ExcludeFromNameLookup, true);
-        set_name(make_name());
-        verify();
+    DeclSymbol* definition() { return _def; }
+
+    DeclSymbol const* definition() const { return _def; }
+
+    SubContext const& sub_context() const { return _sub_context; }
+
+    std::span<Symbol* const> generic_args() const {
+        return _sub_context.level(_def->generic_nesting_depth());
     }
 
-    /// The struct definition
-    StructDef* definition() { return _definition; }
-
-    /// \overload
-    StructDef const* definition() const { return _definition; }
-
-    /// The generic arguments of this instantiation. Empty for non-generic
-    /// structs
-    std::span<Symbol* const> generic_args() const { return _generic_args; }
+protected:
+    InstantiationBase(DeclSymbol* def, SubContext const& sub_context):
+        _def(def), _sub_context(sub_context) {}
 
 private:
-    std::string make_name() const;
-    void verify() const;
+    DeclSymbol* _def;
+    SubContext _sub_context;
+};
 
-    StructDef* _definition;
-    utl::small_vector<Symbol*, 3> _generic_args;
+///
+template <typename Derived>
+class InstantiationBaseMixin: public InstantiationBase {
+public:
+    template <typename D = Derived, typename T = D::DefinitionType>
+    T* definition() {
+        return cast<T*>(InstantiationBase::definition());
+    }
+
+    template <typename D = Derived, typename T = D::DefinitionType>
+    T const* definition() const {
+        return cast<T const*>(InstantiationBase::definition());
+    }
+
+protected:
+    using InstantiationBase::InstantiationBase;
+};
+
+/// Instantiation of a possibly generic struct type
+class StructInst final: public Type, public InstantiationBaseMixin<StructInst> {
+public:
+    using DefinitionType = StructDef;
+
+    explicit StructInst(StructDef* definition, SubContext const& sub_context);
 };
 
 /// The symbolic type the `this` parameter (`this type`) in a trait definition
@@ -498,36 +512,11 @@ public:
 };
 
 /// Instantiation of a trait definition
-class TraitInst final: public Trait {
+class TraitInst final: public Trait, public InstantiationBaseMixin<TraitInst> {
 public:
-    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
-    explicit TraitInst(Facet const* facet, TraitDef* definition,
-                       GenArgs&& generic_args = {}):
-        Trait(SymbolType::TraitInst, facet, definition->parent_scope(), {},
-              ScopeArg::share(definition->scope())),
-        _definition(definition),
-        _generic_args(ranges::begin(generic_args), ranges::end(generic_args)) {
-        set_flag(ExcludeFromNameLookup, true);
-        set_name(make_name());
-        verify();
-    }
+    using DefinitionType = TraitDef;
 
-    /// The struct definition
-    TraitDef* definition() { return _definition; }
-
-    /// \overload
-    TraitDef const* definition() const { return _definition; }
-
-    /// The generic arguments of this instantiation. Empty for non-generic
-    /// traits
-    std::span<Symbol* const> generic_args() const { return _generic_args; }
-
-private:
-    std::string make_name() const;
-    void verify() const;
-
-    TraitDef* _definition;
-    utl::small_vector<Symbol*, 3> _generic_args;
+    explicit TraitInst(TraitDef* definition, SubContext const& sub_context);
 };
 
 // MARK: Misc
@@ -751,37 +740,15 @@ protected:
 };
 
 /// Instantiation of a `FunctionDef`
-class FunctionInst final: public Function {
+class FunctionInst final:
+    public Function,
+    public InstantiationBaseMixin<FunctionInst> {
 public:
-    template <RangeOf<Symbol*> GenArgs = ranges::empty_view<Symbol*>>
-    explicit FunctionInst(Facet const* facet, FunctionDef* definition,
-                          FunctionType const* type,
-                          GenArgs&& generic_args = {}):
-        Function(SymbolType::FunctionInst, facet, definition->parent_scope(),
-                 definition->name(), type),
-        _definition(definition),
-        _generic_args(ranges::begin(generic_args), ranges::end(generic_args)) {
-        set_flag(ExcludeFromNameLookup, true);
-        set_name(make_name());
-        verify();
-    }
+    using DefinitionType = FunctionDef;
 
-    /// The function definition
-    FunctionDef* definition() { return _definition; }
-
-    /// \overload
-    FunctionDef const* definition() const { return _definition; }
-
-    /// The generic arguments of this instantiation. Empty for non-generic
-    /// functions
-    std::span<Symbol* const> generic_args() const { return _generic_args; }
-
-private:
-    std::string make_name() const;
-    void verify() const;
-
-    FunctionDef* _definition;
-    utl::small_vector<Symbol*, 3> _generic_args;
+    explicit FunctionInst(FunctionDef* definition,
+                          SubContext const& sub_context,
+                          FunctionType const* type);
 };
 
 // MARK: Instructions
@@ -874,8 +841,16 @@ public:
 
 #undef VALUE_TYPE
 
-} // namespace prism
-
 #undef FACET_TYPE
+
+// MARK: Some inline helper functions
+
+inline GenParamBase const* as_gen_param_base(Symbol const* symbol) {
+    if (auto* type = dyncast<GenTypeParam const*>(symbol)) return type;
+    if (auto* value = dyncast<GenValueParam const*>(symbol)) return value;
+    return nullptr;
+}
+
+} // namespace prism
 
 #endif // PRISM_SEMA2_SYMBOL_H

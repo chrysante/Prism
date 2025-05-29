@@ -82,7 +82,9 @@ Symbol* InvocationTester::eval(Scope* scope, std::string_view expr_source) {
     if (!facet) throw std::runtime_error("No facet");
     TrappingInstEmitter inst_emitter;
     AnalysisContext ana_context{ invocation().get_sema_context(), *DE, ctx };
-    auto* symbol = analyze_facet(ana_context, inst_emitter, scope, facet);
+    SubContext sub_context;
+    auto* symbol =
+        analyze_facet(ana_context, inst_emitter, sub_context, scope, facet);
     if (!symbol || DE->hasErrors()) throw_jit_error(expr_source, *DE);
     return symbol;
 }

@@ -35,49 +35,39 @@ struct Builtins {
     BuiltinType* f64_type = nullptr;
 };
 
-template <typename Def, typename ArgsContainer>
+template <typename Def, typename SubCtx>
 struct GenInstKeyImpl {
     Def* generic;
-    ArgsContainer args;
+    SubCtx sub_context;
 
-    template <typename Cont = ArgsContainer&&>
-    GenInstKeyImpl(Def* generic, Cont&& args):
-        generic(generic), args(std::forward<Cont>(args)) {}
+    template <typename SubCtxArg = SubCtx&&>
+    GenInstKeyImpl(Def* generic, SubCtxArg&& sub_context):
+        generic(generic), sub_context(std::forward<SubCtxArg>(sub_context)) {}
 
-    template <std::convertible_to<ArgsContainer> ArgsContainerRhs>
-    GenInstKeyImpl(GenInstKeyImpl<Def, ArgsContainerRhs> const& rhs):
-        generic(rhs.generic), args(rhs.args) {}
+    template <std::convertible_to<SubCtx> SubCtxRhs>
+    GenInstKeyImpl(GenInstKeyImpl<Def, SubCtxRhs> const& rhs):
+        generic(rhs.generic), sub_context(rhs.sub_context) {}
 
-    GenInstKeyImpl(GenInstKeyImpl<Def, std::span<Symbol const* const>> rhs):
-        generic(rhs.generic), args(rhs.args | ToSmallVector<>) {}
-
-    template <typename ArgsContainerRhs>
-    bool operator==(GenInstKeyImpl<Def, ArgsContainerRhs> const& rhs) const {
-        return generic == rhs.generic && ranges::equal(args, rhs.args);
+    template <typename SubCtxRhs>
+    bool operator==(GenInstKeyImpl<Def, SubCtxRhs> const& rhs) const {
+        return generic == rhs.generic && sub_context == rhs.sub_context;
+        ;
     }
 };
 
 } // namespace
 
-using StructInstKey =
-    GenInstKeyImpl<StructDef, utl::small_vector<Symbol const*>>;
-using StructInstKeyView =
-    GenInstKeyImpl<StructDef, std::span<Symbol const* const>>;
-using TraitInstKey = GenInstKeyImpl<TraitDef, utl::small_vector<Symbol const*>>;
-using TraitInstKeyView =
-    GenInstKeyImpl<TraitDef, std::span<Symbol const* const>>;
-using FuncInstKey =
-    GenInstKeyImpl<FunctionDef, utl::small_vector<Symbol const*>>;
-using FuncInstKeyView =
-    GenInstKeyImpl<FunctionDef, std::span<Symbol const* const>>;
+using StructInstKey = GenInstKeyImpl<StructDef, SubContext>;
+using StructInstKeyView = GenInstKeyImpl<StructDef, SubContext const&>;
+using TraitInstKey = GenInstKeyImpl<TraitDef, SubContext>;
+using TraitInstKeyView = GenInstKeyImpl<TraitDef, SubContext const&>;
+using FuncInstKey = GenInstKeyImpl<FunctionDef, SubContext>;
+using FuncInstKeyView = GenInstKeyImpl<FunctionDef, SubContext const&>;
 
-template <typename Def, typename ArgsContainer>
-struct std::hash<GenInstKeyImpl<Def, ArgsContainer>> {
-    size_t operator()(GenInstKeyImpl<Def, ArgsContainer> const& key) const {
-        size_t seed = 0;
-        utl::hash_combine(seed, key.generic);
-        ranges::for_each(key.args, FN1(&, utl::hash_combine(seed, _1)));
-        return seed;
+template <typename Def, typename SubCtx>
+struct std::hash<GenInstKeyImpl<Def, SubCtx>> {
+    size_t operator()(GenInstKeyImpl<Def, SubCtx> const& key) const {
+        return utl::hash_combine(key.generic, key.sub_context.hash_value());
     }
 };
 
@@ -189,19 +179,19 @@ static T get_or_make(utl::hashmap<KeyType, T>& map, KeyTypeU&& key,
     return result;
 }
 
-StructInst* SemaContext::get_struct_instantiation(
-    StructDef* definition, std::span<Symbol* const> generic_args) {
+StructInst* SemaContext::get_struct_instantiation(SubContext const& sub_context,
+                                                  StructDef* definition) {
     return get_or_make(impl->struct_instantiations,
-                       StructInstKeyView{ definition, generic_args }, [&] {
-        return make<StructInst>(/* facet: */ nullptr, definition, generic_args);
+                       StructInstKeyView{ definition, sub_context }, [&] {
+        return make<StructInst>(definition, sub_context);
     });
 }
 
-TraitInst* SemaContext::get_trait_instantiation(
-    TraitDef* definition, std::span<Symbol* const> generic_args) {
+TraitInst* SemaContext::get_trait_instantiation(SubContext const& sub_context,
+                                                TraitDef* definition) {
     return get_or_make(impl->trait_instantiations,
-                       TraitInstKeyView{ definition, generic_args }, [&] {
-        return make<TraitInst>(/* facet: */ nullptr, definition, generic_args);
+                       TraitInstKeyView{ definition, sub_context }, [&] {
+        return make<TraitInst>(definition, sub_context);
     });
 }
 
@@ -210,62 +200,49 @@ TraitThisType* SemaContext::get_trait_this_type(Trait* trait) {
                        [&] { return make<TraitThisType>(trait); });
 }
 
-static Symbol* substitute_symbol(SemaContext& ctx, size_t gen_nesting_depth,
-                                 Symbol* input,
-                                 std::span<Symbol* const> generic_args) {
-    auto recur = [=, &ctx](Symbol* sym) -> Symbol* {
-        return substitute_symbol(ctx, gen_nesting_depth, sym, generic_args);
+static Symbol* substitute_symbol(SemaContext& ctx,
+                                 SubContext const& sub_context, Symbol* input) {
+    auto recur = [&](Symbol* sym) -> Symbol* {
+        return substitute_symbol(ctx, sub_context, sym);
     };
     if (!input) return nullptr;
-    if (auto* gen_type_param = dyncast<GenTypeParam const*>(input);
-        gen_type_param && gen_type_param->nesting_depth() == gen_nesting_depth)
-        return generic_args[gen_type_param->index()];
-    if (auto* gen_value_param = dyncast<GenValueParam const*>(input);
-        gen_value_param &&
-        gen_value_param->nesting_depth() == gen_nesting_depth)
-        return generic_args[gen_value_param->index()];
+    if (auto* gen_param = as_gen_param_base(input))
+        return sub_context.resolve(*gen_param);
     // clang-format off
     return visit(*input, csp::overload{
         [&](StructInst& struct_inst) {
-            auto args = struct_inst.generic_args() | transform(recur) |
-                        ToSmallVector<>;
-            return ctx.get_struct_instantiation(struct_inst.definition(), args);
+            SubContext inner_ctx = struct_inst.sub_context();
+            for (auto& arg: inner_ctx.flat_view()) arg = recur(arg);
+            return ctx.get_struct_instantiation(inner_ctx,struct_inst.definition());
         },
         [&](Symbol const&) { return input; }
     }); // clang-format on
 }
 
-static Type const* substitute_type(SemaContext& ctx, size_t gen_nesting_depth,
-                                   Type const* input,
-                                   std::span<Symbol* const> generic_args) {
-    auto* type = const_cast<Type*>(input);
-    return cast<Type const*>(
-        substitute_symbol(ctx, gen_nesting_depth, type, generic_args));
-}
-
 static FuncSig compute_signature(SemaContext& ctx,
-                                 FunctionDef const& definition,
-                                 std::span<Symbol* const> generic_args) {
-    auto param_types = definition.arguments() |
-                       transform([&](FunctionArgument const* param) {
+                                 SubContext const& sub_context,
+                                 FunctionDef const& definition) {
+    auto sub_type = [&](Type const* type) {
+        auto* mut_type = const_cast<Type*>(type);
+        return cast<Type const*>(substitute_symbol(ctx, sub_context, mut_type));
+    };
+    auto to_func_arg_spec = [&](FunctionArgument const* param) {
         return FuncArgSpec(param->passing_convention(),
-                           substitute_type(ctx,
-                                           definition.generic_nesting_depth(),
-                                           param->type(), generic_args));
-    }) | ToSmallVector<>;
-    auto* return_type = substitute_type(ctx, definition.generic_nesting_depth(),
-                                        definition.return_type(), generic_args);
+                           sub_type(param->type()));
+    };
+    auto param_types = definition.arguments() | transform(to_func_arg_spec) |
+                       ToSmallVector<>;
+    auto* return_type = sub_type(definition.return_type());
     return FuncSig(param_types, return_type);
 }
 
 FunctionInst* SemaContext::get_function_instantiation(
-    FunctionDef* definition, std::span<Symbol* const> generic_args) {
+    SubContext const& sub_context, FunctionDef* definition) {
     return get_or_make(impl->function_instantiations,
-                       FuncInstKeyView{ definition, generic_args }, [&] {
-        auto signature = compute_signature(*this, *definition, generic_args);
+                       FuncInstKeyView{ definition, sub_context }, [&] {
+        auto signature = compute_signature(*this, sub_context, *definition);
         auto* type = get_function_type(signature);
-        return make<FunctionInst>(/* facet: */ nullptr, definition, type,
-                                  generic_args);
+        return make<FunctionInst>(definition, sub_context, type);
     });
 }
 

@@ -3,14 +3,18 @@
 
 #include <span>
 
+#include <range/v3/view.hpp>
 #include <utl/stack.hpp>
 #include <utl/vector.hpp>
 
+#include <Prism/Common/Assert.h>
 #include <Prism/Sema2/SemaFwd.h>
 
 namespace prism {
 
-/// 'Global' substitution context for nested declarations
+class GenParamBase;
+
+/// Substitution context for nested declarations
 class SubContext {
 public:
     /// Push a declaration context onto the stack
@@ -18,26 +22,58 @@ public:
         _stack.emplace(gen_args.begin(), gen_args.end());
     }
 
-    /// Pop the last push context
+    ///
+    void push_empty(size_t num_arguments) {
+        _stack.emplace(num_arguments, nullptr);
+    }
+
+    /// Pop the top argument list
     void pop() { _stack.pop(); }
 
-    /// Resolves the argument \p symbol if it is a generic argument in this
-    /// substitution context
-    Symbol* resolve(Symbol* symbol) const {
-        return const_cast<Symbol*>(resolve(static_cast<Symbol const*>(symbol)));
+    /// Pop the \p count top argument list
+    void pop(size_t count) {
+        PRISM_ASSERT(depth() >= count);
+        _stack.pop(count);
+    }
+
+    /// Pop until depth is \p new_depth
+    void pop_to(size_t new_depth) {
+        PRISM_ASSERT(depth() >= new_depth);
+        pop(depth() - new_depth);
+    }
+
+    /// \Returns the generic argument substituted for \p gen_param
+    Symbol* resolve(GenParamBase const& gen_param) const;
+
+    /// A flat range view over the generic arguments
+    auto flat_view() { return _stack | ranges::views::join; }
+
+    /// \overload
+    auto flat_view() const { return _stack | ranges::views::join; }
+
+    /// The generic nesting depth
+    size_t depth() const { return _stack.size(); }
+
+    /// \Returns a view over the arguments at \p depth_level
+    std::span<Symbol* const> level(size_t depth_level) const {
+        return _stack[depth_level];
     }
 
     /// \overload
-    Symbol const* resolve(Symbol const* symbol) const;
+    std::span<Symbol*> level(size_t level) { return _stack[level]; }
 
-    /// \overload
-    Type const* resolve(Type const* type);
+    /// \Returns a view over the arguments at the top (inner most) level
+    std::span<Symbol* const> top_level() const { return level(depth() - 1); }
 
-    /// \overload
-    Value* resolve(Value* value);
+    /// True if no argument in the context is null
+    bool none_is_null() const;
 
-    /// \overload
-    Value const* resolve(Value const* value);
+    ///
+    bool any_is_null() const { return !none_is_null(); }
+
+    size_t hash_value() const;
+
+    bool operator==(SubContext const& rhs) const = default;
 
 private:
     utl::stack<utl::small_vector<Symbol*, 3>, 2> _stack;

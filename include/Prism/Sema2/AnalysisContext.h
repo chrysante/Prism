@@ -6,13 +6,11 @@
 
 #include <Prism/Common/Assert.h>
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
-#include <Prism/Sema2/SubContext.h>
+#include <Prism/Sema2/SemaFwd.h>
 
 namespace prism {
 
-class SemaContext;
 class SourceContext;
-class Symbol;
 class Facet;
 
 /// Returns the facet of \p symbol in \p scope
@@ -40,7 +38,6 @@ public:
     SemaContext& ctx;
     DiagnosticEmitter& DE;
     SourceContext const* source_context = nullptr;
-    SubContext sub_context{};
 
     /// See global `get_name()`
     std::string get_name(Facet const* name_facet) const {

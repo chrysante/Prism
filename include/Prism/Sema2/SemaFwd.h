@@ -12,6 +12,7 @@ namespace prism {
 
 class Scope;
 class SemaContext;
+class SubContext;
 
 class GenValueParam;
 

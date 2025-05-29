@@ -11,6 +11,7 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/AnalysisContext.h"
+#include "Prism/Sema2/GenericMatching.h"
 #include "Prism/Sema2/NameLookup.h"
 #include "Prism/Sema2/OverloadResolution.h"
 #include "Prism/Sema2/Scope.h"
@@ -26,6 +27,7 @@ namespace {
 
 struct AnaContext: AnalysisContext {
     InstructionEmitter& inst_emitter;
+    SubContext& sub_context;
     Scope* scope;
     std::vector<Instruction*>* instructions = nullptr;
 
@@ -118,9 +120,11 @@ void detail::push_bad_sym_ref(AnalysisContext const& context,
 }
 
 Symbol* prism::analyze_facet(AnalysisContext const& context,
-                             InstructionEmitter& inst_emitter, Scope* scope,
+                             InstructionEmitter& inst_emitter,
+                             SubContext& sub_context, Scope* scope,
                              Facet const* facet) {
-    return AnaContext{ context, inst_emitter, scope }.analyze(facet);
+    AnaContext facet_context{ context, inst_emitter, sub_context, scope };
+    return facet_context.analyze(facet);
 }
 
 Symbol* AnaContext::analyze(Facet const* facet) {
@@ -404,12 +408,22 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
     if (auto* struct_def = dyncast<StructDef*>(callee)) {
         if (!validate_generic_args(*struct_def, &call_facet, args, arg_facets))
             return nullptr;
-        return ctx.get_struct_instantiation(struct_def, args);
+        auto sub_context_copy = sub_context;
+        sub_context_copy.pop_to(struct_def->generic_nesting_depth());
+        sub_context_copy.push(args);
+        auto* struct_inst =
+            ctx.get_struct_instantiation(sub_context_copy, struct_def);
+        return struct_inst;
     }
     if (auto* trait_def = dyncast<TraitDef*>(callee)) {
         if (!validate_generic_args(*trait_def, &call_facet, args, arg_facets))
             return nullptr;
-        return ctx.get_trait_instantiation(trait_def, args);
+        auto sub_context_copy = sub_context;
+        sub_context_copy.pop_to(trait_def->generic_nesting_depth());
+        sub_context_copy.push(args);
+        auto* trait_inst =
+            ctx.get_trait_instantiation(sub_context_copy, trait_def);
+        return trait_inst;
     }
     if (auto* function = dyncast<Function*>(callee)) {
         if (!validate_num_call_arguments(&call_facet, function,
@@ -431,11 +445,14 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
             return nullptr;
         auto [value_args, success] = verify_list<Value>(args, arg_facets);
         if (!success) return nullptr;
-        Function* function = deduce_generic_function(ctx, generic, value_args);
-        if (!function) {
+        auto deduced_sub_context =
+            deduce_generic_args(sub_context, *generic, value_args);
+        if (!deduced_sub_context) {
             PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
             return nullptr;
         }
+        auto* function =
+            ctx.get_function_instantiation(*deduced_sub_context, generic);
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
                                              function, value_args);
@@ -446,7 +463,7 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         auto [value_args, success] = verify_list<Value>(args, arg_facets);
         if (!success) return nullptr;
         auto overload_resultion_result =
-            resolve_overload(ctx, source_context, &call_facet,
+            resolve_overload(ctx, source_context, sub_context, &call_facet,
                              overload_set->name(), overload_set->symbols(),
                              value_args);
         if (!overload_resultion_result) {

@@ -17,6 +17,7 @@ class SourceContext;
 class Facet;
 class SourceFileFacet;
 class FuncSig;
+class SubContext;
 
 /// Context class that owns and uniques most symbols
 class SemaContext {
@@ -59,19 +60,19 @@ public:
 
     /// \Returns the uniqued instantiation of the generic struct \p definition
     /// with arguments \p generic_args
-    StructInst* get_struct_instantiation(StructDef* definition,
-                                         std::span<Symbol* const> generic_args);
+    StructInst* get_struct_instantiation(SubContext const& sub_context,
+                                         StructDef* definition);
 
     /// See `get_struct_instantiation()`
-    TraitInst* get_trait_instantiation(TraitDef* definition,
-                                       std::span<Symbol* const> generic_args);
+    TraitInst* get_trait_instantiation(SubContext const& sub_context,
+                                       TraitDef* definition);
 
     /// The symbolic this-type of \p trait
     TraitThisType* get_trait_this_type(Trait* trait);
 
     /// See `get_struct_instantiation()`
-    FunctionInst* get_function_instantiation(
-        FunctionDef* definition, std::span<Symbol* const> generic_args);
+    FunctionInst* get_function_instantiation(SubContext const& sub_context,
+                                             FunctionDef* definition);
 
     /// The function type instance with \p signature
     FunctionType const* get_function_type(FuncSig const& signature);

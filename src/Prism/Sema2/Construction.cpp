@@ -11,6 +11,7 @@
 #include "Prism/Sema2/ExprAnalysis.h"
 #include "Prism/Sema2/SemaContext.h"
 #include "Prism/Sema2/SemaDiagnostic.h"
+#include "Prism/Sema2/SubContext.h"
 #include "Prism/Sema2/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
@@ -129,22 +130,28 @@ struct TrappingInstEmitter final: InstructionEmitter {
 namespace prism {
 
 struct NameResolution: AnalysisContext {
-    uint32_t generic_nesting_depth = (uint32_t)-1;
+    SubContext sub_context = {};
 
-    auto increase_generic_depth() {
-        ++generic_nesting_depth;
-        return utl::scope_guard([this] { --generic_nesting_depth; });
+    auto increase_generic_depth(std::span<Symbol* const> gen_params) {
+        sub_context.push(gen_params);
+        return utl::scope_guard([this] { sub_context.pop(); });
+    }
+
+    uint32_t generic_nesting_depth() const {
+        return utl::narrow_cast<uint32_t>(sub_context.depth());
     }
 
     Symbol* analyze_facet(Scope* scope, Facet const* facet) {
         TrappingInstEmitter inst_emitter;
-        return prism::analyze_facet(*this, inst_emitter, scope, facet);
+        return prism::analyze_facet(*this, inst_emitter, sub_context, scope,
+                                    facet);
     }
 
     template <std::derived_from<Symbol> S>
     S* analyze_facet_as(Scope* scope, Facet const* facet) {
         TrappingInstEmitter inst_emitter;
-        return prism::analyze_facet_as<S>(*this, inst_emitter, scope, facet);
+        return prism::analyze_facet_as<S>(*this, inst_emitter, sub_context,
+                                          scope, facet);
     }
 
     void resolve(Symbol& symbol) { visit(symbol, FN1(&, do_resolve(_1))); }
@@ -174,11 +181,12 @@ struct NameResolution: AnalysisContext {
         if (!req_symbol) return nullptr;
         if (auto* trait = dyncast<Trait*>(req_symbol))
             return ctx.get_gen_type_param(&facet, parent_scope, std::move(name),
-                                          trait, index, generic_nesting_depth);
+                                          trait, index,
+                                          generic_nesting_depth());
         if (auto* type = dyncast<Type*>(req_symbol))
             return ctx.get_gen_value_param(&facet, parent_scope,
                                            std::move(name), type, index,
-                                           generic_nesting_depth);
+                                           generic_nesting_depth());
         DE.emit<BadSymRef>(source_context, &facet, req_symbol,
                            SymbolType::Trait);
         return nullptr;
@@ -196,35 +204,33 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(StructDef& struct_def) {
-        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(struct_def);
+        auto gen_scope = increase_generic_depth(gen_params);
         PRISM_ASSERT(gen_params.size() == struct_def._generic_params.size());
         struct_def._generic_params = std::move(gen_params);
-        struct_def._generic_nesting_depth = generic_nesting_depth;
+        struct_def._generic_nesting_depth = generic_nesting_depth() - 1;
         struct_def.set_canonical(
-            ctx.get_struct_instantiation(&struct_def,
-                                         struct_def.generic_params()));
+            ctx.get_struct_instantiation(sub_context, &struct_def));
         resolve_children(struct_def.scope());
     }
 
     void do_resolve(TraitDef& trait_def) {
-        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(trait_def);
+        auto gen_scope = increase_generic_depth(gen_params);
         PRISM_ASSERT(gen_params.size() == trait_def._generic_params.size());
         trait_def._generic_params = std::move(gen_params);
-        trait_def._generic_nesting_depth = generic_nesting_depth;
+        trait_def._generic_nesting_depth = generic_nesting_depth() - 1;
         trait_def.set_canonical(
-            ctx.get_trait_instantiation(&trait_def,
-                                        trait_def.generic_params()));
+            ctx.get_trait_instantiation(sub_context, &trait_def));
         resolve_children(trait_def.scope());
     }
 
     void do_resolve(TraitImplDef& impl_def) {
-        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(impl_def);
+        auto gen_scope = increase_generic_depth(gen_params);
         PRISM_ASSERT(gen_params.size() == impl_def._generic_params.size());
         impl_def._generic_params = std::move(gen_params);
-        impl_def._generic_nesting_depth = generic_nesting_depth;
+        impl_def._generic_nesting_depth = generic_nesting_depth() - 1;
         auto* def_facet =
             cast<TraitImplTypeFacet const*>(impl_def.facet()->definition());
         impl_def._trait = analyze_facet_as<Trait>(impl_def.scope(),
@@ -313,16 +319,15 @@ struct NameResolution: AnalysisContext {
     }
 
     void do_resolve(FunctionDef& func_def) {
-        auto gen_scope = increase_generic_depth();
         auto gen_params = resolve_gen_params(func_def);
+        auto gen_scope = increase_generic_depth(gen_params);
         PRISM_ASSERT(gen_params.size() == func_def._generic_params.size());
         func_def._generic_params = std::move(gen_params);
-        func_def._generic_nesting_depth = generic_nesting_depth;
+        func_def._generic_nesting_depth = generic_nesting_depth() - 1;
         func_def._args = resolve_func_args(func_def);
         func_def._return_type = resolve_return_type(func_def);
         func_def.set_canonical(
-            ctx.get_function_instantiation(&func_def,
-                                           func_def.generic_params()));
+            ctx.get_function_instantiation(sub_context, &func_def));
         auto* parent_scope = func_def.parent_scope();
         auto gen_signature = func_def.make_generic_signature();
         auto signature = func_def.make_signature();

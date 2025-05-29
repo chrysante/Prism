@@ -4,6 +4,7 @@
 #include <utl/strcat.hpp>
 
 #include "Prism/Common/Assert.h"
+#include "Prism/Common/Ranges.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/AnalysisContext.h"
@@ -29,11 +30,14 @@ struct FuncAnaCtx: AnalysisContext, InstructionEmitter {
     };
 
     FunctionDef& function;
+    SubContext& sub_context;
     utl::hashmap<std::string, InstCounter> inst_name_map;
 
-    FuncAnaCtx(SemaContext& ctx, DiagnosticEmitter& DE, FunctionDef& function):
+    FuncAnaCtx(SemaContext& ctx, DiagnosticEmitter& DE, FunctionDef& function,
+               SubContext& sub_context):
         AnalysisContext{ ctx, DE, ctx.get_source_context(function.facet()) },
-        function(function) {}
+        function(function),
+        sub_context(sub_context) {}
 
     void run();
 
@@ -65,20 +69,24 @@ void FuncAnaCtx::run() {
     auto* def_facet = dyncast<FuncDefFacet const*>(function.facet());
     if (!def_facet) return;
     if (auto* body = dyncast<CompoundFacet const*>(def_facet->body()))
-        function._body =
-            analyze_facet_as<BlockInst>(*this, *this, function.scope(), body);
+        function._body = analyze_facet_as<BlockInst>(*this, *this, sub_context,
+                                                     function.scope(), body);
 }
 
 void prism::analyze_functions(SemaContext& ctx, DiagnosticEmitter& DE,
                               Module& mod) {
+    SubContext sub_context;
     auto dfs = [&](auto& dfs, Scope* scope) -> void {
         if (!scope) return;
-        for (auto* sym: scope->symbols()) {
+        for (auto* sym: scope->symbols() | ToSmallVector<>) {
+            auto* gen_decl = dyncast<DeclSymbol*>(sym);
+            if (gen_decl) sub_context.push(gen_decl->generic_params());
             if (auto* function = dyncast<FunctionDef*>(sym))
-                FuncAnaCtx{ ctx, DE, *function }.run();
+                FuncAnaCtx(ctx, DE, *function, sub_context).run();
             if (isa<SourceFile>(sym) || isa<StructDef>(sym) ||
                 isa<TraitDef>(sym))
                 dfs(dfs, sym->scope());
+            if (gen_decl) sub_context.pop();
         }
     };
     dfs(dfs, mod.scope());

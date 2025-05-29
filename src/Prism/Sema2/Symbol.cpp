@@ -82,19 +82,32 @@ static std::string_view name_proj(Symbol const* symbol) {
     return symbol ? symbol->name() : "NULL"sv;
 }
 
-std::string StructInst::make_name() const {
-    if (generic_args().empty()) return definition()->name();
+static void verify_gen_inst(DeclSymbol const* def,
+                            SubContext const& sub_context) {
+    PRISM_ASSERT(sub_context.depth() == def->generic_nesting_depth() + 1);
+    PRISM_ASSERT(sub_context.top_level().size() == def->num_generic_params());
+}
+
+static std::string make_gen_inst_name(DeclSymbol const* def,
+                                      SubContext const& sub_context) {
+    std::span generic_args = sub_context.level(def->generic_nesting_depth());
+    if (generic_args.empty()) return def->name();
     std::stringstream sstr;
-    sstr << definition()->name() << "(";
-    print_separated(sstr, ", ", generic_args(), name_proj);
+    sstr << def->name() << "(";
+    print_separated(sstr, ", ", generic_args, name_proj);
     sstr << ")";
     return std::move(sstr).str();
 }
 
-void StructInst::verify() const {
-    PRISM_ASSERT(definition());
-    PRISM_ASSERT(generic_args().size() ==
-                 definition()->generic_params().size());
+StructInst::StructInst(StructDef* definition, SubContext const& sub_context):
+    Type(SymbolType::StructInst, /* facet: */ nullptr,
+         definition->parent_scope(),
+         make_gen_inst_name(definition, sub_context), ScopeArg::None,
+         // FIXME: compute correct layout here if possible
+         TypeLayout::Incomplete),
+    InstantiationBaseMixin(definition, sub_context) {
+    set_flag(ExcludeFromNameLookup, true);
+    verify_gen_inst(definition, sub_context);
 }
 
 static constexpr utl::streammanip SymbolName = [](std::ostream& str,
@@ -131,19 +144,13 @@ std::string FunctionType::make_name(FuncSig const& sig) {
     return std::move(sstr).str();
 }
 
-std::string TraitInst::make_name() const {
-    if (generic_args().empty()) return definition()->name();
-    std::stringstream sstr;
-    sstr << definition()->name() << "(";
-    print_separated(sstr, ", ", generic_args(), name_proj);
-    sstr << ")";
-    return std::move(sstr).str();
-}
-
-void TraitInst::verify() const {
-    PRISM_ASSERT(definition());
-    PRISM_ASSERT(generic_args().size() ==
-                 definition()->generic_params().size());
+TraitInst::TraitInst(TraitDef* definition, SubContext const& sub_context):
+    Trait(SymbolType::TraitInst, /* facet: */ nullptr,
+          definition->parent_scope(),
+          make_gen_inst_name(definition, sub_context), ScopeArg::None),
+    InstantiationBaseMixin(definition, sub_context) {
+    set_flag(ExcludeFromNameLookup, true);
+    verify_gen_inst(definition, sub_context);
 }
 
 Value::~Value() {
@@ -195,26 +202,22 @@ GenValueParam::GenValueParam(Type const* type, size_t index,
           ScopeArg::None, type, Mutability::Const, ValueCat::LValue),
     GenParamBase(index, nesting_depth) {}
 
+#if 0
 static constexpr utl::streammanip FuncArgSpecProj = [](std::ostream& str,
                                                        FuncArgSpec arg) {
     str << arg.passing_convention() << " " << name_proj(arg.type());
 };
+#endif
 
-std::string FunctionInst::make_name() const {
-    if (generic_args().empty()) return definition()->name();
-    std::stringstream sstr;
-    sstr << definition()->name() << "[";
-    print_separated(sstr, ", ", generic_args(), name_proj);
-    sstr << "](";
-    print_separated(sstr, ", ", arguments(), FuncArgSpecProj);
-    sstr << ") -> " << name_proj(return_type());
-    return std::move(sstr).str();
-}
-
-void FunctionInst::verify() const {
-    PRISM_ASSERT(definition());
-    PRISM_ASSERT(generic_args().size() ==
-                 definition()->generic_params().size());
+FunctionInst::FunctionInst(FunctionDef* definition,
+                           SubContext const& sub_context,
+                           FunctionType const* type):
+    Function(SymbolType::FunctionInst, /* facet: */ nullptr,
+             definition->parent_scope(),
+             make_gen_inst_name(definition, sub_context), type),
+    InstantiationBaseMixin(definition, sub_context) {
+    set_flag(ExcludeFromNameLookup, true);
+    verify_gen_inst(definition, sub_context);
 }
 
 YieldInst::YieldInst(SemaContext& ctx, Facet const* facet, Scope* parent_scope,

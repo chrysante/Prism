@@ -26,7 +26,7 @@ public:
 
     /// Hash value for storing function signatures in hash tables
     size_t hash_value() const {
-        size_t seed = 0x9e3779b97f4a7c15;
+        size_t seed = 0;
         for (auto arg: arguments())
             utl::hash_combine_seed(seed, arg);
         return seed;
