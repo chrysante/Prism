@@ -63,7 +63,10 @@ struct ConformanceAnalysis: AnalysisContext {
     bool match_candidate(SubContext const& sub_context,
                          FunctionDef const& candidate, FunctionDef& impl_def) {
         if (candidate.num_arguments() != impl_def.num_arguments()) return false;
-        auto match_callback = FN2(&, sub_context.resolve(_1) == &_2);
+        auto match_callback = [&](GenParamBase const& param_sym,
+                                  Symbol const& arg_sym) -> bool {
+            return sub_context.resolve(param_sym) == &arg_sym;
+        };
         if (!candidate.has_this_parameter() || !impl_def.has_this_parameter())
             return false;
         for (auto [param, arg, index]:
@@ -73,10 +76,9 @@ struct ConformanceAnalysis: AnalysisContext {
                 return false; // TODO: maybe 'indeterminate' instead of false?
             if (param->passing_convention() != arg->passing_convention())
                 return false;
-            if (index > 0) {
-                bool type_match = match_generic(param, arg, match_callback);
-                if (!type_match) return false;
-            }
+            if (index > 0 &&
+                !match_generic(param->type(), arg->type(), match_callback))
+                return false;
         }
         return match_generic(candidate.return_type(), impl_def.return_type(),
                              match_callback);
