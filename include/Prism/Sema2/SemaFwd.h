@@ -14,7 +14,7 @@ class Scope;
 class SemaContext;
 class SubContext;
 
-class GenValueParam;
+class GenParamBase;
 
 using APMath::APInt;
 

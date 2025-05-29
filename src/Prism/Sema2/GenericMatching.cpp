@@ -1,7 +1,7 @@
 #include "Prism/Sema2/GenericMatching.h"
 
 #include <range/v3/algorithm.hpp>
-#include <range/v3/view.hpp>
+#include <utl/concepts.hpp>
 
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/SyntaxMacros.h"
@@ -13,29 +13,46 @@ using namespace prism;
 
 using ranges::views::zip;
 
-static bool deduce_for_argument(SubContext& sub_context,
-                                Symbol const* param_sym, Symbol* arg_sym) {
+static bool do_match_generic(
+    Symbol const* param_sym, Symbol const* arg_sym,
+    utl::invocable_r<bool, GenParamBase const&, Symbol const&> auto&&
+        compare_gen_param) {
     if (!param_sym || !arg_sym) return false;
     if (param_sym == arg_sym) return true;
-    if (auto* gen_param = as_gen_param_base(param_sym)) {
-        size_t index = gen_param->index();
-        std::span level_list = sub_context.level(gen_param->nesting_depth());
-        if (level_list[index]) return level_list[index] == arg_sym;
-        level_list[index] = arg_sym;
-        return true;
-    }
+    if (auto* gen_param = as_gen_param_base(param_sym))
+        return compare_gen_param(*gen_param, *arg_sym);
     // For compound types, recur on inner structure
     // clang-format off
     return visit(*param_sym, *arg_sym, csp::overload{
         [&](StructInst const& param, StructInst const& arg) {
             if (param.definition() != arg.definition()) return false;
             for (auto [p, a]: zip(param.generic_args(), arg.generic_args()))
-                if (!deduce_for_argument(sub_context, p, a))
+                if (!match_generic(p, a, compare_gen_param))
                     return false;
             return true;
         },
         [](Symbol const&, Symbol const&) { return false; }
     }); // clang-format on
+}
+
+bool prism::match_generic(
+    Symbol const* param_sym, Symbol const* arg_sym,
+    utl::function_view<bool(GenParamBase const&, Symbol const&)>
+        compare_gen_param) {
+    return do_match_generic(param_sym, arg_sym, compare_gen_param);
+}
+
+static bool deduce_for_argument(SubContext& sub_context,
+                                Symbol const* param_sym, Symbol* arg_sym) {
+    return do_match_generic(param_sym, arg_sym,
+                            [&](GenParamBase const& gen_param,
+                                Symbol const& arg_sym) {
+        size_t index = gen_param.index();
+        std::span level_list = sub_context.level(gen_param.nesting_depth());
+        if (level_list[index]) return level_list[index] == &arg_sym;
+        level_list[index] = const_cast<Symbol*>(&arg_sym);
+        return true;
+    });
 }
 
 static void prepare_sub_context(FunctionDef const& generic,

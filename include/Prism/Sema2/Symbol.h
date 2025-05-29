@@ -246,9 +246,12 @@ public:
 
 private:
     friend struct NameResolution;
+    friend struct ConformanceAnalysis;
 
     Trait* _trait = nullptr;
     Type* _type = nullptr;
+    // Maps declarations in the trait to implementations
+    utl::hashmap<DeclSymbol*, DeclSymbol*> _conformance_map;
 };
 
 /// User definition of a function

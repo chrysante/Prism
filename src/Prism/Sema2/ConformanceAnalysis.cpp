@@ -8,6 +8,7 @@
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Sema2/AnalysisContext.h"
+#include "Prism/Sema2/GenericMatching.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
 #include "Prism/Sema2/SubContext.h"
@@ -15,53 +16,92 @@
 
 using namespace prism;
 
+using ranges::views::iota;
 using ranges::views::transform;
+using ranges::views::zip;
 
-namespace {
+namespace prism {
 
-struct ConfAnaContext: AnalysisContext {
-    void analyze(TraitDef&) {}
+struct ConformanceAnalysis: AnalysisContext {
+    void analyze(TraitDef& trait) {
+        auto* scope = trait.scope();
+        for (auto* sym: scope->symbols() | csp::filter<DeclSymbol>)
+            analyze_member(trait, *sym);
+    }
 
     void analyze(TraitImplDef& impl) {
         auto* scope = impl.scope();
-        for (auto* sym: scope->symbols())
-            analyze_impl_member(impl, *sym);
+        for (auto* sym: scope->symbols() | csp::filter<DeclSymbol>)
+            analyze_member(impl, *sym);
     }
 
-    void analyze_impl_member(TraitImplDef& impl, Symbol& symbol) {
-        return visit(symbol, FN1(&, do_analyze_impl_member(impl, _1)));
+    void analyze_member(DeclSymbol& decl, DeclSymbol& member) {
+        return visit(decl, member, FN2(&, do_analyze_member(_1, _2)));
     }
 
-    void do_analyze_impl_member(TraitImplDef&, Symbol&) {
-        PRISM_UNIMPLEMENTED();
+    void do_analyze_member(DeclSymbol&, DeclSymbol&) { PRISM_UNREACHABLE(); }
+
+    void do_analyze_member(TraitDef& trait, FunctionDef& func_def) {
+        if (func_def.is_generic()) {
+            PRISM_UNIMPLEMENTED();
+            return;
+        }
+        if (!func_def.has_this_parameter()) {
+            PRISM_UNIMPLEMENTED();
+            return;
+        }
     }
 
-    bool compare_type(SubContext const& sub_context, Type const* impl_site,
-                      Type const* trait_site) {
-        PRISM_UNIMPLEMENTED();
+    bool match_candidate(SubContext const& sub_context,
+                         FunctionDef const& candidate, FunctionDef& impl_def) {
+        if (candidate.num_arguments() != impl_def.num_arguments()) return false;
+        auto match_callback = FN2(&, sub_context.resolve(_1) == &_2);
+        if (!candidate.has_this_parameter() || !impl_def.has_this_parameter())
+            return false;
+        for (auto [param, arg, index]:
+             zip(candidate.arguments(), impl_def.arguments(), iota(0)))
+        {
+            if (!param || !arg)
+                return false; // TODO: maybe 'indeterminate' instead of false?
+            if (param->passing_convention() != arg->passing_convention())
+                return false;
+            if (index > 0) {
+                bool type_match = match_generic(param, arg, match_callback);
+                if (!type_match) return false;
+            }
+        }
+        return match_generic(candidate.return_type(), impl_def.return_type(),
+                             match_callback);
     }
 
-    void do_analyze_impl_member(TraitImplDef& impl, FunctionDef& func_def) {
-        PRISM_UNIMPLEMENTED();
-#if 0
+    void do_analyze_member(TraitImplDef& impl, FunctionDef& func_def) {
+        if (func_def.is_generic()) {
+            PRISM_UNIMPLEMENTED();
+            return;
+        }
         auto* trait = cast<TraitInst*>(impl.trait());
-        auto candidates = trait->scope()->symbols_by_name(func_def.name());
-        if (candidates.empty() || !ranges::all_of(candidates, isa<FunctionDef>)) {
+        auto* def = trait->definition();
+        auto* scope = def->scope();
+        auto candidates = scope->symbols_by_name(func_def.name());
+        FunctionDef* match = nullptr;
+        for (auto* candidate: candidates | transform(cast<FunctionDef*>)) {
+            if (!match_candidate(trait->sub_context(), *candidate, func_def))
+                continue;
+            if (match) {
+                PRISM_UNIMPLEMENTED();
+                continue;
+            }
+            match = candidate;
+        }
+        if (!match) {
             PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
             return;
         }
-        SubContext trait_sub_context;
-        trait_sub_context.push(trait->definition(), trait->generic_args());
-        for (auto* candidate: candidates | transform(cast<FunctionDef*>)) {
-            if (candidate->num_arguments() != func_def.num_arguments())
-                continue;
-            
-        }
-#endif
+        impl._conformance_map.insert({ match, &func_def });
     }
 };
 
-} // namespace
+} // namespace prism
 
 void prism::analyze_trait_conformances(SemaContext& ctx, DiagnosticEmitter& DE,
                                        Module& mod) {
@@ -78,7 +118,7 @@ void prism::analyze_trait_conformances(SemaContext& ctx, DiagnosticEmitter& DE,
             dfs(dfs, *child_sym);
     };
     dfs(dfs, mod);
-    ConfAnaContext ana_context = { ctx, DE };
+    ConformanceAnalysis ana_context = { ctx, DE };
     for (auto* trait: traits)
         ana_context.analyze(*trait);
     for (auto* impl: impls)
