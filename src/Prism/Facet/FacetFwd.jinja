@@ -4,6 +4,8 @@
 {{ facets | build_inheritance_tree -}}
 //
 
+#include <cstdint>
+
 #include <Prism/Common/Rtti.h>
 #include <Prism/Common/EnumUtil.h>
 
@@ -13,7 +15,7 @@ namespace prism {
 class {{ facet.name }};
 {% endfor %}
 
-enum class FacetType {
+enum class FacetType: uint8_t {
 {% for facet in facets %}
 {{ facet.name }},
 {% endfor %}

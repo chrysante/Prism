@@ -47,6 +47,8 @@
 
 namespace prism {
 
+class SourceContext;
+
 /// Base class of all facets
 class Facet {
 public:
@@ -69,7 +71,8 @@ public:
 protected:
     explicit Facet(Token tok): data{ .term{ .tok = tok } } {}
 
-    explicit Facet(FacetType nodeType, std::span<Facet const* const> children);
+    explicit Facet(FacetType nodeType, size_t sizeof_this,
+                   std::span<Facet const* const> children);
 
     friend FacetType get_rtti(Facet const& node) { return node.getNodeType(); }
 
@@ -85,7 +88,9 @@ protected:
     }
 
     Facet const** getChildrenPtr() const {
-        return (Facet const**)((unsigned char*)this + sizeof *this);
+        PRISM_ASSERT(getCategory() == FacetType::NonTerminalFacet,
+                     "cannot get children of terminal facet");
+        return (Facet const**)((unsigned char*)this + data.nonTerm.sizeof_this);
     }
 
     size_t getNumChildren() const {
@@ -101,6 +106,7 @@ protected:
     struct NonTerm {
         uint32_t flag        : 2;
         uint32_t numChildren : 30;
+        uint16_t sizeof_this;
         FacetType type;
     };
 
@@ -111,23 +117,19 @@ protected:
     Facet const* _parent = nullptr;
 };
 
-static_assert(sizeof(Facet) == 2 * sizeof(void*));
-static_assert(alignof(Facet) == alignof(void*));
-
 template <std::derived_from<Facet> T, typename... Args>
     requires UniformConstructibleFrom<T, Args...>
 T* allocate(MonotonicBufferResource& alloc, Args&&... args) {
-    void* buf = alloc.allocate(sizeof(Facet) + sizeof...(Args) * sizeof(void*),
-                               alignof(Facet));
+    void* buf = alloc.allocate(sizeof(T) + sizeof...(Args) * sizeof(Facet*),
+                               alignof(T));
     return new (buf) T(std::forward<Args>(args)...);
 }
 
 template <std::derived_from<Facet> T, ranges::range Args>
     requires UniformConstructibleFrom<T, Args>
 T* allocate(MonotonicBufferResource& alloc, Args&& args) {
-    void* buf =
-        alloc.allocate(sizeof(Facet) + ranges::size(args) * sizeof(void*),
-                       alignof(Facet));
+    void* buf = alloc.allocate(sizeof(T) + ranges::size(args) * sizeof(Facet*),
+                               alignof(T));
     return new (buf) T(std::forward<Args>(args));
 }
 
@@ -171,12 +173,15 @@ std::span<To> unsafeSpanCast(std::span<T> s) {
 /// Base class of all non-terminals
 class NonTerminalFacet: public Facet {
 protected:
-    NonTerminalFacet(FacetType type, MonotonicBufferResource& resource,
+    NonTerminalFacet(FacetType type, size_t sizeof_this,
+                     MonotonicBufferResource& resource,
                      auto const&... children):
-        Facet(type, { { detail::facetToStoredType(resource, children)... } }) {}
+        Facet(type, sizeof_this,
+              { { detail::facetToStoredType(resource, children)... } }) {}
 
-    NonTerminalFacet(FacetType type, std::span<Facet const* const> children):
-        Facet(type, children) {}
+    NonTerminalFacet(FacetType type, size_t sizeof_this,
+                     std::span<Facet const* const> children):
+        Facet(type, sizeof_this, children) {}
 
 private:
     friend FacetType get_rtti(NonTerminalFacet const& node) {
@@ -188,7 +193,7 @@ private:
     class Name: public NonTerminalFacet {                                      \
     public:                                                                    \
         explicit Name(std::span<ElemType const* const> ElemsName):             \
-            NonTerminalFacet(FacetType::Name,                                  \
+            NonTerminalFacet(FacetType::Name, sizeof *this,                    \
                              detail::unsafeSpanCast<Facet const* const>(       \
                                  ElemsName)) {}                                \
                                                                                \
@@ -220,7 +225,24 @@ PRISM_DEFINE_LIST_FACET(BaseListFacet, BaseDeclFacet, elems)
 PRISM_DEFINE_LIST_FACET(MemberListFacet, DeclFacet, elems)
 
 /// Top level facet, a list of declarations
-PRISM_DEFINE_LIST_FACET(SourceFileFacet, DeclFacet, decls)
+class SourceFileFacet: public NonTerminalFacet {
+public:
+    explicit SourceFileFacet(SourceContext const* source_context,
+                             std::span<DeclFacet const* const> decls):
+        NonTerminalFacet(FacetType::SourceFileFacet, sizeof *this,
+                         detail::unsafeSpanCast<Facet const* const>(decls)),
+        _source_context(source_context) {}
+
+    SourceContext const* source_context() const { return _source_context; }
+
+    std::span<DeclFacet const* const> decls() const {
+        return detail::unsafeSpanCast<DeclFacet const* const>(
+            NonTerminalFacet::children());
+    }
+
+private:
+    SourceContext const* _source_context;
+};
 
 #undef PRISM_DEFINE_LIST_FACET
 

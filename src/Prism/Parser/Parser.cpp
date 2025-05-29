@@ -166,8 +166,9 @@ Facet const* prism::parseTypeSpec(MonotonicBufferResource& alloc,
 }
 
 SourceFileFacet const* Parser::parseSourceFile() {
-    return allocate<SourceFileFacet>(
-        parseSequence(FN(parseGlobalDecl), Raise<ExpectedDecl>(), End));
+    return allocate<SourceFileFacet>(&get_source_context(),
+                                     parseSequence(FN(parseGlobalDecl),
+                                                   Raise<ExpectedDecl>(), End));
 }
 
 DeclFacet const* Parser::parseGlobalDecl() {

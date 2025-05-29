@@ -13,10 +13,13 @@
 
 using namespace prism;
 
-Facet::Facet(FacetType nodeType, std::span<Facet const* const> children):
+Facet::Facet(FacetType nodeType, size_t sizeof_this,
+             std::span<Facet const* const> children):
     data{ .nonTerm{ .flag = 1,
                     .numChildren = static_cast<uint32_t>(children.size()),
+                    .sizeof_this = utl::narrow_cast<uint16_t>(sizeof_this),
                     .type = nodeType } } {
+    PRISM_ASSERT(sizeof_this >= sizeof *this);
     std::transform(children.begin(), children.end(), getChildrenPtr(),
                    [&](Facet const* child) {
         if (child) const_cast<Facet*>(child)->_parent = this;

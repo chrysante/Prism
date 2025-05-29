@@ -137,6 +137,8 @@ struct ParserBase {
         tokenIndex = backtrackingAnchorStack.pop();
     }
 
+    SourceContext const& get_source_context() const { return sourceCtx; }
+
 protected:
     uint32_t currentTokenIndex() const { return tokenIndex; }
 
