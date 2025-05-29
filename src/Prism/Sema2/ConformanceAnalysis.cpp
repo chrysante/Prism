@@ -7,10 +7,12 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
+#include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/AnalysisContext.h"
 #include "Prism/Sema2/GenericMatching.h"
 #include "Prism/Sema2/Scope.h"
 #include "Prism/Sema2/SemaContext.h"
+#include "Prism/Sema2/SemaDiagnostic.h"
 #include "Prism/Sema2/SubContext.h"
 #include "Prism/Sema2/Symbol.h"
 
@@ -30,9 +32,19 @@ struct ConformanceAnalysis: AnalysisContext {
     }
 
     void analyze(TraitImplDef& impl) {
-        auto* scope = impl.scope();
-        for (auto* sym: scope->symbols() | csp::filter<DeclSymbol>)
+        if (!impl.trait()) return;
+        auto* impl_scope = impl.scope();
+        for (auto* sym: impl_scope->symbols() | csp::filter<DeclSymbol>)
             analyze_member(impl, *sym);
+        auto* trait = cast<TraitInst*>(impl.trait());
+        utl::small_vector<DeclSymbol const*> missing_impls;
+        auto* trait_scope = trait->definition()->scope();
+        for (auto* sym: trait_scope->symbols() | csp::filter<DeclSymbol>)
+            if (!impl.find_impl_for(sym)) missing_impls.push_back(sym);
+        if (!missing_impls.empty())
+            DE.emit<IncompleteTraitImpl>(ctx.get_source_context(impl.facet()),
+                                         impl.facet()->declaratorFacet(), &impl,
+                                         missing_impls);
     }
 
     void analyze_member(DeclSymbol& decl, DeclSymbol& member) {
@@ -41,15 +53,15 @@ struct ConformanceAnalysis: AnalysisContext {
 
     void do_analyze_member(DeclSymbol&, DeclSymbol&) { PRISM_UNREACHABLE(); }
 
-    void do_analyze_member(TraitDef& trait, FunctionDef& func_def) {
-        if (func_def.is_generic()) {
-            PRISM_UNIMPLEMENTED();
-            return;
-        }
-        if (!func_def.has_this_parameter()) {
-            PRISM_UNIMPLEMENTED();
-            return;
-        }
+    void do_analyze_member(TraitDef&, FunctionDef& func_def) {
+        auto* source_context = ctx.get_source_context(func_def.facet());
+        if (func_def.is_generic())
+            DE.emit<GenericMemberInTrait>(source_context,
+                                          func_def.facet()->genParams(),
+                                          &func_def);
+        if (!func_def.has_this_parameter())
+            DE.emit<NoThisInTraitFunction>(source_context, func_def.facet(),
+                                           &func_def);
     }
 
     bool match_candidate(SubContext const& sub_context,
@@ -94,7 +106,9 @@ struct ConformanceAnalysis: AnalysisContext {
             match = candidate;
         }
         if (!match) {
-            PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+            DE.emit<UnmatchedTraitImpl>(ctx.get_source_context(
+                                            func_def.facet()),
+                                        func_def.facet(), trait, &func_def);
             return;
         }
         impl._conformance_map.insert({ match, &func_def });

@@ -168,6 +168,18 @@ static void indeclared_id_notes(UndeclaredID& diag, Symbol const* similar) {
         });
 }
 
+static void incomplete_impl_notes(
+    IncompleteTraitImpl& diag,
+    std::span<DeclSymbol const* const> missing_impls) {
+    PRISM_ASSERT(!missing_impls.empty());
+    for (auto* missing: missing_impls)
+        diag.add_note(get_source_context(missing), missing->facet(),
+                      [missing](std::ostream& str) {
+            str << "missing implementation for " << format_name(missing)
+                << " declared here";
+        });
+}
+
 static void typedef_cycle_notes(TypeDefCycle& diag,
                                 std::span<Symbol const* const> cycle) {
     for (auto itr = cycle.begin(); itr < cycle.end() - 1; ++itr) {

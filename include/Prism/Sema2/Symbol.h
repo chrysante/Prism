@@ -244,6 +244,17 @@ public:
     /// \overload
     Type const* type() const { return _type; }
 
+    /// \p trait_decl must be a declaration in the trait being implemented. Then
+    /// the corresponding implementation is returned or null if the
+    /// implementation is missing.
+    DeclSymbol* find_impl_for(DeclSymbol const* trait_decl) {
+        return const_cast<DeclSymbol*>(
+            std::as_const(*this).find_impl_for(trait_decl));
+    }
+
+    /// \overload
+    DeclSymbol const* find_impl_for(DeclSymbol const* trait_decl) const;
+
 private:
     friend struct NameResolution;
     friend struct ConformanceAnalysis;

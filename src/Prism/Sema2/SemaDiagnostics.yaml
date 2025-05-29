@@ -220,23 +220,53 @@ diags:
         else 
             str << format_name(provided_symbol) << " is not callable";
 
-# - name: IncompleteImpl
-#   base: SemaDiagnostic
-#   kind: Error
-#   members:
-#     - name: impl
-#       type: Symbol const*
-#     - name: interface
-#       type: InterfaceLike const&
-#       ctor_only: true
-#   ctor_body: IncompleteImplNotes(*this, interface);
-#   header: >
-#     if (isa<TraitImpl>(impl))
-#         str << "Incomplete trait implementation " << format_decl(impl);
-#     else
-#         str << "Declaration of " << format_name(impl)
-#             << " is missing implementations for a base trait";
-     
+  - name: GenericMemberInTrait
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: member
+        type: DeclSymbol const*
+    header: >
+        str << "trait member " << format_name(member) << " cannot be generic";
+
+  - name: NoThisInTraitFunction
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: trait_function
+        type: FunctionDef const*
+    header: >
+        str << "no 'this' parameter in trait function " 
+            << format_name(trait_function);
+
+  - name: UnmatchedTraitImpl
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: trait
+        type: Trait const*
+      - name: member
+        type: DeclSymbol const*
+    header: >
+        str << "implementation member " << format_name(member)
+            << " does not match any declaration in "
+            << format_name(trait);
+            
+  - name: IncompleteTraitImpl
+    base: SemaDiagnostic
+    kind: Error
+    members:
+      - name: impl
+        type: TraitImplDef const*
+      - name: missing_impls
+        type: std::span<DeclSymbol const* const>
+    ctor_body: >
+      incomplete_impl_notes(*this, missing_impls);
+    header: >
+      str << "trait implementation " << format_name(impl->trait())
+          << " for " << format_name(impl->type())
+          << " is incomplete"; 
+ 
 # - name: BaseClassInTrait
 #   base: SemaDiagnostic
 #   kind: Error

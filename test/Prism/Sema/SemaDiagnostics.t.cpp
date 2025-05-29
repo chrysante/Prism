@@ -154,6 +154,41 @@ fn bar(this) {}
 #endif
 }
 
+TEST_CASE("Bad trait functions", "[sema]") {
+    auto c = make_diag_checker(R"(
+trait [T: type] MyTrait {
+    fn [U: type] foo(this, U) -> T; // GenericMemberInTrait
+    fn [U: type] foo(U) -> T;       // GenericMemberInTrait + NoThisInTraitFunction 
+    fn foo() -> T;                  // NoThisInTraitFunction
+    fn foo(this) -> T;              // fine
+}
+)");
+    CHECK(c.find_diag_on_line<GenericMemberInTrait>(3));
+    CHECK(c.find_diag_on_line<GenericMemberInTrait>(4));
+    CHECK(c.find_diag_on_line<NoThisInTraitFunction>(4));
+    CHECK(c.find_diag_on_line<NoThisInTraitFunction>(5));
+    CHECK(c.no_diag_on_line(6));
+}
+
+TEST_CASE("Bad trait implementation", "[sema]") {
+#if 0 // FIXME: this test crashes because analysis order is not topological
+    auto c = make_diag_checker(R"(
+impl [Size: u64] MyTrait(Array(f64, Size)) for MyType { // IncompleteTraitImpl
+    fn foo(this) -> MyTrait(Array(f64, 7)) {}    // UnmatchedTraitImpl (incorrect return type)
+    fn bar(this) -> MyTrait(Array(f64, Size)) {} // UnmatchedTraitImpl (incorrect name)
+} 
+trait [T: type] MyTrait {
+    fn foo(this) -> T;
+}
+struct TyType {}
+struct [T: type, Size: u64] Array {} 
+)");
+    CHECK(c.find_diag_on_line<IncompleteTraitImpl>(2));
+    CHECK(c.find_diag_on_line<UnmatchedTraitImpl>(3));
+    CHECK(c.find_diag_on_line<UnmatchedTraitImpl>(4));
+#endif
+}
+
 #if 0
 
 TEST_CASE("IncompleteImpl", "[sema]") {

@@ -56,6 +56,14 @@ SourceFile::SourceFile(Facet const* facet, Scope* parent_scope,
            source_context.filepath().string(), scope_arg),
     _source_context(source_context) {}
 
+DeclSymbol const* TraitImplDef::find_impl_for(
+    DeclSymbol const* trait_decl) const {
+    PRISM_ASSERT(trait_decl->parent_scope()->defining_symbol() ==
+                 cast<TraitInst const*>(trait())->definition());
+    auto itr = _conformance_map.find(trait_decl);
+    return itr != _conformance_map.end() ? itr->second : nullptr;
+}
+
 FuncSig FunctionDef::make_signature() const {
     return FuncSig(arguments() | transform(FN1(, _1->make_spec())) |
                        ToSmallVector<>,
