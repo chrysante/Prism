@@ -3,38 +3,19 @@
 
 #include <span>
 
-#include <utl/hashtable.hpp>
 #include <utl/stack.hpp>
+#include <utl/vector.hpp>
 
 #include <Prism/Sema2/SemaFwd.h>
 
 namespace prism {
 
-/// Substitution context for a single declaration
-class DeclSubContext {
-public:
-    explicit DeclSubContext(DeclSymbol* declaration,
-                            std::span<Symbol* const> generic_arguments);
-
-    DeclSymbol* declaration() const { return _decl; }
-
-private:
-    friend class SubContext;
-
-    // 'Unchecked' resolution
-    Symbol const* try_resolve(Symbol const* symbol) const;
-
-    DeclSymbol* _decl;
-    utl::hashmap<Symbol*, Symbol*> _map;
-};
-
 /// 'Global' substitution context for nested declarations
 class SubContext {
 public:
     /// Push a declaration context onto the stack
-    void push(DeclSymbol* declaration,
-              std::span<Symbol* const> generic_arguments) {
-        _stack.emplace(declaration, generic_arguments);
+    void push(std::span<Symbol* const> gen_args) {
+        _stack.emplace(gen_args.begin(), gen_args.end());
     }
 
     /// Pop the last push context
@@ -59,7 +40,7 @@ public:
     Value const* resolve(Value const* value);
 
 private:
-    utl::stack<DeclSubContext> _stack;
+    utl::stack<utl::small_vector<Symbol*, 3>, 2> _stack;
 };
 
 } // namespace prism
