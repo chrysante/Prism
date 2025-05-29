@@ -35,7 +35,7 @@ struct FuncAnaCtx: AnalysisContext, InstructionEmitter {
 
     FuncAnaCtx(SemaContext& ctx, DiagnosticEmitter& DE, FunctionDef& function,
                SubContext& sub_context):
-        AnalysisContext{ ctx, DE, ctx.get_source_context(function.facet()) },
+        AnalysisContext{ ctx, DE, get_source_context(function.facet()) },
         function(function),
         sub_context(sub_context) {}
 

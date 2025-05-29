@@ -26,8 +26,7 @@ std::string get_name(Facet const* name_facet,
 /// Checks if \p name is already declared in \p scope and generates a diagnostic
 /// if so.
 /// \Returns true if the name has not been declared yet.
-bool check_redefinition(DiagnosticEmitter& DE,
-                        SourceContext const* source_context, Scope const* scope,
+bool check_redefinition(DiagnosticEmitter& DE, Scope const* scope,
                         Facet const& facet, std::string_view name,
                         bool for_function = false);
 
@@ -48,8 +47,8 @@ public:
     /// See global `check_redefinition()`
     bool check_redefinition(Scope const* parent_scope, Facet const& facet,
                             std::string_view name, bool for_function = false) {
-        return prism::check_redefinition(DE, source_context, parent_scope,
-                                         facet, name, for_function);
+        return prism::check_redefinition(DE, parent_scope, facet, name,
+                                         for_function);
     }
 };
 

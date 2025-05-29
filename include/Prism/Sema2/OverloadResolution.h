@@ -18,8 +18,7 @@ using ORResult = utl::expected<Function*, std::unique_ptr<SemaDiagnostic>>;
 
 /// Resolves the best match from \p overload_set for \p arguments
 /// Instantiates generic functions if necessary.
-ORResult resolve_overload(SemaContext& ctx, SourceContext const* source_context,
-                          SubContext const& sub_context,
+ORResult resolve_overload(SemaContext& ctx, SubContext const& sub_context,
                           Facet const* call_facet, std::string name,
                           std::span<Symbol* const> overload_set,
                           std::span<Value const* const> arguments);

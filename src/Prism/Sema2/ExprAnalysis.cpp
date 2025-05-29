@@ -116,7 +116,7 @@ static bool is_any_null(R&& ptr_range) {
 void detail::push_bad_sym_ref(AnalysisContext const& context,
                               Facet const* facet, Symbol* symbol,
                               SymbolType expected) {
-    context.DE.emit<BadSymRef>(context.source_context, facet, symbol, expected);
+    context.DE.emit<BadSymRef>(facet, symbol, expected);
 }
 
 Symbol* prism::analyze_facet(AnalysisContext const& context,
@@ -165,15 +165,14 @@ Symbol* AnaContext::do_analyze(VarDeclFacet const& var_decl_facet) {
     Type const* type = analyze_as<Type>(var_decl_facet.typespec());
     Value* init = analyze_as<Value>(var_decl_facet.initExpr());
     if (!init && !var_decl_facet.assignFacet())
-        DE.emit<BindingMissingInit>(source_context, &var_decl_facet, name);
+        DE.emit<BindingMissingInit>(&var_decl_facet, name);
     // Try to infer type or check type correctness
     if (init) {
         auto* init_type = init->type();
         if (!type)
             type = init_type;
         else if (init_type && type != init_type)
-            DE.emit<BadOperandType>(source_context, var_decl_facet.initExpr(),
-                                    init, init_type);
+            DE.emit<BadOperandType>(var_decl_facet.initExpr(), init, init_type);
     }
     // TODO: Maybe declare variable of poison type here
     if (!type) return nullptr;
@@ -307,15 +306,16 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
     using NLR = NameLookupResult;
     return symbols.visit(csp::overload{
         [&](AnyOf<NLR::None, NLR::Similar> auto) -> Symbol* {
-            DE.emit<UndeclaredID>(source_context, &id, symbols.similar());
+            DE.emit<UndeclaredID>(&id, symbols.similar());
             return nullptr;
         },
         [&](Symbol* symbol) -> Symbol* { return symbol; },
         [&](NLR::OverloadSet const& overload_set) -> Symbol* {
-            return ctx.make<OverloadSet>(std::string(name), std::move(overload_set));
+            return ctx.make<OverloadSet>(std::string(name),
+                                         std::move(overload_set));
         },
         [&](NLR::AmbiSet const& ambi_set) -> Symbol* {
-            DE.emit<AmbiguousNameLookup>(source_context, &id, ambi_set);
+            DE.emit<AmbiguousNameLookup>(&id, ambi_set);
             return nullptr;
         },
     }); // clang-format on
@@ -340,8 +340,7 @@ bool AnaContext::validate_generic_args(
     std::span<Symbol* const> args, std::span<Facet const* const> arg_facets) {
     PRISM_ASSERT(args.size() == arg_facets.size());
     if (decl.generic_params().size() != args.size()) {
-        DE.emit<InvalidNumOfGenArgs>(source_context, call_facet, &decl,
-                                     args.size());
+        DE.emit<InvalidNumOfGenArgs>(call_facet, &decl, args.size());
         return false;
     }
     bool success = true;
@@ -372,8 +371,7 @@ bool AnaContext::validate_call_arguments(
             continue;
         }
         if (arg_spec.type() != arg->type()) {
-            DE.emit<BadOperandType>(source_context, arg_facet, arg,
-                                    arg_spec.type());
+            DE.emit<BadOperandType>(arg_facet, arg, arg_spec.type());
             success = false;
             continue;
         }
@@ -395,8 +393,7 @@ bool AnaContext::validate_num_call_arguments(Facet const* call_facet,
                                              size_t num_params,
                                              size_t num_args) {
     if (num_params == num_args) return true;
-    DE.emit<InvalidNumOfCallArgs>(source_context, call_facet, callee,
-                                  num_params, num_args);
+    DE.emit<InvalidNumOfCallArgs>(call_facet, callee, num_params, num_args);
     return false;
 }
 
@@ -463,7 +460,7 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         auto [value_args, success] = verify_list<Value>(args, arg_facets);
         if (!success) return nullptr;
         auto overload_resultion_result =
-            resolve_overload(ctx, source_context, sub_context, &call_facet,
+            resolve_overload(ctx, sub_context, &call_facet,
                              overload_set->name(), overload_set->symbols(),
                              value_args);
         if (!overload_resultion_result) {
@@ -477,6 +474,6 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
         emit_instruction(*call_inst);
         return call_inst;
     }
-    DE.emit<SymbolNotCallable>(source_context, call_facet.callee(), callee);
+    DE.emit<SymbolNotCallable>(call_facet.callee(), callee);
     return nullptr;
 }

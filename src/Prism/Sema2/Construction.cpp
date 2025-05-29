@@ -187,8 +187,7 @@ struct NameResolution: AnalysisContext {
             return ctx.get_gen_value_param(&facet, parent_scope,
                                            std::move(name), type, index,
                                            generic_nesting_depth());
-        DE.emit<BadSymRef>(source_context, &facet, req_symbol,
-                           SymbolType::Trait);
+        DE.emit<BadSymRef>(&facet, req_symbol, SymbolType::Trait);
         return nullptr;
     }
 
@@ -335,8 +334,8 @@ struct NameResolution: AnalysisContext {
                                                                 gen_signature,
                                                                 signature);
         if (existing) {
-            DE.emit<FuncRedefinition>(source_context, func_def.facet(),
-                                      &func_def, existing, parent_scope);
+            DE.emit<FuncRedefinition>(func_def.facet(), &func_def, existing,
+                                      parent_scope);
             return;
         }
         parent_scope->set_function_signature(std::move(gen_signature),
@@ -349,16 +348,14 @@ struct NameResolution: AnalysisContext {
             binding._type_spec =
                 analyze_facet_as<Type>(binding.parent_scope(), typespec_facet);
         else if (!facet->colonFacet())
-            DE.emit<BindingMissingTypespec>(source_context, facet,
-                                            binding.name());
+            DE.emit<BindingMissingTypespec>(facet, binding.name());
         if (auto* init_expr = facet->initExpr()) {
             auto* init_value =
                 analyze_facet_as<Value>(binding.parent_scope(), init_expr);
             auto* type = init_value ? init_value->type() : nullptr;
             auto* exp_type = binding.type_spec();
             if (type && exp_type && type != exp_type)
-                DE.emit<BadOperandType>(source_context, init_expr, init_value,
-                                        exp_type);
+                DE.emit<BadOperandType>(init_expr, init_value, exp_type);
             binding._init = init_value;
             if (auto* const_init = dyncast<Constant*>(init_value))
                 binding.set_canonical(const_init);
@@ -367,8 +364,7 @@ struct NameResolution: AnalysisContext {
                                        // purpose
         }
         else {
-            DE.emit<BindingMissingInit>(source_context, binding.facet(),
-                                        binding.name());
+            DE.emit<BindingMissingInit>(binding.facet(), binding.name());
         }
     }
 

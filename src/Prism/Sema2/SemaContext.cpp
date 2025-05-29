@@ -95,8 +95,6 @@ struct SemaContext::Impl {
     Library* core_libary = nullptr;
     std::vector<csp::unique_ptr<Symbol>> symbol_bag;
     std::vector<std::unique_ptr<Scope>> scope_bag;
-    utl::hashmap<SourceFileFacet const*, SourceContext const*>
-        source_context_map;
     utl::hashmap<StructInstKey, StructInst*> struct_instantiations;
     utl::hashmap<TraitInstKey, TraitInst*> trait_instantiations;
     utl::hashmap<Trait*, TraitThisType*> trait_this_types;
@@ -155,18 +153,6 @@ Module* SemaContext::make_module() {
     impl->builtins = make_builtins(*this, mod->scope());
     impl->core_libary = make_core_library(*this, mod->scope());
     return mod;
-}
-
-SourceContext const* SemaContext::get_source_context(Facet const* facet) const {
-    while (facet) {
-        if (auto* file = dyncast<SourceFileFacet const*>(facet)) {
-            auto itr = impl->source_context_map.find(file);
-            return itr != impl->source_context_map.end() ? itr->second :
-                                                           nullptr;
-        }
-        facet = facet->parent();
-    }
-    return nullptr;
 }
 
 template <typename KeyType, typename T, typename KeyTypeU = KeyType>
@@ -353,10 +339,4 @@ Scope* SemaContext::add_scope(std::unique_ptr<Scope> scope) {
     auto* s = scope.get();
     impl->scope_bag.push_back(std::move(scope));
     return s;
-}
-
-void SemaContext::map_source_to_context(SourceFileFacet const* facet,
-                                        SourceContext const* ctx) {
-    auto [itr, result] = impl->source_context_map.insert({ facet, ctx });
-    PRISM_ASSERT(result, "Failed to insert source file. Was it added twice?");
 }

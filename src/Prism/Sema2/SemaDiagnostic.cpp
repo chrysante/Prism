@@ -24,18 +24,6 @@ using ranges::views::join;
 using ranges::views::transform;
 using ranges::views::values;
 
-static SourceContext const* get_source_context(Symbol const* sym) {
-    if (!sym) return nullptr;
-    auto* scope = sym->parent_scope();
-    while (scope) {
-        if (auto* sourceFile =
-                dyncast<SourceFile const*>(scope->defining_symbol()))
-            return &sourceFile->source_context();
-        scope = scope->parent_scope();
-    }
-    return nullptr;
-}
-
 static Facet const* find_non_null_child(auto&& children) {
     auto itr = ranges::find_if(children, ToAddress);
     PRISM_ASSERT(itr != children.end());
@@ -59,25 +47,23 @@ static std::optional<SourceRange> get_source_range(Facet const* facet) {
     return SourceRange{ begin_index, end_index - begin_index };
 }
 
-SemaDiagnostic::SemaDiagnostic(Diagnostic::Kind kind, SourceContext const* ctx,
-                               Facet const* facet):
-    Diagnostic(kind, get_source_range(facet), ctx), fct(facet) {}
+SemaDiagnostic::SemaDiagnostic(Diagnostic::Kind kind, Facet const* facet):
+    Diagnostic(kind, get_source_range(facet), get_source_context(facet)),
+    fct(facet) {}
 
-SemaNote* SemaDiagnostic::add_note(SourceContext const* source_context,
-                                   Facet const* facet,
+SemaNote* SemaDiagnostic::add_note(Facet const* facet,
                                    utl::vstreammanip<> impl) {
-    return addChild<SemaNote>(source_context, facet, std::move(impl));
+    return addChild<SemaNote>(facet, std::move(impl));
 }
 
-SemaHint* SemaDiagnostic::add_hint(SourceContext const* source_context,
-                                   Facet const* facet,
+SemaHint* SemaDiagnostic::add_hint(Facet const* facet,
                                    utl::vstreammanip<> impl) {
-    return addChild<SemaHint>(source_context, facet, std::move(impl));
+    return addChild<SemaHint>(facet, std::move(impl));
 }
 
-SemaMessage::SemaMessage(Diagnostic::Kind kind, SourceContext const* ctx,
-                         Facet const* facet, utl::vstreammanip<> impl):
-    SemaDiagnostic(kind, ctx, facet), impl(std::move(impl)) {}
+SemaMessage::SemaMessage(Diagnostic::Kind kind, Facet const* facet,
+                         utl::vstreammanip<> impl):
+    SemaDiagnostic(kind, facet), impl(std::move(impl)) {}
 
 void SemaMessage::header(std::ostream& str, SourceContext const*) const {
     str << impl;
@@ -162,8 +148,7 @@ static void indeclared_id_notes(UndeclaredID& diag, Symbol const* similar) {
         str << "Did you mean \'" << format_name(*similar) << "\'?";
     });
     if (auto* name_facet = get_decl_name(similar->facet()))
-        note->add_note(get_source_context(similar), name_facet,
-                       [=](std::ostream& str) {
+        note->add_note(name_facet, [=](std::ostream& str) {
             str << format_name(*similar) << " declared here";
         });
 }
@@ -173,8 +158,7 @@ static void incomplete_impl_notes(
     std::span<DeclSymbol const* const> missing_impls) {
     PRISM_ASSERT(!missing_impls.empty());
     for (auto* missing: missing_impls)
-        diag.add_note(get_source_context(missing), missing->facet(),
-                      [missing](std::ostream& str) {
+        diag.add_note(missing->facet(), [missing](std::ostream& str) {
             str << "missing implementation for " << format_name(missing)
                 << " declared here";
         });
@@ -208,7 +192,7 @@ static void typedef_cycle_notes(TypeDefCycle& diag,
                     << " through member " << format_name(*mid);
             };
         };
-        diag.add_note(get_source_context(sym), sym->facet(), fmt());
+        diag.add_note(sym->facet(), fmt());
     }
     diag.add_hint([=](std::ostream& str) {
         str << "Use pointer members to break strong dependencies";

@@ -259,6 +259,10 @@ struct FacetPrintOptions {
     CallbackType nodeCallback = {};
 };
 
+/// Walks the facet tree up until it finds a `SourceFileFacet` and returns the
+/// corresponding source context
+SourceContext const* get_source_context(Facet const* facet);
+
 /// Prints \p facet  as a tree to \p ostream
 void print(Facet const* facet, std::ostream& ostream,
            FacetPrintOptions options = {});

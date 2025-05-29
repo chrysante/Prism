@@ -27,6 +27,15 @@ Facet::Facet(FacetType nodeType, size_t sizeof_this,
     });
 }
 
+SourceContext const* prism::get_source_context(Facet const* facet) {
+    while (facet) {
+        if (auto* source_file = dyncast<SourceFileFacet const*>(facet))
+            return source_file->source_context();
+        facet = facet->parent();
+    }
+    return nullptr;
+}
+
 using namespace tfmt::modifiers;
 
 static constexpr utl::streammanip Secondary = [](std::ostream& str,

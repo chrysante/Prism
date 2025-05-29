@@ -31,10 +31,9 @@ static bool is_function_like(Symbol const* symbol) {
     return isa<Function>(symbol) || isa<FunctionDef>(symbol);
 }
 
-bool prism::check_redefinition(DiagnosticEmitter& DE,
-                               SourceContext const* source_context,
-                               Scope const* parent_scope, Facet const& facet,
-                               std::string_view name, bool for_function) {
+bool prism::check_redefinition(DiagnosticEmitter& DE, Scope const* parent_scope,
+                               Facet const& facet, std::string_view name,
+                               bool for_function) {
     auto existing = parent_scope->symbols_by_name(name);
     if (existing.empty()) return true;
     auto* conflict = existing.front();
@@ -42,7 +41,6 @@ bool prism::check_redefinition(DiagnosticEmitter& DE,
         if (ranges::all_of(existing, is_function_like)) return true;
         conflict = *ranges::find_if(existing, FN1(, !is_function_like(_1)));
     }
-    DE.emit<Redefinition>(source_context, &facet, std::string(name), conflict,
-                          parent_scope);
+    DE.emit<Redefinition>(&facet, std::string(name), conflict, parent_scope);
     return false;
 }

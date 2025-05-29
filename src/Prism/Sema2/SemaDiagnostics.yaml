@@ -20,8 +20,7 @@ diags:
         ctor_only: true
     ctor_body: >
       for (auto* symbol: symbols)
-          add_note(sourceContext(), symbol->facet(), 
-                   [symbol](std::ostream& str) {
+          add_note(symbol->facet(), [symbol](std::ostream& str) {
               str << "Found " << pretty_name(get_rtti(*symbol)) << " '"
                   << format_name(symbol, { .qualified = true })
                   << "' declared here";
@@ -43,8 +42,7 @@ diags:
         type: Scope const*
         ctor_only: true
     ctor_body: >
-      add_note(sourceContext(), get_facet(*existing, scope),
-               [=](std::ostream& str) {
+      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
           str << "Existing definition is here";
       });
     header: >
@@ -63,8 +61,7 @@ diags:
         type: Scope const*
         ctor_only: true
     ctor_body: >
-      add_note(sourceContext(), get_facet(*existing, scope), 
-               [=](std::ostream& str) {
+      add_note(get_facet(*existing, scope), [=](std::ostream& str) {
           str << "Existing definition is here";
       });
       if (function->return_type() != existing->return_type())

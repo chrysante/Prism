@@ -37,8 +37,6 @@ public:
         auto owner = csp::make_unique<Sym>(std::forward<Args>(args)...);
         if (auto* parent_scope = owner->parent_scope())
             parent_scope->add_symbol(*owner);
-        if constexpr (std::is_same_v<Sym, SourceFile>)
-            map_source_to_context(owner->facet(), &owner->source_context());
         return cast<Sym*>(add_symbol(std::move(owner)));
     }
 
@@ -54,9 +52,6 @@ public:
     Scope* make_scope(Args&&... args) {
         return add_scope(std::make_unique<Scope>(std::forward<Args>(args)...));
     }
-
-    /// \Returns the source context of \p facet
-    SourceContext const* get_source_context(Facet const* facet) const;
 
     /// \Returns the uniqued instantiation of the generic struct \p definition
     /// with arguments \p generic_args
@@ -122,12 +117,10 @@ public:
     /// @}
 
 private:
+    struct Impl;
+
     Symbol* add_symbol(csp::unique_ptr<Symbol> symbol);
     Scope* add_scope(std::unique_ptr<Scope> scope);
-    void map_source_to_context(SourceFileFacet const* facet,
-                               SourceContext const* ctx);
-
-    struct Impl;
 
     utl::local_pimpl<Impl, 1024> impl;
 };

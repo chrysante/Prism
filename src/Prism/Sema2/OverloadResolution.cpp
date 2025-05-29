@@ -16,58 +16,40 @@
 
 using namespace prism;
 
-// FIXME: remove this
-static SourceContext const* get_source_context(Symbol const* sym) {
-    if (!sym) return nullptr;
-    auto* scope = sym->parent_scope();
-    while (scope) {
-        if (auto* sourceFile =
-                dyncast<SourceFile const*>(scope->defining_symbol()))
-            return &sourceFile->source_context();
-        scope = scope->parent_scope();
-    }
-    return nullptr;
-}
-
-static std::pair<Facet const*, SourceContext const*> get_def_facet_and_ctx(
-    Symbol const* function) {
+static Facet const* get_def_facet(Symbol const* function) {
     auto* def = [&] {
         if (auto* inst = dyncast<FunctionInst const*>(function))
             return inst->definition();
         return dyncast<FunctionDef const*>(function);
     }();
-    if (!def) return { nullptr, nullptr };
-    return { def->facet(), get_source_context(def) };
+    if (!def) return nullptr;
+    return def->facet();
 }
 
 static std::unique_ptr<AmbiguousCall> make_ambi_err(
-    SourceContext const* source_context, Facet const* call_facet,
-    std::string name, std::span<Function const* const> candidates) {
-    auto err =
-        std::make_unique<AmbiguousCall>(source_context, call_facet, name);
+    Facet const* call_facet, std::string name,
+    std::span<Function const* const> candidates) {
+    auto err = std::make_unique<AmbiguousCall>(call_facet, name);
     for (auto* candidate: candidates) {
-        auto [facet, src_ctx] = get_def_facet_and_ctx(candidate);
-        err->add_note(src_ctx, facet,
+        auto* facet = get_def_facet(candidate);
+        err->add_note(facet,
                       [=](std::ostream& str) { str << "possible candidate"; });
     }
     return err;
 }
 
 static std::unique_ptr<NoMatchingFunction> make_no_match_err(
-    SourceContext const* source_context, Facet const* call_facet,
-    std::string name, std::span<Symbol* const> overload_set) {
-    auto err =
-        std::make_unique<NoMatchingFunction>(source_context, call_facet, name);
+    Facet const* call_facet, std::string name,
+    std::span<Symbol* const> overload_set) {
+    auto err = std::make_unique<NoMatchingFunction>(call_facet, name);
     for (auto* function: overload_set) {
-        auto [facet, src_ctx] = get_def_facet_and_ctx(function);
-        err->add_note(src_ctx, facet,
-                      [=](std::ostream& str) { str << "not a match"; });
+        auto* facet = get_def_facet(function);
+        err->add_note(facet, [=](std::ostream& str) { str << "not a match"; });
     }
     return err;
 }
 
 ORResult prism::resolve_overload(SemaContext& ctx,
-                                 SourceContext const* source_context,
                                  SubContext const& sub_context,
                                  Facet const* call_facet, std::string name,
                                  std::span<Symbol* const> overload_set,
@@ -87,8 +69,7 @@ ORResult prism::resolve_overload(SemaContext& ctx,
     }
     if (candidates.size() == 1) return candidates.front();
     if (candidates.size() > 1)
-        return utl::unexpected(
-            make_ambi_err(source_context, call_facet, name, candidates));
+        return utl::unexpected(make_ambi_err(call_facet, name, candidates));
     for (auto* generic: generics) {
         auto deduced_sub_context =
             deduce_generic_args(sub_context, *generic, arguments);
@@ -100,8 +81,6 @@ ORResult prism::resolve_overload(SemaContext& ctx,
     }
     if (candidates.size() == 1) return candidates.front();
     if (candidates.size() > 1)
-        return utl::unexpected(
-            make_ambi_err(source_context, call_facet, name, candidates));
-    return utl::unexpected(
-        make_no_match_err(source_context, call_facet, name, overload_set));
+        return utl::unexpected(make_ambi_err(call_facet, name, candidates));
+    return utl::unexpected(make_no_match_err(call_facet, name, overload_set));
 }

@@ -26,31 +26,23 @@ public:
 
     /// \overload Use this overload to provide a facet if the original
     /// diagnonistic has no source context
-    SemaNote* add_note(SourceContext const* sourceContext, Facet const* facet,
-                       utl::vstreammanip<> impl);
+    SemaNote* add_note(Facet const* facet, utl::vstreammanip<> impl);
 
     /// \overload
     SemaNote* add_note(utl::vstreammanip<> impl) {
-        return add_note(nullptr, nullptr, std::move(impl));
+        return add_note(nullptr, std::move(impl));
     }
 
     /// Adds a hint
-    SemaHint* add_hint(Facet const* facet, utl::vstreammanip<> impl) {
-        return add_hint(sourceContext(), facet, std::move(impl));
-    }
-
-    /// \overload
-    SemaHint* add_hint(SourceContext const* sourceContext, Facet const* facet,
-                       utl::vstreammanip<> impl);
+    SemaHint* add_hint(Facet const* facet, utl::vstreammanip<> impl);
 
     /// \overload
     SemaHint* add_hint(utl::vstreammanip<> impl) {
-        return add_hint(nullptr, nullptr, std::move(impl));
+        return add_hint(nullptr, std::move(impl));
     }
 
 protected:
-    SemaDiagnostic(Diagnostic::Kind kind, SourceContext const* ctx,
-                   Facet const* facet);
+    SemaDiagnostic(Diagnostic::Kind kind, Facet const* facet);
 
 private:
     Facet const* fct;
@@ -59,8 +51,8 @@ private:
 ///
 class SemaMessage: public SemaDiagnostic {
 protected:
-    explicit SemaMessage(Diagnostic::Kind kind, SourceContext const* ctx,
-                         Facet const* facet, utl::vstreammanip<> impl);
+    explicit SemaMessage(Diagnostic::Kind kind, Facet const* facet,
+                         utl::vstreammanip<> impl);
 
 private:
     void header(std::ostream& os, SourceContext const* ctx) const override;
@@ -71,17 +63,15 @@ private:
 ///
 class SemaNote: public SemaMessage {
 public:
-    explicit SemaNote(SourceContext const* ctx, Facet const* facet,
-                      utl::vstreammanip<> impl):
-        SemaMessage(Diagnostic::Note, ctx, facet, std::move(impl)) {}
+    explicit SemaNote(Facet const* facet, utl::vstreammanip<> impl):
+        SemaMessage(Diagnostic::Note, facet, std::move(impl)) {}
 };
 
 ///
 class SemaHint: public SemaMessage {
 public:
-    explicit SemaHint(SourceContext const* ctx, Facet const* facet,
-                      utl::vstreammanip<> impl):
-        SemaMessage(Diagnostic::Hint, ctx, facet, std::move(impl)) {}
+    explicit SemaHint(Facet const* facet, utl::vstreammanip<> impl):
+        SemaMessage(Diagnostic::Hint, facet, std::move(impl)) {}
 };
 
 } // namespace prism
