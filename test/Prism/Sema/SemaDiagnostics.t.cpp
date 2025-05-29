@@ -171,22 +171,20 @@ trait [T: type] MyTrait {
 }
 
 TEST_CASE("Bad trait implementation", "[sema]") {
-#if 0 // FIXME: this test crashes because analysis order is not topological
     auto c = make_diag_checker(R"(
 impl [Size: u64] MyTrait(Array(f64, Size)) for MyType { // IncompleteTraitImpl
-    fn foo(this) -> MyTrait(Array(f64, 7)) {}    // UnmatchedTraitImpl (incorrect return type)
-    fn bar(this) -> MyTrait(Array(f64, Size)) {} // UnmatchedTraitImpl (incorrect name)
+    fn foo(this) -> Array(f64, 7) {}    // UnmatchedTraitImpl (return type)
+    fn bar(this) -> Array(f64, Size) {} // UnmatchedTraitImpl (name)
 } 
 trait [T: type] MyTrait {
     fn foo(this) -> T;
 }
-struct TyType {}
-struct [T: type, Size: u64] Array {} 
+struct MyType {}
+struct [T: type, Size: u64] Array {}
 )");
     CHECK(c.find_diag_on_line<IncompleteTraitImpl>(2));
     CHECK(c.find_diag_on_line<UnmatchedTraitImpl>(3));
     CHECK(c.find_diag_on_line<UnmatchedTraitImpl>(4));
-#endif
 }
 
 #if 0

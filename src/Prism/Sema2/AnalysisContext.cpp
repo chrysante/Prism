@@ -14,10 +14,14 @@
 using namespace prism;
 
 std::string prism::get_name(Facet const* name_facet,
-                            SourceContext const& source_context) {
+                            SourceContext const* source_context) {
+    if (source_context)
+        PRISM_ASSERT(source_context == get_source_context(name_facet));
+    else
+        source_context = get_source_context(name_facet);
     if (!name_facet) return {};
     auto* term = cast<TerminalFacet const*>(name_facet);
-    return std::string(source_context.getTokenStr(term->token()));
+    return std::string(source_context->getTokenStr(term->token()));
 }
 
 Facet const* prism::get_facet(Symbol const& symbol, Scope const* scope) {

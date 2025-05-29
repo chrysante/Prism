@@ -65,8 +65,11 @@ DeclSymbol const* TraitImplDef::find_impl_for(
 }
 
 FuncSig FunctionDef::make_signature() const {
-    return FuncSig(arguments() | transform(FN1(, _1->make_spec())) |
-                       ToSmallVector<>,
+    auto to_spec = [](FunctionArgument const* arg) {
+        if (!arg) return FuncArgSpec();
+        return arg->make_spec();
+    };
+    return FuncSig(arguments() | transform(to_spec) | ToSmallVector<>,
                    return_type());
 }
 

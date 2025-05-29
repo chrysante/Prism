@@ -63,6 +63,9 @@ public:
     std::span<Symbol*> level(size_t level) { return _stack[level]; }
 
     /// \Returns a view over the arguments at the top (inner most) level
+    std::span<Symbol*> top_level() { return level(depth() - 1); }
+
+    /// \overload
     std::span<Symbol* const> top_level() const { return level(depth() - 1); }
 
     /// True if no argument in the context is null

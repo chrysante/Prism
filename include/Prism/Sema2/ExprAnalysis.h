@@ -13,7 +13,7 @@ namespace prism {
 class Facet;
 class AnalysisContext;
 class Scope;
-class InstructionEmitter;
+class FacetAnalysisDelegate;
 
 namespace detail {
 
@@ -32,25 +32,25 @@ S* verify_symbol_type(AnalysisContext const&, Facet const*, Symbol*);
 /// \param scope The lexical scope in which this facet appears
 /// \param facet The parse tree node to analyze
 Symbol* analyze_facet(AnalysisContext const& context,
-                      InstructionEmitter& inst_emitter, SubContext& sub_context,
+                      FacetAnalysisDelegate& delegate, SubContext& sub_context,
                       Scope* scope, Facet const* facet);
 
 /// Analyzes the parse tree facet by calling `analyzeFacet()` and verifies that
 /// is has symbol type \p S
 template <std::derived_from<Symbol> S>
 S* analyze_facet_as(AnalysisContext const& context,
-                    InstructionEmitter& inst_emitter, SubContext& sub_context,
+                    FacetAnalysisDelegate& delegate, SubContext& sub_context,
                     Scope* scope, Facet const* facet) {
-    auto* symbol =
-        analyze_facet(context, inst_emitter, sub_context, scope, facet);
+    auto* symbol = analyze_facet(context, delegate, sub_context, scope, facet);
     return detail::verify_symbol_type<S>(context, facet, symbol);
 }
 
-/// Interface used by `analyze_facet()` to emit instructions
-class InstructionEmitter {
+/// Interface used by `analyze_facet()` to provide callbacks
+class FacetAnalysisDelegate {
 public:
-    virtual ~InstructionEmitter() = default;
+    virtual ~FacetAnalysisDelegate() = default;
     virtual void emit_instruction(Instruction& inst) = 0;
+    virtual void encounter_callback(Symbol*) {}
 };
 
 namespace detail {

@@ -88,13 +88,12 @@ public:
     }
 
     template <typename Vis>
-    using VisitReturnType = std::common_reference_t<
-        std::invoke_result_t<Vis, None>, std::invoke_result_t<Vis, Symbol*>,
-        std::invoke_result_t<Vis, OverloadSet>,
-        std::invoke_result_t<Vis, AmbiSet>, std::invoke_result_t<Vis, Similar>>;
+    decltype(auto) visit(Vis&& vis) {
+        return std::visit(vis, data);
+    }
 
-    template <typename Vis, typename R = VisitReturnType<Vis>>
-    R visit(Vis&& vis) const {
+    template <typename Vis>
+    decltype(auto) visit(Vis&& vis) const {
         return std::visit(vis, data);
     }
 

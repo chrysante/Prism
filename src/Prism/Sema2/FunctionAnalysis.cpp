@@ -23,7 +23,7 @@ static std::string render_unique_name(std::string_view non_unique,
 
 namespace prism {
 
-struct FuncAnaCtx: AnalysisContext, InstructionEmitter {
+struct FuncAnaCtx: AnalysisContext, FacetAnalysisDelegate {
     struct InstCounter {
         Instruction* last_encounter = nullptr;
         size_t num_encounters = 0;

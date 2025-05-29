@@ -21,7 +21,7 @@ Facet const* get_facet(Symbol const& symbol, Scope const* scope);
 
 ///
 std::string get_name(Facet const* name_facet,
-                     SourceContext const& source_context);
+                     SourceContext const* source_context = nullptr);
 
 /// Checks if \p name is already declared in \p scope and generates a diagnostic
 /// if so.
@@ -40,8 +40,7 @@ public:
 
     /// See global `get_name()`
     std::string get_name(Facet const* name_facet) const {
-        PRISM_ASSERT(source_context);
-        return prism::get_name(name_facet, *source_context);
+        return prism::get_name(name_facet, source_context);
     }
 
     /// See global `check_redefinition()`

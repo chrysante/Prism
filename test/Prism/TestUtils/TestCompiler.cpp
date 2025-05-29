@@ -66,7 +66,7 @@ Symbol* InvocationTester::eval(std::string_view expr_source) {
 
 namespace {
 
-struct TrappingInstEmitter final: InstructionEmitter {
+struct TrappingDelegate final: FacetAnalysisDelegate {
     void emit_instruction(Instruction&) override { PRISM_UNREACHABLE(); }
 };
 
@@ -80,11 +80,11 @@ Symbol* InvocationTester::eval(Scope* scope, std::string_view expr_source) {
     auto* facet = parseExpr(g_alloc, *ctx, *DE);
     if (DE->hasErrors()) throw_jit_error(expr_source, *DE);
     if (!facet) throw std::runtime_error("No facet");
-    TrappingInstEmitter inst_emitter;
+    TrappingDelegate delegate;
     AnalysisContext ana_context{ invocation().get_sema_context(), *DE, ctx };
     SubContext sub_context;
     auto* symbol =
-        analyze_facet(ana_context, inst_emitter, sub_context, scope, facet);
+        analyze_facet(ana_context, delegate, sub_context, scope, facet);
     if (!symbol || DE->hasErrors()) throw_jit_error(expr_source, *DE);
     return symbol;
 }

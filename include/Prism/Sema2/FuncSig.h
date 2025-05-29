@@ -50,6 +50,8 @@ namespace prism {
 /// Function argument type for `FuncSig`
 class FuncArgSpec {
 public:
+    FuncArgSpec() = default;
+
     FuncArgSpec(PassingConvention passing_convention, Type const* type):
         _value(type, passing_convention) {}
 
@@ -63,7 +65,7 @@ public:
 
 private:
     using ValueType = utl::ipp<Type const*, PassingConvention, 2>;
-    ValueType _value;
+    ValueType _value{};
 };
 
 } // namespace prism

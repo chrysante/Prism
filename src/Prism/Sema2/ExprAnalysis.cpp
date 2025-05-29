@@ -26,13 +26,18 @@ using ranges::views::zip;
 namespace {
 
 struct AnaContext: AnalysisContext {
-    InstructionEmitter& inst_emitter;
+    FacetAnalysisDelegate& delegate;
     SubContext& sub_context;
     Scope* scope;
     std::vector<Instruction*>* instructions = nullptr;
 
+    SourceContext const* get_source_context(Facet const* facet) {
+        if (source_context) return source_context;
+        return source_context = prism::get_source_context(facet);
+    }
+
     void emit_instruction(Instruction& inst) {
-        inst_emitter.emit_instruction(inst);
+        delegate.emit_instruction(inst);
         if (instructions) instructions->push_back(&inst);
     }
 
@@ -120,16 +125,18 @@ void detail::push_bad_sym_ref(AnalysisContext const& context,
 }
 
 Symbol* prism::analyze_facet(AnalysisContext const& context,
-                             InstructionEmitter& inst_emitter,
+                             FacetAnalysisDelegate& delegate,
                              SubContext& sub_context, Scope* scope,
                              Facet const* facet) {
-    AnaContext facet_context{ context, inst_emitter, sub_context, scope };
+    AnaContext facet_context{ context, delegate, sub_context, scope };
     return facet_context.analyze(facet);
 }
 
 Symbol* AnaContext::analyze(Facet const* facet) {
     if (!facet) return nullptr;
-    return visit(*facet, FN1(&, do_analyze(_1)));
+    auto* sym = visit(*facet, FN1(&, do_analyze(_1)));
+    if (sym) delegate.encounter_callback(sym);
+    return sym;
 }
 
 Symbol* AnaContext::do_analyze(CompoundFacet const& facet) {
@@ -299,8 +306,14 @@ Symbol* AnaContext::analyze_this_literal() {
 template <typename T, typename... Args>
 concept AnyOf = (std::same_as<T, Args> || ...);
 
+static Symbol* strip_non_generic_decl(Symbol* sym) {
+    if (auto* decl = dyncast<DeclSymbol*>(sym))
+        if (!decl->is_generic()) return decl->canonical();
+    return sym;
+}
+
 Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
-    auto name = source_context->getTokenStr(id.token());
+    auto name = get_source_context(&id)->getTokenStr(id.token());
     auto symbols = unqualified_lookup(scope, name);
     // clang-format off
     using NLR = NameLookupResult;
@@ -309,8 +322,16 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
             DE.emit<UndeclaredID>(&id, symbols.similar());
             return nullptr;
         },
-        [&](Symbol* symbol) -> Symbol* { return symbol; },
-        [&](NLR::OverloadSet const& overload_set) -> Symbol* {
+        [&](Symbol* symbol) {
+            auto* decl = dyncast<DeclSymbol*>(symbol);
+            if (!decl || decl->is_generic())
+                return symbol;
+            delegate.encounter_callback(decl);
+            return decl->canonical();
+        },
+        [&](NLR::OverloadSet& overload_set) -> Symbol* {
+            for (auto& sym: overload_set)
+                sym = strip_non_generic_decl(sym);
             return ctx.make<OverloadSet>(std::string(name),
                                          std::move(overload_set));
         },
@@ -323,7 +344,7 @@ Symbol* AnaContext::analyze_identifier(TerminalFacet const& id) {
 
 IntLiteral* AnaContext::analyze_int_literal(TerminalFacet const& term,
                                             int base) {
-    auto str = source_context->getTokenStr(term.token());
+    auto str = get_source_context(&term)->getTokenStr(term.token());
     auto value = APInt::parse(str, base, 32); // 32 for now
     if (!value) PRISM_UNIMPLEMENTED();        // TODO: emit diagnostic
     return ctx.get_int_literal(&term, *std::move(value), /* is_signed: */ true);

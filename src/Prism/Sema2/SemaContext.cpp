@@ -213,6 +213,7 @@ static FuncSig compute_signature(SemaContext& ctx,
         return cast<Type const*>(substitute_symbol(ctx, sub_context, mut_type));
     };
     auto to_func_arg_spec = [&](FunctionArgument const* param) {
+        if (!param) return FuncArgSpec();
         return FuncArgSpec(param->passing_convention(),
                            sub_type(param->type()));
     };

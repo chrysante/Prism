@@ -38,12 +38,6 @@ static bool is_function_like(Symbol* sym) {
     return isa<Function>(sym) || isa<FunctionDef>(sym);
 }
 
-static Symbol* strip_non_generic_decl(Symbol* sym) {
-    if (auto* decl = dyncast<DeclSymbol*>(sym))
-        if (!decl->is_generic()) return decl->canonical();
-    return sym;
-}
-
 namespace {
 
 struct LookupContext {
@@ -58,17 +52,15 @@ struct LookupContext {
             if (symbols.empty()) continue;
             if (symbols.size() == 1) return symbols.front();
             if (ranges::all_of(symbols, is_function_like))
-                return NLR::OverloadSet{ std::move(symbols) };
-            return NLR::AmbiSet{ std::move(symbols) };
+                return NLR::OverloadSet{ symbols.begin(), symbols.end() };
+            return NLR::AmbiSet{ symbols.begin(), symbols.end() };
         }
         if (options.allow_similar_names) return lookup_similar(scope, name);
         return {};
     }
 
-    utl::small_vector<Symbol*> search_scope(Scope* scope) {
-        auto scope_symbols = scope->symbols_by_name(name) |
-                             transform(strip_non_generic_decl) |
-                             ToSmallVector<>;
+    std::span<Symbol* const> search_scope(Scope* scope) {
+        auto scope_symbols = scope->symbols_by_name(name);
 #if 0 // Search base classes
         if (scope_symbols.empty()) return search_bases(scope);
         if (ranges::any_of(scope_symbols, isa<Function>)) {
