@@ -116,9 +116,8 @@ GenTypeParam::GenTypeParam(Trait const* trait_bound, size_t index,
          /* parent_scope: */ nullptr,
          make_name(trait_bound, index, nesting_depth), ScopeArg::None,
          TypeLayout::Incomplete),
-    _trait_bound(trait_bound),
-    _index(index),
-    _nesting_depth(nesting_depth) {}
+    GenParamBase(index, nesting_depth),
+    _trait_bound(trait_bound) {}
 
 std::string FunctionType::make_name(FuncSig const& sig) {
     std::stringstream sstr;
@@ -194,8 +193,7 @@ GenValueParam::GenValueParam(Type const* type, size_t index,
     Value(SymbolType::GenValueParam, /* facet: */ nullptr,
           /* parent_scope: */ nullptr, make_name(type, index, nesting_depth),
           ScopeArg::None, type, Mutability::Const, ValueCat::LValue),
-    _index(index),
-    _nesting_depth(nesting_depth) {}
+    GenParamBase(index, nesting_depth) {}
 
 static constexpr utl::streammanip FuncArgSpecProj = [](std::ostream& str,
                                                        FuncArgSpec arg) {

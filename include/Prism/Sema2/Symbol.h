@@ -6,6 +6,7 @@
 #include <range/v3/view.hpp>
 #include <utl/hashtable.hpp>
 #include <utl/ptr_union.hpp>
+#include <utl/type_traits.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Ranges.h>
@@ -86,12 +87,19 @@ protected:
 
     void set_flag(Flag flag, bool value) { _flags[(size_t)flag] = value; }
 
+    template <typename Derived, typename T = utl::copy_cv_t<
+                                    Derived, typename Derived::UnusedBaseBytes>>
+    static T& unused_bytes(Derived& This) {
+        return *reinterpret_cast<T*>(This._unused_bytes.data());
+    }
+
 private:
     friend struct FuncAnaCtx;
     friend SymbolType get_rtti(Symbol const& This) { return This._sym_type; }
 
     bool get_flag(Flag flag) const { return _flags[(size_t)flag]; }
 
+    std::array<uint8_t, 6> _unused_bytes{};
     SymbolType _sym_type;
     std::bitset<8> _flags{};
     std::string _name;
@@ -407,15 +415,9 @@ private:
     Trait* _trait;
 };
 
-/// Generic type parameter
-class GenTypeParam final: public Type {
+/// Common base class of `GenTypeParam` and `GenValueParam`
+class GenParamBase {
 public:
-    explicit GenTypeParam(Trait const* trait_bound, size_t index,
-                          size_t nesting_depth);
-
-    /// The trait requirements of this parameter
-    Trait const* trait_bound() const { return _trait_bound; }
-
     /// The index of this parameter in the parameter list
     size_t index() const { return _index; }
 
@@ -423,9 +425,30 @@ public:
     size_t nesting_depth() const { return _nesting_depth; }
 
 private:
-    Trait const* _trait_bound;
+    friend class GenTypeParam;
+    friend class GenValueParam;
+
+    GenParamBase(size_t index, size_t nesting_depth):
+        _index(index), _nesting_depth(nesting_depth) {}
+
     size_t _index;
     size_t _nesting_depth;
+};
+
+/// Generic type parameter
+class GenTypeParam final: public Type, public GenParamBase {
+public:
+    explicit GenTypeParam(Trait const* trait_bound, size_t index,
+                          size_t nesting_depth);
+
+    /// The trait requirements of this parameter
+    Trait const* trait_bound() const { return _trait_bound; }
+
+    using GenParamBase::index;
+    using GenParamBase::nesting_depth;
+
+private:
+    Trait const* _trait_bound;
 };
 
 ///
@@ -644,20 +667,13 @@ private:
 };
 
 /// Non-type generic parameter
-class GenValueParam final: public Value {
+class GenValueParam final: public Value, public GenParamBase {
 public:
     explicit GenValueParam(Type const* type, size_t index,
                            size_t nesting_depth);
 
-    /// The index of this parameter in the parameter list
-    size_t index() const { return _index; }
-
-    /// The nesting depth of the parameter list
-    size_t nesting_depth() const { return _nesting_depth; }
-
-private:
-    size_t _index;
-    size_t _nesting_depth;
+    using GenParamBase::index;
+    using GenParamBase::nesting_depth;
 };
 
 ///
