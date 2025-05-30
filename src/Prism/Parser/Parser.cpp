@@ -364,9 +364,11 @@ PropertyImpl const* Parser::parsePropertyImpl() {
 }
 
 TypedefFacet const* Parser::parseTypedef() {
-    auto [declarator, name, colon, traitBound, assign, def, semicolon] =
+    auto [declarator, genParams, name, colon, traitBound, assign, def,
+          semicolon] =
         makeParser()
             .fastFail(Match(Typedef))
+            .optRule({ FN(parseGenericParamList) })
             .rule(FN(parseUnqualName))
             .optRule({ Match(Colon),
                        { FN(parseTypeSpec), Raise<ExpectedTypeSpec>() } })
@@ -375,8 +377,8 @@ TypedefFacet const* Parser::parseTypedef() {
             .rule(MatchExpect(Semicolon))
             .eval();
     if (!declarator) return nullptr;
-    return allocate<TypedefFacet>(declarator, name, colon, traitBound, assign,
-                                  def, semicolon);
+    return allocate<TypedefFacet>(declarator, genParams, name, colon,
+                                  traitBound, assign, def, semicolon);
 }
 
 StmtFacet const* Parser::parseStmt() {

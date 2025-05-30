@@ -81,6 +81,14 @@ struct GlobalConstruction: AnalysisContext {
                 construct(child_decl_facet, decl_symbol->scope());
     }
 
+    void do_construct(TypedefFacet const& facet, Scope* parent_scope) {
+        std::string name = get_name(facet.nameFacet());
+        size_t num_gen_params = get_num_gen_params(nullptr);
+        if (!check_redefinition(parent_scope, facet, name)) return;
+        make<TypeAliasDef>(&facet, parent_scope, std::move(name),
+                           ScopeArg::make(ctx), num_gen_params);
+    }
+
     void do_construct(TraitImplFacet const& facet, Scope* parent_scope) {
         size_t num_gen_params = get_num_gen_params(facet.genParams());
         auto* decl_symbol = make<TraitImplDef>(&facet, parent_scope,
@@ -257,6 +265,16 @@ struct NameResolution: AnalysisContext, FacetAnalysisDelegate {
         auto sub_context = resolve_gen_params(struct_def);
         struct_def.set_canonical(
             ctx.get_struct_instantiation(sub_context, &struct_def));
+    }
+
+    void do_resolve(TypeAliasDef& type_alias_def) {
+        auto sub_context = resolve_gen_params(type_alias_def);
+        if (auto* aliased_facet = type_alias_def.facet()->initExpr())
+            type_alias_def._aliased =
+                analyze_facet_as<Type>(type_alias_def.scope(), sub_context,
+                                       aliased_facet);
+        type_alias_def.set_canonical(
+            ctx.get_type_alias_instantiation(sub_context, &type_alias_def));
     }
 
     void do_resolve(TraitDef& trait_def) {

@@ -204,6 +204,33 @@ public:
     }
 };
 
+/// User definition of a struct type
+class TypeAliasDef final: public DeclSymbol {
+public:
+    explicit TypeAliasDef(Facet const* facet, Scope* parent_scope,
+                          std::string name, ScopeArg scope_arg,
+                          size_t num_generic_params):
+        DeclSymbol(SymbolType::TypeAliasDef, facet, parent_scope,
+                   std::move(name), scope_arg, num_generic_params) {}
+
+    FACET_TYPE(TypedefFacet)
+
+    /// The canonical instantiation of this type alias, i.e., the defined type
+    template <typename T = TypeAliasInst>
+    T* canonical() const {
+        return cast<T*>(DeclSymbol::canonical());
+    }
+
+    Type* aliased() { return _aliased; }
+
+    Type const* aliased() const { return _aliased; }
+
+private:
+    friend struct NameResolution;
+
+    Type* _aliased = nullptr;
+};
+
 /// User definition of a trait
 class TraitDef final: public DeclSymbol {
 public:
@@ -422,6 +449,27 @@ public:
     using DefinitionType = StructDef;
 
     explicit StructInst(StructDef* definition, SubContext const& sub_context);
+};
+
+/// Instantiation of a possibly generic type alias
+class TypeAliasInst final:
+    public Type,
+    public InstantiationBaseMixin<TypeAliasInst> {
+public:
+    using DefinitionType = TypeAliasDef;
+
+    explicit TypeAliasInst(TypeAliasDef* definition,
+                           SubContext const& sub_context, Type* aliased);
+
+    Type* aliased() { return _aliased; }
+
+    Type const* aliased() const { return _aliased; }
+
+private:
+    friend Symbol* canonicalize(Symbol*);
+
+    Type* _aliased;
+    mutable Type* _cache = nullptr;
 };
 
 /// The symbolic type the `this` parameter (`this type`) in a trait definition

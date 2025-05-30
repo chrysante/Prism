@@ -30,6 +30,22 @@ bool check_redefinition(DiagnosticEmitter& DE, Scope const* scope,
                         Facet const& facet, std::string_view name,
                         bool for_function = false);
 
+/// Strips `TypeAliasInst` into its aliased type if possible.
+Type* canonicalize(Type* type);
+
+/// \overload
+Symbol* canonicalize(Symbol* symbol);
+
+/// \overload
+inline Type const* canonicalize(Type const* type) {
+    return canonicalize(const_cast<Type*>(type));
+}
+
+/// \overload
+inline Symbol const* canonicalize(Symbol const* symbol) {
+    return canonicalize(const_cast<Symbol*>(symbol));
+}
+
 /// Base class for semantic analysis contexts that provides commonly required
 /// members
 class AnalysisContext {

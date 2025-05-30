@@ -59,6 +59,10 @@ public:
                                          StructDef* definition);
 
     /// See `get_struct_instantiation()`
+    TypeAliasInst* get_type_alias_instantiation(SubContext const& sub_context,
+                                                TypeAliasDef* definition);
+
+    /// See `get_struct_instantiation()`
     TraitInst* get_trait_instantiation(SubContext const& sub_context,
                                        TraitDef* definition);
 

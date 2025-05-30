@@ -8,6 +8,7 @@
 #include <utl/vector.hpp>
 
 #include <Prism/Common/Assert.h>
+#include <Prism/Sema2/AnalysisContext.h>
 #include <Prism/Sema2/SemaFwd.h>
 
 namespace prism {
@@ -20,6 +21,8 @@ public:
     /// Push a declaration context onto the stack
     void push(std::span<Symbol* const> gen_args) {
         _stack.emplace(gen_args.begin(), gen_args.end());
+        for (auto& sym: top_level())
+            sym = canonicalize(sym);
     }
 
     ///

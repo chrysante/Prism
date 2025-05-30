@@ -25,17 +25,11 @@ using ranges::views::zip;
 namespace prism {
 
 struct ConformanceAnalysis: AnalysisContext {
-    void analyze(TraitDef& trait) {
-        auto* scope = trait.scope();
-        for (auto* sym: scope->symbols() | csp::filter<DeclSymbol>)
-            analyze_member(trait, *sym);
-    }
+    void analyze(TraitDef& trait) { analyze_members(trait); }
 
     void analyze(TraitImplDef& impl) {
         if (!impl.trait()) return;
-        auto* impl_scope = impl.scope();
-        for (auto* sym: impl_scope->symbols() | csp::filter<DeclSymbol>)
-            analyze_member(impl, *sym);
+        analyze_members(impl);
         auto* trait = cast<TraitInst*>(impl.trait());
         utl::small_vector<DeclSymbol const*> missing_impls;
         auto* trait_scope = trait->definition()->scope();
@@ -46,11 +40,36 @@ struct ConformanceAnalysis: AnalysisContext {
                                          missing_impls);
     }
 
+    void analyze_members(DeclSymbol& decl) {
+        utl::small_vector<FunctionDef*> func_defs;
+        utl::small_vector<TypeAliasDef*> type_defs;
+        for (auto* sym: decl.scope()->symbols() | csp::filter<DeclSymbol>) {
+            if (auto* func_def = dyncast<FunctionDef*>(sym))
+                func_defs.push_back(func_def);
+            else if (auto* type_def = dyncast<TypeAliasDef*>(sym))
+                type_defs.push_back(type_def);
+            else
+                PRISM_UNIMPLEMENTED();
+        }
+        for (auto* sym: type_defs)
+            analyze_member(decl, *sym);
+        for (auto* sym: func_defs)
+            analyze_member(decl, *sym);
+    }
+
     void analyze_member(DeclSymbol& decl, DeclSymbol& member) {
         return visit(decl, member, FN2(&, do_analyze_member(_1, _2)));
     }
 
     void do_analyze_member(DeclSymbol&, DeclSymbol&) { PRISM_UNREACHABLE(); }
+
+    void do_analyze_member(TraitDef&, TypeAliasDef& type_def) {
+        if (type_def.is_generic())
+            DE.emit<GenericMemberInTrait>(type_def.facet()->genParams(),
+                                          &type_def);
+        if (type_def.aliased())
+            PRISM_UNIMPLEMENTED(); // Don't support defaulted typedefs for now
+    }
 
     void do_analyze_member(TraitDef&, FunctionDef& func_def) {
         if (func_def.is_generic())
@@ -60,10 +79,34 @@ struct ConformanceAnalysis: AnalysisContext {
             DE.emit<NoThisInTraitFunction>(func_def.facet(), &func_def);
     }
 
-    bool match_type(SubContext const& sub_context,
-                    TraitThisType const* trait_this, Type const* impl_this,
-                    Type const* in_trait, Type const* in_impl) const {
+    void do_analyze_member(TraitImplDef& impl, TypeAliasDef& type_def) {
+        if (type_def.is_generic()) {
+            PRISM_UNIMPLEMENTED();
+            return;
+        }
+        auto* trait = cast<TraitInst*>(impl.trait());
+        auto* def = trait->definition();
+        auto* scope = def->scope();
+        auto candidates = scope->symbols_by_name(type_def.name());
+        TypeAliasDef* match = nullptr;
+        for (auto* candidate: candidates) {
+            auto* candidate_alias = dyncast<TypeAliasDef*>(candidate);
+            if (!candidate_alias) PRISM_UNIMPLEMENTED();
+            match = candidate_alias;
+        }
+        if (!match) {
+            DE.emit<UnmatchedTraitImpl>(type_def.facet(), trait, &type_def);
+            return;
+        }
+        impl._conformance_map.insert({ match, &type_def });
+    }
+
+    bool match_type(TraitImplDef const& trait_impl,
+                    TraitThisType const* trait_this,
+                    SubContext const& sub_context, Type const* in_trait,
+                    Type const* in_impl) const {
         struct Matcher {
+            TraitImplDef const& trait_impl;
             SubContext const& sub_context;
             TraitThisType const* trait_this;
             Type const* impl_this;
@@ -82,17 +125,26 @@ struct ConformanceAnalysis: AnalysisContext {
             bool base_case(Symbol const& in_trait,
                            Symbol const& in_impl) const {
                 if (auto* gen_param = as_gen_param_base(&in_trait))
-                    return sub_context.resolve(*gen_param) == &in_impl;
+                    return sub_context.resolve(*gen_param) ==
+                           canonicalize(&in_impl);
+                if (auto* alias = dyncast<TypeAliasInst const*>(&in_trait)) {
+                    auto* impl_alias =
+                        trait_impl.find_impl_for(alias->definition());
+                    return impl_alias &&
+                           canonicalize(impl_alias->canonical()) == &in_impl;
+                }
                 return &in_trait == trait_this && &in_impl == impl_this;
             }
         };
 
-        return match_generic(Matcher{ sub_context, trait_this, impl_this },
+        return match_generic(Matcher{ trait_impl, sub_context, trait_this,
+                                      trait_impl.type() },
                              in_trait, in_impl);
     }
 
-    bool match_candidate(SubContext const& sub_context,
-                         TraitThisType const* trait_this, Type const* impl_this,
+    bool match_candidate(TraitImplDef const& trait_impl,
+                         TraitThisType const* trait_this,
+                         SubContext const& sub_context,
                          FunctionDef const& candidate,
                          FunctionDef const& impl_def) {
         if (candidate.num_arguments() != impl_def.num_arguments()) return false;
@@ -106,11 +158,11 @@ struct ConformanceAnalysis: AnalysisContext {
                 return false; // TODO: maybe 'indeterminate' instead of false?
             if (param->passing_convention() != arg->passing_convention())
                 return false;
-            if (!match_type(sub_context, trait_this, impl_this, param->type(),
+            if (!match_type(trait_impl, trait_this, sub_context, param->type(),
                             arg->type()))
                 return false;
         }
-        return match_type(sub_context, trait_this, impl_this,
+        return match_type(trait_impl, trait_this, sub_context,
                           candidate.return_type(), impl_def.return_type());
     }
 
@@ -126,7 +178,7 @@ struct ConformanceAnalysis: AnalysisContext {
         auto candidates = scope->symbols_by_name(func_def.name());
         FunctionDef* match = nullptr;
         for (auto* candidate: candidates | transform(cast<FunctionDef*>)) {
-            if (!match_candidate(trait->sub_context(), trait_this, impl.type(),
+            if (!match_candidate(impl, trait_this, trait->sub_context(),
                                  *candidate, func_def))
                 continue;
             if (match) {

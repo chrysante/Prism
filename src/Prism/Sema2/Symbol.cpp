@@ -121,6 +121,18 @@ StructInst::StructInst(StructDef* definition, SubContext const& sub_context):
     verify_gen_inst(definition, sub_context);
 }
 
+TypeAliasInst::TypeAliasInst(TypeAliasDef* definition,
+                             SubContext const& sub_context, Type* aliased):
+    Type(SymbolType::TypeAliasInst, /* facet: */ nullptr,
+         definition->parent_scope(),
+         make_gen_inst_name(definition, sub_context), ScopeArg::None,
+         aliased ? aliased->layout() : TypeLayout::Incomplete),
+    InstantiationBaseMixin(definition, sub_context),
+    _aliased(aliased) {
+    set_flag(ExcludeFromNameLookup, true);
+    verify_gen_inst(definition, sub_context);
+}
+
 static constexpr utl::streammanip SymbolName = [](std::ostream& str,
                                                   Symbol const* symbol) {
     if (symbol)

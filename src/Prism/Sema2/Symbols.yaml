@@ -20,6 +20,9 @@ symbols:
   - name: StructDef
     base: DeclSymbol
 
+  - name: TypeAliasDef
+    base: DeclSymbol
+ 
   - name: TraitDef
     base: DeclSymbol
 
@@ -42,6 +45,9 @@ symbols:
     base: Type
 
   - name: StructInst
+    base: Type
+    
+  - name: TypeAliasInst
     base: Type
 
   - name: TraitThisType

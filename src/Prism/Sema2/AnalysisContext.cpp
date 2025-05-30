@@ -48,3 +48,17 @@ bool prism::check_redefinition(DiagnosticEmitter& DE, Scope const* parent_scope,
     DE.emit<Redefinition>(&facet, std::string(name), conflict, parent_scope);
     return false;
 }
+
+Type* prism::canonicalize(Type* type) {
+    return cast<Type*>(canonicalize(static_cast<Symbol*>(type)));
+}
+
+Symbol* prism::canonicalize(Symbol* symbol) {
+    if (auto* type_alias = dyncast<TypeAliasInst*>(symbol)) {
+        if (auto* cache = type_alias->_cache) return cache;
+        if (auto* resolved = canonicalize(type_alias->aliased()))
+            return type_alias->_cache = resolved;
+        return type_alias;
+    }
+    return symbol;
+}

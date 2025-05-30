@@ -60,6 +60,8 @@ struct GenInstKeyImpl {
 
 using StructInstKey = GenInstKeyImpl<StructDef, SubContext>;
 using StructInstKeyView = GenInstKeyImpl<StructDef, SubContext const&>;
+using TypeAliasInstKey = GenInstKeyImpl<TypeAliasDef, SubContext>;
+using TypeAliasInstKeyView = GenInstKeyImpl<TypeAliasDef, SubContext const&>;
 using TraitInstKey = GenInstKeyImpl<TraitDef, SubContext>;
 using TraitInstKeyView = GenInstKeyImpl<TraitDef, SubContext const&>;
 using FuncInstKey = GenInstKeyImpl<FunctionDef, SubContext>;
@@ -97,6 +99,7 @@ struct SemaContext::Impl {
     std::vector<csp::unique_ptr<Symbol>> symbol_bag;
     std::vector<std::unique_ptr<Scope>> scope_bag;
     utl::hashmap<StructInstKey, StructInst*> struct_instantiations;
+    utl::hashmap<TypeAliasInstKey, TypeAliasInst*> type_alias_instantiations;
     utl::hashmap<TraitInstKey, TraitInst*> trait_instantiations;
     utl::hashmap<Trait*, TraitThisType*> trait_this_types;
     utl::hashmap<FuncInstKey, FunctionInst*> function_instantiations;
@@ -174,19 +177,6 @@ StructInst* SemaContext::get_struct_instantiation(SubContext const& sub_context,
     });
 }
 
-TraitInst* SemaContext::get_trait_instantiation(SubContext const& sub_context,
-                                                TraitDef* definition) {
-    return get_or_make(impl->trait_instantiations,
-                       TraitInstKeyView{ definition, sub_context }, [&] {
-        return make<TraitInst>(definition, sub_context);
-    });
-}
-
-TraitThisType* SemaContext::get_trait_this_type(Trait* trait) {
-    return get_or_make(impl->trait_this_types, trait,
-                       [&] { return make<TraitThisType>(trait); });
-}
-
 namespace {
 
 struct SubstitutionMatcher {
@@ -206,7 +196,7 @@ struct SubstitutionMatcher {
     Symbol* base_case(Symbol& input) const {
         if (auto* gen_param = as_gen_param_base(&input))
             return sub_context.resolve(*gen_param);
-        return &input;
+        return canonicalize(&input);
     }
 };
 
@@ -215,6 +205,30 @@ struct SubstitutionMatcher {
 static Symbol* substitute_symbol(SemaContext& ctx,
                                  SubContext const& sub_context, Symbol* input) {
     return match_generic(SubstitutionMatcher{ ctx, sub_context }, input);
+}
+
+TypeAliasInst* SemaContext::get_type_alias_instantiation(
+    SubContext const& sub_context, TypeAliasDef* definition) {
+    return get_or_make(impl->type_alias_instantiations,
+                       TypeAliasInstKeyView{ definition, sub_context }, [&] {
+        auto* aliased =
+            substitute_symbol(*this, sub_context, definition->aliased());
+        return make<TypeAliasInst>(definition, sub_context,
+                                   cast<Type*>(aliased));
+    });
+}
+
+TraitInst* SemaContext::get_trait_instantiation(SubContext const& sub_context,
+                                                TraitDef* definition) {
+    return get_or_make(impl->trait_instantiations,
+                       TraitInstKeyView{ definition, sub_context }, [&] {
+        return make<TraitInst>(definition, sub_context);
+    });
+}
+
+TraitThisType* SemaContext::get_trait_this_type(Trait* trait) {
+    return get_or_make(impl->trait_this_types, trait,
+                       [&] { return make<TraitThisType>(trait); });
 }
 
 static FuncSig compute_signature(SemaContext& ctx,

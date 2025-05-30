@@ -246,6 +246,8 @@ facets:
     members:
       - name: declarator
         type: TerminalFacet
+      - name: genParams
+        type: GenParamListFacet
       - name: name
         type: TerminalFacet
       - name: colon

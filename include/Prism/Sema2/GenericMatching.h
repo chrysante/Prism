@@ -8,6 +8,7 @@
 #include <utl/type_traits.hpp>
 #include <utl/vector.hpp>
 
+#include <Prism/Sema2/AnalysisContext.h>
 #include <Prism/Sema2/SemaFwd.h>
 #include <Prism/Sema2/SubContext.h>
 
@@ -21,19 +22,10 @@ bool is_any_null(auto*... args) { return (!args || ...); }
 
 bool all_equal(auto* first, auto*... rest) { return ((first == rest) && ...); }
 
-} // namespace detail
-
-/// Recursively process a pack of `Symbol` pointers.
-///
-/// Requires `matcher` to provide:
-/// - `null_fallback()`: called if any input is null
-/// - `exact_match()`: called if all inputs are pointer-equal (only when 2 or
-/// more symbols are provided)
-/// - `structural(StructInst&...)`: called when all inputs are StructInsts
-/// - `base_case(Symbol&...)`: called for all other symbol combinations
-template <std::derived_from<Symbol>... S>
-static decltype(auto) match_generic(auto&& matcher, S*... symbols) {
-    using namespace detail;
+template <typename... S>
+static decltype(auto) match_generic_impl(auto&& matcher,
+                                         std::type_identity_t<S>*... symbols) {
+    ((symbols = canonicalize(symbols)), ...);
     if (is_any_null(symbols...)) return matcher.null_fallback();
     if constexpr (sizeof...(S) > 1)
         if (all_equal(symbols...)) return matcher.exact_match();
@@ -47,6 +39,22 @@ static decltype(auto) match_generic(auto&& matcher, S*... symbols) {
             return matcher.base_case(symbols...);
         }
     }); // clang-format on
+}
+
+} // namespace detail
+
+/// Recursively process a pack of `Symbol` pointers.
+///
+/// Requires `matcher` to provide:
+/// - `null_fallback()`: called if any input is null
+/// - `exact_match()`: called if all inputs are pointer-equal (only when 2 or
+/// more symbols are provided)
+/// - `structural(StructInst&...)`: called when all inputs are StructInsts
+/// - `base_case(Symbol&...)`: called for all other symbol combinations
+template <std::derived_from<Symbol>... S>
+static decltype(auto) match_generic(auto&& matcher, S*... symbols) {
+    return detail::match_generic_impl<utl::copy_cv_t<S, Symbol>...>(matcher,
+                                                                    symbols...);
 }
 
 /// Result structure for `deduce_generic_args()`
