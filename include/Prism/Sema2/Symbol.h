@@ -797,6 +797,15 @@ public:
     bool empty() const { return _instructions.empty(); }
     /// @}
 
+    /// \Returns the yield instruction of this block. This may be null if the
+    /// block yields `void`
+    YieldInst* get_yield_inst() {
+        return const_cast<YieldInst*>(std::as_const(*this).get_yield_inst());
+    }
+
+    /// \overload
+    YieldInst const* get_yield_inst() const;
+
 private:
     std::vector<Instruction*> _instructions;
 };

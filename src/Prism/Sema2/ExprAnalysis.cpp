@@ -463,14 +463,15 @@ Symbol* AnaContext::do_analyze(CallFacet const& call_facet) {
             return nullptr;
         auto [value_args, success] = verify_list<Value>(args, arg_facets);
         if (!success) return nullptr;
-        auto deduced_sub_context =
+        auto deduction_result =
             deduce_generic_args(sub_context, *generic, value_args);
-        if (!deduced_sub_context) {
+        if (!deduction_result.success) {
             PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
             return nullptr;
         }
         auto* function =
-            ctx.get_function_instantiation(*deduced_sub_context, generic);
+            ctx.get_function_instantiation(deduction_result.sub_context,
+                                           generic);
         auto* call_inst = ctx.make<CallInst>(&call_facet, scope,
                                              /* name: */ std::string{},
                                              function, value_args);

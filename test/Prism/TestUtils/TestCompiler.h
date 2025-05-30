@@ -111,7 +111,7 @@ public:
     template <std::derived_from<Symbol> S>
     S* eval(std::string_view expr_source) {
         auto* sym = eval(expr_source);
-        return cast<S*>(sym);
+        return dyncast<S*>(sym);
     }
 
     /// \overload

@@ -245,6 +245,7 @@ set(PRISM_TEST_FILES
     test/Prism/Sema/ConformanceAnalysis.t.cpp
     ]]
     test/Prism/Sema/SemaDiagnostics.t.cpp
+    test/Prism/Sema/OverloadResolution.t.cpp
     test/Prism/TestUtils/TestCompiler.h
     test/Prism/TestUtils/TestCompiler.cpp
 )

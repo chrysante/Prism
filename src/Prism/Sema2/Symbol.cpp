@@ -231,6 +231,11 @@ FunctionInst::FunctionInst(FunctionDef* definition,
     verify_gen_inst(definition, sub_context);
 }
 
+YieldInst const* BlockInst::get_yield_inst() const {
+    if (_instructions.empty()) return nullptr;
+    return dyncast<YieldInst const*>(_instructions.back());
+}
+
 YieldInst::YieldInst(SemaContext& ctx, Facet const* facet, Scope* parent_scope,
                      Value* operand):
     Instruction(SymbolType::YieldInst, facet, parent_scope, /* name: */ {},
