@@ -127,28 +127,6 @@ set(PRISM_HEADER_FILES
     include/Prism/Sema2/SubContext.h
     include/Prism/Sema2/Symbol.h
     include/Prism/Sema2/TypeLayout.h
-#[[
-    include/Prism/Sema/Analysis.h
-    include/Prism/Sema/AnalysisBase.h
-    include/Prism/Sema/Builtins.def
-    include/Prism/Sema/ConformanceAnalysis.h
-    include/Prism/Sema/Construction.h
-    include/Prism/Sema/Contracts.h
-    include/Prism/Sema/DependencyGraph.h
-    include/Prism/Sema/ExprAnalysis.h
-    include/Prism/Sema/FuncSig.h
-    include/Prism/Sema/FunctionAnalysis.h
-    include/Prism/Sema/GenericInstantiation.h
-    include/Prism/Sema/NameLookup.h
-    include/Prism/Sema/Scope.h
-    include/Prism/Sema/SemaContext.h
-    include/Prism/Sema/SemaDiagnostic.h
-    include/Prism/Sema/SemaPrint.h
-    include/Prism/Sema/Symbol.h
-    include/Prism/Sema/SemaFwd.h
-    include/Prism/Sema/TypeLayout.h
-    include/Prism/Sema/QualType.h
-]]
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -203,27 +181,6 @@ set(PRISM_SOURCE_FILES
     src/Prism/Sema2/SubContext.cpp
     src/Prism/Sema2/Symbol.cpp
     src/Prism/Sema2/TypeLayout.cpp
-#[[
-    src/Prism/Sema/Analysis.cpp
-    src/Prism/Sema/AnalysisBase.cpp
-    src/Prism/Sema/ConformanceAnalysis.cpp
-    src/Prism/Sema/Construction.cpp
-    src/Prism/Sema/Contracts.cpp
-    src/Prism/Sema/DependencyGraph.cpp
-    src/Prism/Sema/ExprAnalysis.cpp
-    src/Prism/Sema/FuncSig.cpp
-    src/Prism/Sema/FunctionAnalysis.cpp
-    src/Prism/Sema/GenericInstantiation.cpp
-    src/Prism/Sema/NameLookup.cpp
-    src/Prism/Sema/SemaContext.cpp
-    src/Prism/Sema/SemaDiagnostic.cpp
-    src/Prism/Sema/SemaPrint.cpp
-    src/Prism/Sema/Scope.cpp
-    src/Prism/Sema/Symbol.cpp
-    src/Prism/Sema/SemaFwd.cpp
-    src/Prism/Sema/TypeLayout.cpp
-    src/Prism/Sema/QualType.cpp
-]]
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp
     src/Prism/Source/Token.cpp
