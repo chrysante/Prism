@@ -10,6 +10,7 @@
 #include "Prism/Common/SyntaxMacros.h"
 #include "Prism/Facet/Facet.h"
 #include "Prism/Sema2/FuncSig.h"
+#include "Prism/Sema2/GenericMatching.h"
 #include "Prism/Sema2/Symbol.h"
 
 using namespace prism;
@@ -186,23 +187,34 @@ TraitThisType* SemaContext::get_trait_this_type(Trait* trait) {
                        [&] { return make<TraitThisType>(trait); });
 }
 
+namespace {
+
+struct SubstitutionMatcher {
+    SemaContext& ctx;
+    SubContext const& sub_context;
+
+    Symbol* null_fallback() const { return nullptr; }
+
+    Symbol* structural(StructInst& struct_inst) const {
+        SubContext inner_ctx = struct_inst.sub_context();
+        for (auto& arg: inner_ctx.flat_view())
+            arg = match_generic(*this, arg);
+        return ctx.get_struct_instantiation(inner_ctx,
+                                            struct_inst.definition());
+    }
+
+    Symbol* base_case(Symbol& input) const {
+        if (auto* gen_param = as_gen_param_base(&input))
+            return sub_context.resolve(*gen_param);
+        return &input;
+    }
+};
+
+} // namespace
+
 static Symbol* substitute_symbol(SemaContext& ctx,
                                  SubContext const& sub_context, Symbol* input) {
-    auto recur = [&](Symbol* sym) -> Symbol* {
-        return substitute_symbol(ctx, sub_context, sym);
-    };
-    if (!input) return nullptr;
-    if (auto* gen_param = as_gen_param_base(input))
-        return sub_context.resolve(*gen_param);
-    // clang-format off
-    return visit(*input, csp::overload{
-        [&](StructInst& struct_inst) {
-            SubContext inner_ctx = struct_inst.sub_context();
-            for (auto& arg: inner_ctx.flat_view()) arg = recur(arg);
-            return ctx.get_struct_instantiation(inner_ctx,struct_inst.definition());
-        },
-        [&](Symbol const&) { return input; }
-    }); // clang-format on
+    return match_generic(SubstitutionMatcher{ ctx, sub_context }, input);
 }
 
 static FuncSig compute_signature(SemaContext& ctx,

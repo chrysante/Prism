@@ -5,6 +5,7 @@
 #include <span>
 
 #include <utl/function_view.hpp>
+#include <utl/type_traits.hpp>
 #include <utl/vector.hpp>
 
 #include <Prism/Sema2/SemaFwd.h>
@@ -14,10 +15,39 @@ namespace prism {
 
 class SubContext;
 
+namespace detail {
+
+bool is_any_null(auto*... args) { return (!args || ...); }
+
+bool all_equal(auto* first, auto*... rest) { return ((first == rest) && ...); }
+
+} // namespace detail
+
+/// Recursively process a pack of `Symbol` pointers.
 ///
-bool match_generic(Symbol const* param_sym, Symbol const* arg_sym,
-                   utl::function_view<bool(GenParamBase const&, Symbol const&)>
-                       compare_gen_param);
+/// Requires `matcher` to provide:
+/// - `null_fallback()`: called if any input is null
+/// - `exact_match()`: called if all inputs are pointer-equal (only when 2 or
+/// more symbols are provided)
+/// - `structural(StructInst&...)`: called when all inputs are StructInsts
+/// - `base_case(Symbol&...)`: called for all other symbol combinations
+template <std::derived_from<Symbol>... S>
+static decltype(auto) match_generic(auto&& matcher, S*... symbols) {
+    using namespace detail;
+    if (is_any_null(symbols...)) return matcher.null_fallback();
+    if constexpr (sizeof...(S) > 1)
+        if (all_equal(symbols...)) return matcher.exact_match();
+    // For compound types, recur on inner structure
+    // clang-format off
+    return visit(*symbols..., csp::overload{
+        [&](utl::copy_cv_t<S, StructInst>&... struct_insts) {
+            return matcher.structural(struct_insts...);
+        },
+        [&](utl::copy_cv_t<S, Symbol>&... symbols) {
+            return matcher.base_case(symbols...);
+        }
+    }); // clang-format on
+}
 
 /// Result structure for `deduce_generic_args()`
 struct GenericDeductionResult {

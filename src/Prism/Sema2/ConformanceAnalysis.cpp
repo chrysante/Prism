@@ -60,13 +60,43 @@ struct ConformanceAnalysis: AnalysisContext {
             DE.emit<NoThisInTraitFunction>(func_def.facet(), &func_def);
     }
 
-    bool match_candidate(SubContext const& sub_context,
-                         FunctionDef const& candidate, FunctionDef& impl_def) {
-        if (candidate.num_arguments() != impl_def.num_arguments()) return false;
-        auto match_callback = [&](GenParamBase const& param_sym,
-                                  Symbol const& arg_sym) -> bool {
-            return sub_context.resolve(param_sym) == &arg_sym;
+    bool match_type(SubContext const& sub_context,
+                    TraitThisType const* trait_this, Type const* impl_this,
+                    Type const* in_trait, Type const* in_impl) const {
+        struct Matcher {
+            SubContext const& sub_context;
+            TraitThisType const* trait_this;
+            Type const* impl_this;
+
+            bool null_fallback() const { return false; }
+
+            bool exact_match() { return true; }
+
+            bool structural(StructInst const& param, StructInst const& arg) {
+                if (param.definition() != arg.definition()) return false;
+                for (auto [p, a]: zip(param.generic_args(), arg.generic_args()))
+                    if (!match_generic(*this, p, a)) return false;
+                return true;
+            }
+
+            bool base_case(Symbol const& in_trait,
+                           Symbol const& in_impl) const {
+                if (auto* gen_param = as_gen_param_base(&in_trait))
+                    return sub_context.resolve(*gen_param) == &in_impl;
+                return &in_trait == trait_this && &in_impl == impl_this;
+            }
         };
+
+        return match_generic(Matcher{ sub_context, trait_this, impl_this },
+                             in_trait, in_impl);
+    }
+
+    bool match_candidate(SubContext const& sub_context,
+                         TraitThisType const* trait_this, Type const* impl_this,
+                         FunctionDef const& candidate,
+                         FunctionDef const& impl_def) {
+        if (candidate.num_arguments() != impl_def.num_arguments()) return false;
+        // FIXME: do we really need this check?
         if (!candidate.has_this_parameter() || !impl_def.has_this_parameter())
             return false;
         for (auto [param, arg, index]:
@@ -76,12 +106,12 @@ struct ConformanceAnalysis: AnalysisContext {
                 return false; // TODO: maybe 'indeterminate' instead of false?
             if (param->passing_convention() != arg->passing_convention())
                 return false;
-            if (index > 0 &&
-                !match_generic(param->type(), arg->type(), match_callback))
+            if (!match_type(sub_context, trait_this, impl_this, param->type(),
+                            arg->type()))
                 return false;
         }
-        return match_generic(candidate.return_type(), impl_def.return_type(),
-                             match_callback);
+        return match_type(sub_context, trait_this, impl_this,
+                          candidate.return_type(), impl_def.return_type());
     }
 
     void do_analyze_member(TraitImplDef& impl, FunctionDef& func_def) {
@@ -90,12 +120,14 @@ struct ConformanceAnalysis: AnalysisContext {
             return;
         }
         auto* trait = cast<TraitInst*>(impl.trait());
+        auto* trait_this = ctx.get_trait_this_type(trait);
         auto* def = trait->definition();
         auto* scope = def->scope();
         auto candidates = scope->symbols_by_name(func_def.name());
         FunctionDef* match = nullptr;
         for (auto* candidate: candidates | transform(cast<FunctionDef*>)) {
-            if (!match_candidate(trait->sub_context(), *candidate, func_def))
+            if (!match_candidate(trait->sub_context(), trait_this, impl.type(),
+                                 *candidate, func_def))
                 continue;
             if (match) {
                 PRISM_UNIMPLEMENTED();
