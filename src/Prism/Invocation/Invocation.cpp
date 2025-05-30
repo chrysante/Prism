@@ -10,8 +10,8 @@
 #include "Prism/Common/Assert.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Parser/Parser.h"
-#include "Prism/Sema2/Analysis.h"
-#include "Prism/Sema2/SemaContext.h"
+#include "Prism/Sema/Analysis.h"
+#include "Prism/Sema/SemaContext.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;

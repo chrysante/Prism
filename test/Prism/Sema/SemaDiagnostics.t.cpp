@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "Prism/Sema2/SemaDiagnostic.h"
+#include "Prism/Sema/SemaDiagnostic.h"
 #include "Prism/TestUtils/TestCompiler.h"
 
 using namespace prism;

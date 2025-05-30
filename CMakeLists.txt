@@ -108,25 +108,25 @@ set(PRISM_HEADER_FILES
     include/Prism/Parser/SyntaxError.h
     include/Prism/Parser/SyntaxError.def
 
-    include/Prism/Sema2/Analysis.h
-    include/Prism/Sema2/AnalysisContext.h
-    include/Prism/Sema2/ConformanceAnalysis.h
-    include/Prism/Sema2/Construction.h
-    include/Prism/Sema2/ExprAnalysis.h
-    include/Prism/Sema2/FunctionAnalysis.h
-    include/Prism/Sema2/FuncSig.h
-    include/Prism/Sema2/FunctionOverloadMap.h
-    include/Prism/Sema2/GenericMatching.h
-    include/Prism/Sema2/NameLookup.h
-    include/Prism/Sema2/OverloadResolution.h
-    include/Prism/Sema2/Scope.h
-    include/Prism/Sema2/SemaContext.h
-    include/Prism/Sema2/SemaDiagnostic.h
-    include/Prism/Sema2/SemaFwd.h
-    include/Prism/Sema2/SemaPrint.h
-    include/Prism/Sema2/SubContext.h
-    include/Prism/Sema2/Symbol.h
-    include/Prism/Sema2/TypeLayout.h
+    include/Prism/Sema/Analysis.h
+    include/Prism/Sema/AnalysisContext.h
+    include/Prism/Sema/ConformanceAnalysis.h
+    include/Prism/Sema/Construction.h
+    include/Prism/Sema/ExprAnalysis.h
+    include/Prism/Sema/FunctionAnalysis.h
+    include/Prism/Sema/FuncSig.h
+    include/Prism/Sema/FunctionOverloadMap.h
+    include/Prism/Sema/GenericMatching.h
+    include/Prism/Sema/NameLookup.h
+    include/Prism/Sema/OverloadResolution.h
+    include/Prism/Sema/Scope.h
+    include/Prism/Sema/SemaContext.h
+    include/Prism/Sema/SemaDiagnostic.h
+    include/Prism/Sema/SemaFwd.h
+    include/Prism/Sema/SemaPrint.h
+    include/Prism/Sema/SubContext.h
+    include/Prism/Sema/Symbol.h
+    include/Prism/Sema/TypeLayout.h
     include/Prism/Source/SourceContext.h
     include/Prism/Source/SourceLocation.h
     include/Prism/Source/Token.h
@@ -162,25 +162,25 @@ set(PRISM_SOURCE_FILES
     src/Prism/Parser/ParserBase.cpp
     src/Prism/Parser/SyntaxError.cpp
 
-    src/Prism/Sema2/Analysis.cpp
-    src/Prism/Sema2/AnalysisContext.cpp
-    src/Prism/Sema2/ConformanceAnalysis.cpp
-    src/Prism/Sema2/Construction.cpp
-    src/Prism/Sema2/ExprAnalysis.cpp
-    src/Prism/Sema2/FunctionAnalysis.cpp
-    src/Prism/Sema2/FuncSig.cpp
-    src/Prism/Sema2/FunctionOverloadMap.cpp
-    src/Prism/Sema2/GenericMatching.cpp
-    src/Prism/Sema2/NameLookup.cpp
-    src/Prism/Sema2/OverloadResolution.cpp
-    src/Prism/Sema2/Scope.cpp
-    src/Prism/Sema2/SemaContext.cpp
-    src/Prism/Sema2/SemaDiagnostic.cpp
-    src/Prism/Sema2/SemaFwd.cpp
-    src/Prism/Sema2/SemaPrint.cpp
-    src/Prism/Sema2/SubContext.cpp
-    src/Prism/Sema2/Symbol.cpp
-    src/Prism/Sema2/TypeLayout.cpp
+    src/Prism/Sema/Analysis.cpp
+    src/Prism/Sema/AnalysisContext.cpp
+    src/Prism/Sema/ConformanceAnalysis.cpp
+    src/Prism/Sema/Construction.cpp
+    src/Prism/Sema/ExprAnalysis.cpp
+    src/Prism/Sema/FunctionAnalysis.cpp
+    src/Prism/Sema/FuncSig.cpp
+    src/Prism/Sema/FunctionOverloadMap.cpp
+    src/Prism/Sema/GenericMatching.cpp
+    src/Prism/Sema/NameLookup.cpp
+    src/Prism/Sema/OverloadResolution.cpp
+    src/Prism/Sema/Scope.cpp
+    src/Prism/Sema/SemaContext.cpp
+    src/Prism/Sema/SemaDiagnostic.cpp
+    src/Prism/Sema/SemaFwd.cpp
+    src/Prism/Sema/SemaPrint.cpp
+    src/Prism/Sema/SubContext.cpp
+    src/Prism/Sema/Symbol.cpp
+    src/Prism/Sema/TypeLayout.cpp
     src/Prism/Source/SourceContext.cpp
     src/Prism/Source/SourceLocation.cpp
     src/Prism/Source/Token.cpp
@@ -232,22 +232,22 @@ add_code_generator(prism
                    src/Prism/Facet/FacetFilters.py)
 
 add_code_generator(prism
-                   src/Prism/Sema2/Symbols.yaml
-                   src/Prism/Sema2/SymbolFwd.jinja
-                   include/Prism/Sema2/SymbolFwd.inl
-                   src/Prism/Sema2/SemaFilters.py)
+                   src/Prism/Sema/Symbols.yaml
+                   src/Prism/Sema/SymbolFwd.jinja
+                   include/Prism/Sema/SymbolFwd.inl
+                   src/Prism/Sema/SemaFilters.py)
 
 add_code_generator(prism
-                   src/Prism/Sema2/SemaDiagnostics.yaml
-                   src/Prism/Sema2/SemaDiagnosticsDecl.jinja
-                   include/Prism/Sema2/SemaDiagnosticsDecl.inl
-                   src/Prism/Sema2/SemaFilters.py)
+                   src/Prism/Sema/SemaDiagnostics.yaml
+                   src/Prism/Sema/SemaDiagnosticsDecl.jinja
+                   include/Prism/Sema/SemaDiagnosticsDecl.inl
+                   src/Prism/Sema/SemaFilters.py)
 
 add_code_generator(prism
-                   src/Prism/Sema2/SemaDiagnostics.yaml
-                   src/Prism/Sema2/SemaDiagnosticsDef.jinja
-                   include/Prism/Sema2/SemaDiagnosticsDef.inl
-                   src/Prism/Sema2/SemaFilters.py)
+                   src/Prism/Sema/SemaDiagnostics.yaml
+                   src/Prism/Sema/SemaDiagnosticsDef.jinja
+                   include/Prism/Sema/SemaDiagnosticsDef.inl
+                   src/Prism/Sema/SemaFilters.py)
 
 target_sources(prism 
   PRIVATE 

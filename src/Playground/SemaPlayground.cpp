@@ -11,8 +11,8 @@
 #include <Prism/Diagnostic/DiagnosticEmitter.h>
 #include <Prism/Diagnostic/DiagnosticFormat.h>
 #include <Prism/Invocation/Invocation.h>
-#include <Prism/Sema2/SemaPrint.h>
-#include <Prism/Sema2/Symbol.h>
+#include <Prism/Sema/SemaPrint.h>
+#include <Prism/Sema/Symbol.h>
 #include <Prism/Source/SourceContext.h>
 
 using namespace prism;

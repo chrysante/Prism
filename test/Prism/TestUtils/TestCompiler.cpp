@@ -6,10 +6,10 @@
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Diagnostic/DiagnosticFormat.h"
 #include "Prism/Parser/Parser.h"
-#include "Prism/Sema2/AnalysisContext.h"
-#include "Prism/Sema2/ExprAnalysis.h"
-#include "Prism/Sema2/Scope.h"
-#include "Prism/Sema2/Symbol.h"
+#include "Prism/Sema/AnalysisContext.h"
+#include "Prism/Sema/ExprAnalysis.h"
+#include "Prism/Sema/Scope.h"
+#include "Prism/Sema/Symbol.h"
 #include "Prism/Source/SourceContext.h"
 
 using namespace prism;

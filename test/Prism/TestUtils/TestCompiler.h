@@ -12,7 +12,7 @@
 #include "Prism/Diagnostic/Diagnostic.h"
 #include "Prism/Diagnostic/DiagnosticEmitter.h"
 #include "Prism/Invocation/Invocation.h"
-#include "Prism/Sema2/SemaFwd.h"
+#include "Prism/Sema/SemaFwd.h"
 
 namespace prism {
 
