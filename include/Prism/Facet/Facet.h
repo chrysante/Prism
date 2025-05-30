@@ -87,10 +87,15 @@ protected:
         return std::array{ TerminalFacet, NonTerminalFacet }[index];
     }
 
-    Facet const** getChildrenPtr() const {
-        PRISM_ASSERT(getCategory() == FacetType::NonTerminalFacet,
-                     "cannot get children of terminal facet");
-        return (Facet const**)((unsigned char*)this + data.nonTerm.sizeof_this);
+    Facet const** getChildrenPtr() {
+        return const_cast<Facet const**>(std::as_const(*this).getChildrenPtr());
+    }
+
+    Facet const* const* getChildrenPtr() const {
+        if (getCategory() == FacetType::NonTerminalFacet)
+            return (Facet const**)((unsigned char*)this +
+                                   data.nonTerm.sizeof_this);
+        return nullptr;
     }
 
     size_t getNumChildren() const {

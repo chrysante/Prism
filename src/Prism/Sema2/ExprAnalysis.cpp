@@ -90,6 +90,7 @@ struct AnaContext: AnalysisContext {
     Symbol* do_analyze_scope_resolution(BinaryFacet const& binary);
     Symbol* do_analyze(FnTypeFacet const& facet);
     Symbol* do_analyze(NamedParamDeclFacet const& declFacet);
+    Symbol* determine_this_type();
     Symbol* do_analyze(PrefixFacet const& prefix);
     bool validate_generic_args(DeclSymbol const& decl, Facet const* call_facet,
                                std::span<Symbol* const> args,
@@ -350,7 +351,28 @@ IntLiteral* AnaContext::analyze_int_literal(TerminalFacet const& term,
     return ctx.get_int_literal(&term, *std::move(value), /* is_signed: */ true);
 }
 
+static bool is_token(Facet const* facet, TokenKind kind) {
+    auto* term = dyncast<TerminalFacet const*>(facet);
+    return term && term->token().kind == kind;
+}
+
+Symbol* AnaContext::determine_this_type() {
+    for (auto* s = scope; s; s = s->parent_scope()) {
+        auto* sym = s->defining_symbol();
+        if (auto* struct_type = dyncast<StructDef*>(sym))
+            return struct_type->canonical();
+        if (auto* trait = dyncast<TraitDef*>(sym))
+            return ctx.get_trait_this_type(trait->canonical());
+        if (auto* impl = dyncast<TraitImplDef*>(sym)) return impl->type();
+    }
+    PRISM_UNIMPLEMENTED(); // TODO: emit diagnostic
+    return nullptr;
+}
+
 Symbol* AnaContext::do_analyze(PrefixFacet const& prefix) {
+    if (is_token(prefix.operationFacet(), TokenKind::This) &&
+        is_token(prefix.operand(), TokenKind::Type))
+        return determine_this_type();
     auto* operand = analyze(prefix.operand());
     if (!operand) return nullptr;
     PRISM_UNIMPLEMENTED();
