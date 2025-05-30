@@ -27,7 +27,7 @@ static bool do_match_generic(
         [&](StructInst const& param, StructInst const& arg) {
             if (param.definition() != arg.definition()) return false;
             for (auto [p, a]: zip(param.generic_args(), arg.generic_args()))
-                if (!match_generic(p, a, compare_gen_param))
+                if (!do_match_generic(p, a, compare_gen_param))
                     return false;
             return true;
         },
